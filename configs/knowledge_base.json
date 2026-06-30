@@ -1,0 +1,1053 @@
+{
+  "entries": [
+    {
+      "remark_pattern": "loop-vectorize:vectorize",
+      "unlock_passes": [
+        {
+          "pass": "loop-simplify",
+          "success_rate": 0.7,
+          "_attempts": 7
+        },
+        {
+          "pass": "simple-loop-unswitch",
+          "success_rate": 0.657,
+          "_attempts": 3,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "lcssa",
+          "success_rate": 0.354,
+          "_attempts": 11,
+          "_successes": 3
+        },
+        {
+          "pass": "polly-prepare",
+          "success_rate": 0.328,
+          "_attempts": 11,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "dse",
+          "success_rate": 0.171,
+          "_attempts": 35,
+          "_successes": 6,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "newgvn",
+          "success_rate": 0.155,
+          "_attempts": 10,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "indvars",
+          "success_rate": 0.14,
+          "_attempts": 19,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "licm",
+          "success_rate": 0.135,
+          "_attempts": 140,
+          "_successes": 20
+        },
+        {
+          "pass": "simplifycfg",
+          "success_rate": 0.127,
+          "_attempts": 110,
+          "_successes": 14,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-reduce",
+          "success_rate": 0.113,
+          "_attempts": 68,
+          "_successes": 9,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "instcombine",
+          "success_rate": 0.096,
+          "_attempts": 80,
+          "_successes": 9,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "gvn",
+          "success_rate": 0.089,
+          "_attempts": 82,
+          "_successes": 7,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize",
+          "success_rate": 0.067,
+          "_attempts": 83,
+          "_successes": 7,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "early-cse",
+          "success_rate": 0.045,
+          "_attempts": 33,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "inline",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "slp-vectorizer",
+          "success_rate": 0.0,
+          "_attempts": 17,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll",
+          "success_rate": 0.0,
+          "_attempts": 80,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-interchange",
+          "success_rate": 0.0,
+          "_attempts": 16,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=4",
+          "success_rate": 0.0,
+          "_attempts": 4,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=1 -force-vector-interleave=2",
+          "success_rate": 0.0,
+          "_attempts": 2,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=4 -force-vector-interleave=2",
+          "success_rate": 0.0,
+          "_attempts": 4,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "aggressive-instcombine",
+          "success_rate": 0.0,
+          "_attempts": 19,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "break-crit-edges",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "aa-eval",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "adce",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "add-discriminators",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "alignment-from-assumptions",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "argpromotion",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "assume-builder",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "assume-simplify",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "early-cse-memssa",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "reassociate",
+          "success_rate": 0.0,
+          "_attempts": 19,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "load-store-vectorizer",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll -unroll-count=4",
+          "success_rate": 0.0,
+          "_attempts": 1,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        }
+      ]
+    },
+    {
+      "remark_pattern": "loop-vectorize:alias",
+      "unlock_passes": [
+        {
+          "pass": "gvn",
+          "success_rate": 0.6
+        },
+        {
+          "pass": "licm",
+          "success_rate": 0.55
+        },
+        {
+          "pass": "loop-simplify",
+          "success_rate": 0.5
+        }
+      ]
+    },
+    {
+      "remark_pattern": "slp-vectorizer:vectorize",
+      "unlock_passes": [
+        {
+          "pass": "gvn",
+          "success_rate": 0.65
+        },
+        {
+          "pass": "instcombine",
+          "success_rate": 0.55
+        },
+        {
+          "pass": "loop-vectorize",
+          "success_rate": 0.5,
+          "_attempts": 1
+        },
+        {
+          "pass": "loop-unroll -unroll-count=8",
+          "success_rate": 0.0,
+          "_attempts": 1,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "dse",
+          "success_rate": 0.0,
+          "_attempts": 1,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "simplifycfg",
+          "success_rate": 0.0,
+          "_attempts": 1,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        }
+      ]
+    },
+    {
+      "remark_pattern": "licm:hoist",
+      "unlock_passes": [
+        {
+          "pass": "loop-vectorize -force-vector-width=4 -force-vector-interleave=2",
+          "success_rate": 0.76,
+          "_attempts": 4,
+          "_successes": 4,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=8",
+          "success_rate": 0.657,
+          "_attempts": 3,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "lcssa",
+          "success_rate": 0.65,
+          "_attempts": 1
+        },
+        {
+          "pass": "loop-unroll -unroll-count=8",
+          "success_rate": 0.573,
+          "_attempts": 16,
+          "_successes": 10,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-simplify",
+          "success_rate": 0.554,
+          "_attempts": 7,
+          "_successes": 3
+        },
+        {
+          "pass": "dse",
+          "success_rate": 0.502,
+          "_attempts": 22,
+          "_successes": 10,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "gvn",
+          "success_rate": 0.5
+        },
+        {
+          "pass": "simplifycfg",
+          "success_rate": 0.379,
+          "_attempts": 29,
+          "_successes": 10,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "slp-vectorizer -slp-threshold=0",
+          "success_rate": 0.293,
+          "_attempts": 10,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "licm",
+          "success_rate": 0.276,
+          "_attempts": 12,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-reduce",
+          "success_rate": 0.25,
+          "_attempts": 13,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "break-crit-edges",
+          "success_rate": 0.0,
+          "_attempts": 8,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=4",
+          "success_rate": 0.0,
+          "_attempts": 1,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=1 -force-vector-interleave=2",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll -unroll-count=4",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll -unroll-count=2",
+          "success_rate": 0.0,
+          "_attempts": 5,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=2",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "polly-prepare",
+          "success_rate": 0.0,
+          "_attempts": 1,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "instcombine",
+          "success_rate": 0.0,
+          "_attempts": 2,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "load-store-vectorizer",
+          "success_rate": 0.0,
+          "_attempts": 2,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        }
+      ]
+    },
+    {
+      "remark_pattern": "licm:memory",
+      "unlock_passes": [
+        {
+          "pass": "gvn",
+          "success_rate": 0.6
+        },
+        {
+          "pass": "dse",
+          "success_rate": 0.5
+        },
+        {
+          "pass": "loop-simplify",
+          "success_rate": 0.45
+        }
+      ]
+    },
+    {
+      "remark_pattern": "inline:inline",
+      "unlock_passes": [
+        {
+          "pass": "loop-vectorize -force-vector-width=4 -force-vector-interleave=2",
+          "success_rate": 0.882,
+          "_attempts": 6,
+          "_successes": 6,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=8",
+          "success_rate": 0.882,
+          "_attempts": 6,
+          "_successes": 6,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll -unroll-count=8",
+          "success_rate": 0.72,
+          "_attempts": 24,
+          "_successes": 18,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-simplify",
+          "success_rate": 0.622,
+          "_attempts": 12,
+          "_successes": 6,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "dse",
+          "success_rate": 0.455,
+          "_attempts": 42,
+          "_successes": 18,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "slp-vectorizer -slp-threshold=0",
+          "success_rate": 0.367,
+          "_attempts": 18,
+          "_successes": 6,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "simplifycfg",
+          "success_rate": 0.254,
+          "_attempts": 180,
+          "_successes": 45
+        },
+        {
+          "pass": "always-inline",
+          "success_rate": 0.236,
+          "_attempts": 45,
+          "_successes": 10,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-reduce",
+          "success_rate": 0.232,
+          "_attempts": 70,
+          "_successes": 16,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "instcombine",
+          "success_rate": 0.207,
+          "_attempts": 46,
+          "_successes": 9
+        },
+        {
+          "pass": "gvn",
+          "success_rate": 0.206,
+          "_attempts": 158,
+          "_successes": 32
+        },
+        {
+          "pass": "partial-inliner",
+          "success_rate": 0.194,
+          "_attempts": 54,
+          "_successes": 10,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "licm",
+          "success_rate": 0.175,
+          "_attempts": 190,
+          "_successes": 33,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "aggressive-instcombine",
+          "success_rate": 0.149,
+          "_attempts": 18,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize",
+          "success_rate": 0.119,
+          "_attempts": 104,
+          "_successes": 12,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "inline",
+          "success_rate": 0.099,
+          "_attempts": 104,
+          "_successes": 10,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll",
+          "success_rate": 0.048,
+          "_attempts": 60,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "slp-vectorizer",
+          "success_rate": 0.0,
+          "_attempts": 80,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll-and-jam",
+          "success_rate": 0.0,
+          "_attempts": 10,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "load-store-vectorizer",
+          "success_rate": 0.0,
+          "_attempts": 30,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "partially-inline-libcalls",
+          "success_rate": 0.0,
+          "_attempts": 20,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "ipsccp",
+          "success_rate": 0.0,
+          "_attempts": 20,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-sink",
+          "success_rate": 0.0,
+          "_attempts": 10,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "correlated-propagation",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "early-cse-memssa",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "indvars",
+          "success_rate": 0.0,
+          "_attempts": 9,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-deletion",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "break-crit-edges",
+          "success_rate": 0.0,
+          "_attempts": 12,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll -unroll-count=4",
+          "success_rate": 0.0,
+          "_attempts": 12,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=1 -force-vector-interleave=2",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll -unroll-count=2",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=2",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        }
+      ]
+    },
+    {
+      "remark_pattern": "loop-unroll:unroll",
+      "unlock_passes": [
+        {
+          "pass": "loop-simplify",
+          "success_rate": 0.65
+        },
+        {
+          "pass": "lcssa",
+          "success_rate": 0.6
+        },
+        {
+          "pass": "instcombine",
+          "success_rate": 0.5
+        }
+      ]
+    },
+    {
+      "remark_pattern": "gvn:memory",
+      "unlock_passes": [
+        {
+          "pass": "licm",
+          "success_rate": 0.629,
+          "_attempts": 2,
+          "_successes": 1
+        },
+        {
+          "pass": "instcombine",
+          "success_rate": 0.45,
+          "_attempts": 2
+        },
+        {
+          "pass": "simplifycfg",
+          "success_rate": 0.449,
+          "_attempts": 6,
+          "_successes": 2,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "dse",
+          "success_rate": 0.436,
+          "_attempts": 6,
+          "_successes": 2
+        },
+        {
+          "pass": "slp-vectorizer -slp-threshold=0",
+          "success_rate": 0.36,
+          "_attempts": 2,
+          "_successes": 1,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-reduce",
+          "success_rate": 0.36,
+          "_attempts": 2,
+          "_successes": 1,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-simplify",
+          "success_rate": 0.36,
+          "_attempts": 2,
+          "_successes": 1,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=8",
+          "success_rate": 0.3,
+          "_attempts": 1,
+          "_successes": 1,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll -unroll-count=8",
+          "success_rate": 0.22,
+          "_attempts": 4,
+          "_successes": 2,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll -unroll-count=4",
+          "success_rate": 0.0,
+          "_attempts": 2,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=1 -force-vector-interleave=2",
+          "success_rate": 0.0,
+          "_attempts": 1,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll -unroll-count=2",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=2",
+          "success_rate": 0.0,
+          "_attempts": 1,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "break-crit-edges",
+          "success_rate": 0.0,
+          "_attempts": 1,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        }
+      ]
+    },
+    {
+      "remark_pattern": "instcombine:other",
+      "unlock_passes": [
+        {
+          "pass": "gvn",
+          "success_rate": 0.55
+        },
+        {
+          "pass": "simplifycfg",
+          "success_rate": 0.5
+        },
+        {
+          "pass": "dse",
+          "success_rate": 0.4
+        }
+      ]
+    },
+    {
+      "remark_pattern": "dse:memory",
+      "unlock_passes": [
+        {
+          "pass": "gvn",
+          "success_rate": 0.6
+        },
+        {
+          "pass": "licm",
+          "success_rate": 0.5
+        },
+        {
+          "pass": "instcombine",
+          "success_rate": 0.45
+        }
+      ]
+    },
+    {
+      "remark_pattern": "loop-vectorize:inline",
+      "unlock_passes": [
+        {
+          "pass": "simple-loop-unswitch",
+          "success_rate": 0.657,
+          "_attempts": 3,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "polly-prepare",
+          "success_rate": 0.451,
+          "_attempts": 9,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "lcssa",
+          "success_rate": 0.451,
+          "_attempts": 9,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "newgvn",
+          "success_rate": 0.173,
+          "_attempts": 9,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "dse",
+          "success_rate": 0.171,
+          "_attempts": 34,
+          "_successes": 6,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "indvars",
+          "success_rate": 0.149,
+          "_attempts": 18,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "licm",
+          "success_rate": 0.139,
+          "_attempts": 136,
+          "_successes": 20,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "simplifycfg",
+          "success_rate": 0.127,
+          "_attempts": 109,
+          "_successes": 14,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-reduce",
+          "success_rate": 0.117,
+          "_attempts": 66,
+          "_successes": 9,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "instcombine",
+          "success_rate": 0.096,
+          "_attempts": 80,
+          "_successes": 9,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "gvn",
+          "success_rate": 0.089,
+          "_attempts": 82,
+          "_successes": 7,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize",
+          "success_rate": 0.07,
+          "_attempts": 80,
+          "_successes": 7,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "early-cse",
+          "success_rate": 0.045,
+          "_attempts": 33,
+          "_successes": 3,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "inline",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "slp-vectorizer",
+          "success_rate": 0.0,
+          "_attempts": 17,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-unroll",
+          "success_rate": 0.0,
+          "_attempts": 78,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-interchange",
+          "success_rate": 0.0,
+          "_attempts": 14,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=4",
+          "success_rate": 0.0,
+          "_attempts": 4,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "loop-vectorize -force-vector-width=4 -force-vector-interleave=2",
+          "success_rate": 0.0,
+          "_attempts": 4,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "aggressive-instcombine",
+          "success_rate": 0.0,
+          "_attempts": 19,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "break-crit-edges",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "aa-eval",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "adce",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "add-discriminators",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "alignment-from-assumptions",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "argpromotion",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "assume-builder",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "assume-simplify",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "early-cse-memssa",
+          "success_rate": 0.0,
+          "_attempts": 3,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "reassociate",
+          "success_rate": 0.0,
+          "_attempts": 18,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        },
+        {
+          "pass": "load-store-vectorizer",
+          "success_rate": 0.0,
+          "_attempts": 6,
+          "_successes": 0,
+          "mechanism": "auto-recorded"
+        }
+      ]
+    }
+  ]
+}

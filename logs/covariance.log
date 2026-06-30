@@ -1,0 +1,147 @@
+============================================================
+COMET: covariance  rounds=9
+============================================================
+Collecting vectorization remarks for source rounds...
+  19 remarks collected
+
+[Param round]
+  Kernel 'kernel_covariance': lines 64–96
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_covariance
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: The main bottlenecks are redundant loads (GVN) not being eliminated, SLP vectorization failing due to cost threshold, and LICM not hoisting invariant loads. Lowering slp-threshold enables vectorization at zero cost; increasing licm-max-num-uses-traversed improves load invariance detection; raising gvn-hoist-max-bbs allows more aggressive load hoisting across blocks.
+    -slp-threshold: [-2, -1, 0, 1]
+    -licm-max-num-uses-traversed: [8, 32, 64, 128]
+    -gvn-hoist-max-bbs: [4, 8, 16, 32]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 9
+  Baseline -O3: 6293.34 ms
+  Phase A — independent flag search:
+    -slp-threshold=-2 → 6144.4 ms (1.024x) ← best
+    -slp-threshold=-1 → 5983.3 ms (1.052x) ← best
+    -slp-threshold=0 → 6233.9 ms (1.010x)
+    -slp-threshold=1 → 6032.5 ms (1.043x)
+    -licm-max-num-uses-traversed=8 → 5944.3 ms (1.059x) ← best
+    -licm-max-num-uses-traversed=32 → 5995.2 ms (1.050x)
+    -licm-max-num-uses-traversed=64 → 5986.7 ms (1.051x)
+    -licm-max-num-uses-traversed=128 → 6020.6 ms (1.045x)
+    -gvn-hoist-max-bbs=4 → 5913.9 ms (1.064x) ← best
+    -gvn-hoist-max-bbs=8 → 6002.0 ms (1.049x)
+    -gvn-hoist-max-bbs=16 → 5923.6 ms (1.062x)
+    -gvn-hoist-max-bbs=32 → 5953.6 ms (1.057x)
+    -slp-look-ahead-users-budget=4 → 5818.8 ms (1.082x) ← best
+    -slp-look-ahead-users-budget=8 → 5849.2 ms (1.076x)
+    -slp-look-ahead-users-budget=16 → 5973.9 ms (1.053x)
+    -pragma-vectorize-scev-check-threshold=32 → 5915.9 ms (1.064x) ← best
+    -pragma-vectorize-scev-check-threshold=64 → 6466.6 ms (0.973x)
+    -pragma-vectorize-scev-check-threshold=128 → 5773.5 ms (1.090x) ← best
+    -amdgpu-unroll-threshold-if=150 → 6623.1 ms (0.950x)
+    -amdgpu-unroll-threshold-if=300 → 6052.2 ms (1.040x) ← best
+    -amdgpu-unroll-threshold-if=600 → 6140.0 ms (1.025x)
+    -loop-load-elimination-scev-check-threshold=1 → 6059.7 ms (1.039x) ← best
+    -loop-load-elimination-scev-check-threshold=2 → 5986.6 ms (1.051x) ← best
+    -loop-load-elimination-scev-check-threshold=4 → 6118.1 ms (1.029x)
+    -loop-distribute-scev-check-threshold=16 → 5871.0 ms (1.072x) ← best
+    -loop-distribute-scev-check-threshold=32 → 6003.0 ms (1.048x)
+    -loop-distribute-scev-check-threshold=64 → 5940.5 ms (1.059x)
+    -instcombine-max-iterations=1 → 6115.5 ms (1.029x) ← best
+    -instcombine-max-iterations=3 → 6024.7 ms (1.045x) ← best
+    -instcombine-max-iterations=6 → 5881.1 ms (1.070x) ← best
+  LLM refinement (Phase A → refined candidates)...
+  Refinement JSON parse failed, using original params
+  Phase B — joint search (best pairs):
+    -pragma-vectorize-scev-check-threshold=32, -slp-look-ahead-users-budget=4 → 5875.1 ms (1.071x)
+    -pragma-vectorize-scev-check-threshold=32, -slp-look-ahead-users-budget=8 → 5835.9 ms (1.078x)
+    -pragma-vectorize-scev-check-threshold=32, -slp-look-ahead-users-budget=16 → 5840.7 ms (1.077x)
+    -pragma-vectorize-scev-check-threshold=64, -slp-look-ahead-users-budget=4 → 5894.4 ms (1.068x)
+    -pragma-vectorize-scev-check-threshold=64, -slp-look-ahead-users-budget=8 → 5770.9 ms (1.091x) ← BEST
+    -pragma-vectorize-scev-check-threshold=64, -slp-look-ahead-users-budget=16 → 5846.1 ms (1.077x)
+    -pragma-vectorize-scev-check-threshold=128, -slp-look-ahead-users-budget=4 → 5965.4 ms (1.055x)
+    -pragma-vectorize-scev-check-threshold=128, -slp-look-ahead-users-budget=8 → 5822.2 ms (1.081x)
+    -pragma-vectorize-scev-check-threshold=128, -slp-look-ahead-users-budget=16 → 5884.4 ms (1.069x)
+  Best: -mllvm -pragma-vectorize-scev-check-threshold=64 -mllvm -slp-look-ahead-users-budget=8  → 5770.91 ms (1.091x)
+  Param flags for source rounds: -mllvm -pragma-vectorize-scev-check-threshold=64 -mllvm -slp-look-ahead-users-budget=8
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: Column-major traversal of the row-major `data` matrix causes cache misses in both the mean and covariance computations, while the compiler fails to vectorize the covariance reduction due t...
+
+[Source round 1/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  Round 1 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs=1.00e-02, rel=1.58e-04. Max abs_diff=1.00e-02 at index 700. Max rel_diff=1.58e-
+
+[Source round 2/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 28/6400 elements differ > epsilon=0.0001. First error at index 208: ref=12.62, opt=12.63, abs
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 3/3]
+  Speedup: 0.999x (-0.1%)  5765.43 ms
+  No improvement over best (1.000x) — next round still builds on current best
+
+[Source round 3/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  Round 3 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs=1.00e-02, rel=1.58e-04. Max abs_diff=1.00e-02 at index 700. Max rel_diff=1.58e-
+
+[Source round 4/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  Round 4 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs=1.00e-02, rel=1.58e-04. Max abs_diff=1.00e-02 at index 700. Max rel_diff=1.58e-
+
+[Source round 5/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abscontent empty, falling back to reasoning_content on attempt 1
+
+  Round 5 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs=1.00e-02, rel=1.58e-04. Max abs_diff=1.00e-02 at index 700. Max rel_diff=1.58e-
+
+[Source round 6/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  Round 6 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs=1.00e-02, rel=1.58e-04. Max abs_diff=1.00e-02 at index 700. Max rel_diff=1.58e-
+
+[Source round 7/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  Round 7 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs=1.00e-02, rel=1.58e-04. Max abs_diff=1.00e-02 at index 700. Max rel_diff=1.58e-
+
+[Source round 8/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  [Retry 2/3]
+  Attempt 2 failed (compile_error): COMPILE ERROR:
+/home/hanning/accelerate/comet/tmp/tmpd0mfhfyb/covariance_opt.c:63:1: error: unknown type name 'We'
+/home
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs
+  Round 8 failed (precision_error): PRECISION ERROR: Mismatch: 12/6400 elements differ > epsilon=0.0001. First error at index 700: ref=63.12, opt=63.13, abs=1.00e-02, rel=1.58e-04. Max abs_diff=1.00e-02 at index 700. Max rel_diff=1.58e-
+
+============================================================
+Program:      covariance
+Baseline -O3: 6293.34 ms
+Param flags:  -mllvm -pragma-vectorize-scev-check-threshold=64 -mllvm -slp-look-ahead-users-budget=8  (1.091x)
+Source:       no verified improvement
+============================================================

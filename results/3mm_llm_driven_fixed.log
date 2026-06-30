@@ -1,0 +1,519 @@
+2026-06-17 19:18:31,666 - __main__ - INFO - 初始化系统...
+2026-06-17 19:18:31,670 - src.config - INFO - Loaded YAML config from configs_quick/config.yaml
+2026-06-17 19:18:31,670 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 19:18:31,680 - src.config - INFO - Loaded pass database from configs_quick/pass_database.yaml
+2026-06-17 19:18:31,685 - src.config - INFO - Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+2026-06-17 19:18:32,204 - src.dynamic_pass_extractor - INFO - Found 737 available passes
+2026-06-17 19:18:32,204 - __main__ - INFO - 动态发现可用Pass: 737
+2026-06-17 19:18:32,204 - __main__ - INFO - 测量baseline...
+2026-06-17 19:18:32,738 - src.dynamic_pass_extractor - INFO - Found 737 available passes
+2026-06-17 19:18:32,739 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:18:32,801 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:19:16,375 - __main__ - INFO - Baseline: 14139.12ms
+2026-06-17 19:19:16,375 - __main__ - INFO - ================================================================================
+2026-06-17 19:19:16,375 - __main__ - INFO - 启动LLM驱动的动态Pass筛选
+2026-06-17 19:19:16,375 - __main__ - INFO - ================================================================================
+2026-06-17 19:19:16,376 - __main__ - INFO - 总可用Pass数: 737
+2026-06-17 19:19:16,376 - __main__ - INFO - 搜索策略: LLM动态筛选，完全无硬编码
+2026-06-17 19:19:16,376 - __main__ - INFO - 最大迭代: 150轮
+2026-06-17 19:19:16,376 - __main__ - INFO - 
+2026-06-17 19:19:16,386 - __main__ - INFO - 
+迭代 1: max-counter-promotions-per-loop
+2026-06-17 19:19:16,387 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:19:16,387 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:19:16,506 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'max-counter-promotions-per-loop'
+
+2026-06-17 19:19:16,506 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:19:16,506 - __main__ - INFO - 
+迭代 1: loop-load-elim
+2026-06-17 19:19:16,506 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:19:16,507 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:19:16,603 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:20:00,953 - src.llm_pass_selector - INFO - ✓ Pass 'loop-load-elim' is compatible
+2026-06-17 19:20:00,953 - __main__ - INFO -   ✓ 编译成功 → 14563.76ms (加速比: 0.971x, 目标: 1.20x)
+2026-06-17 19:20:00,953 - __main__ - INFO - 
+迭代 1: dce
+2026-06-17 19:20:00,953 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:20:00,954 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:20:01,076 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:20:43,803 - src.llm_pass_selector - INFO - ✓ Pass 'dce' is compatible
+2026-06-17 19:20:43,803 - __main__ - INFO -   ✓ 编译成功 → 14517.61ms (加速比: 0.974x, 目标: 1.20x)
+2026-06-17 19:20:43,808 - __main__ - INFO - 
+迭代 2: expandmemcmp
+2026-06-17 19:20:43,809 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:20:43,809 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:20:43,904 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'expandmemcmp'
+
+2026-06-17 19:20:43,904 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:20:43,904 - __main__ - INFO - 
+迭代 2: global-merge
+2026-06-17 19:20:43,905 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:20:43,905 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:20:44,004 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'global-merge'
+
+2026-06-17 19:20:44,004 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:20:44,005 - __main__ - INFO - 
+迭代 2: ppc-loop-instr-form-prep
+2026-06-17 19:20:44,005 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:20:44,005 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:20:44,087 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'ppc-loop-instr-form-prep'
+
+2026-06-17 19:20:44,088 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:20:44,098 - __main__ - INFO - 
+迭代 3: amdgpu-lower-kernel-attributes
+2026-06-17 19:20:44,098 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:20:44,099 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:20:44,179 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'amdgpu-lower-kernel-attributes'
+
+2026-06-17 19:20:44,179 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:20:44,180 - __main__ - INFO - 
+迭代 3: assume-simplify
+2026-06-17 19:20:44,180 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:20:44,180 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:20:44,265 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'assume-simplify'
+
+2026-06-17 19:20:44,265 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:20:44,265 - __main__ - INFO - 
+迭代 3: newgvn
+2026-06-17 19:20:44,265 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:20:44,265 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:20:44,363 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:21:23,020 - src.llm_pass_selector - INFO - ✓ Pass 'newgvn' is compatible
+2026-06-17 19:21:23,020 - __main__ - INFO -   ✓ 编译成功 → 12758.49ms (加速比: 1.108x, 目标: 1.20x)
+2026-06-17 19:21:23,020 - __main__ - INFO -   ★ 新的最优结果！
+2026-06-17 19:21:23,031 - __main__ - INFO - 
+迭代 4: newgvn → loop-load-elim
+2026-06-17 19:21:23,031 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:21:23,032 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:21:23,137 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:22:02,618 - src.llm_pass_selector - INFO - ✓ Pass 'loop-load-elim' is compatible
+2026-06-17 19:22:02,618 - __main__ - INFO -   ✓ 编译成功 → 13440.61ms (加速比: 1.052x, 目标: 1.20x)
+2026-06-17 19:22:02,618 - __main__ - INFO - 
+迭代 4: newgvn → dce
+2026-06-17 19:22:02,618 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:22:02,619 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:22:02,743 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:22:43,104 - src.llm_pass_selector - INFO - ✓ Pass 'dce' is compatible
+2026-06-17 19:22:43,104 - __main__ - INFO -   ✓ 编译成功 → 12725.67ms (加速比: 1.111x, 目标: 1.20x)
+2026-06-17 19:22:43,104 - __main__ - INFO -   ★ 新的最优结果！
+2026-06-17 19:22:43,104 - __main__ - INFO - 
+迭代 4: newgvn → dce → polly-dce
+2026-06-17 19:22:43,104 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:22:43,105 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:22:43,224 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'polly-dce'
+
+2026-06-17 19:22:43,225 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:22:43,225 - __main__ - INFO - 
+迭代 4: newgvn → dce → wasm-mem-intrinsic-results
+2026-06-17 19:22:43,225 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:22:43,226 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:22:43,316 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'wasm-mem-intrinsic-results'
+
+2026-06-17 19:22:43,316 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:22:43,316 - __main__ - INFO - 
+迭代 4: newgvn → dce → loop-accesses
+2026-06-17 19:22:43,316 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:22:43,316 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:22:43,403 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-accesses'
+
+2026-06-17 19:22:43,403 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:22:43,414 - __main__ - INFO - 
+迭代 5: newgvn → dce → loop-load-elim
+2026-06-17 19:22:43,414 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:22:43,415 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:22:43,495 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:23:23,674 - src.llm_pass_selector - INFO - ✓ Pass 'loop-load-elim' is compatible
+2026-06-17 19:23:23,674 - __main__ - INFO -   ✓ 编译成功 → 13369.19ms (加速比: 1.058x, 目标: 1.20x)
+2026-06-17 19:23:23,674 - __main__ - INFO - 
+迭代 5: newgvn → dce → loop-fusion
+2026-06-17 19:23:23,674 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:23:23,675 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:23:23,799 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-fusion'
+
+2026-06-17 19:23:23,799 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:23:23,799 - __main__ - INFO - 
+迭代 5: newgvn → dce → gvn-sink
+2026-06-17 19:23:23,799 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:23:23,800 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:23:23,873 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'gvn-sink'
+
+2026-06-17 19:23:23,874 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:23:23,874 - __main__ - INFO - 
+迭代 5: newgvn → dce → sccp
+2026-06-17 19:23:23,874 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:23:23,874 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:23:23,955 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:24:01,625 - src.llm_pass_selector - INFO - ✓ Pass 'sccp' is compatible
+2026-06-17 19:24:01,626 - __main__ - INFO -   ✓ 编译成功 → 12517.05ms (加速比: 1.130x, 目标: 1.20x)
+2026-06-17 19:24:01,626 - __main__ - INFO -   ★ 新的最优结果！
+2026-06-17 19:24:01,637 - __main__ - INFO - 
+迭代 6: newgvn → dce → sccp → loop-load-elim
+2026-06-17 19:24:01,637 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:24:01,637 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:01,740 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:24:41,010 - src.llm_pass_selector - INFO - ✓ Pass 'loop-load-elim' is compatible
+2026-06-17 19:24:41,010 - __main__ - INFO -   ✓ 编译成功 → 12738.43ms (加速比: 1.110x, 目标: 1.20x)
+2026-06-17 19:24:41,010 - __main__ - INFO - 
+迭代 6: newgvn → dce → sccp → enable-gvn-sink
+2026-06-17 19:24:41,010 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,011 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,155 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'enable-gvn-sink'
+
+2026-06-17 19:24:41,155 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,155 - __main__ - INFO - 
+迭代 6: newgvn → dce → sccp → instcombine-guard-widening-window
+2026-06-17 19:24:41,156 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,156 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,248 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'instcombine-guard-widening-window'
+
+2026-06-17 19:24:41,249 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,249 - __main__ - INFO - 
+迭代 6: newgvn → dce → sccp → hardware-loops
+2026-06-17 19:24:41,249 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,249 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,322 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'hardware-loops'
+
+2026-06-17 19:24:41,323 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,333 - __main__ - INFO - 
+迭代 7: newgvn → dce → sccp → instrprof-atomic-counter-update-all
+2026-06-17 19:24:41,333 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,334 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,395 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'instrprof-atomic-counter-update-all'
+
+2026-06-17 19:24:41,395 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,395 - __main__ - INFO - 
+迭代 7: newgvn → dce → sccp → loops
+2026-06-17 19:24:41,396 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,396 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,472 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loops'
+
+2026-06-17 19:24:41,472 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,472 - __main__ - INFO - 
+迭代 7: newgvn → dce → sccp → polly-simplify
+2026-06-17 19:24:41,472 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,473 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,563 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'polly-simplify'
+
+2026-06-17 19:24:41,563 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,574 - __main__ - INFO - 
+迭代 8: newgvn → dce → sccp → print-memoryssa
+2026-06-17 19:24:41,574 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,574 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,667 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'print-memoryssa'
+
+2026-06-17 19:24:41,667 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,667 - __main__ - INFO - 
+迭代 8: newgvn → dce → sccp → loop-rotate
+2026-06-17 19:24:41,667 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,668 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,756 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-rotate'
+
+2026-06-17 19:24:41,756 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,756 - __main__ - INFO - 
+迭代 8: newgvn → dce → sccp → amdgpu-inline
+2026-06-17 19:24:41,756 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,757 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,850 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'amdgpu-inline'
+
+2026-06-17 19:24:41,850 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,860 - __main__ - INFO - 
+迭代 9: newgvn → dce → sccp → instcount
+2026-06-17 19:24:41,861 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,861 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:41,939 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'instcount'
+
+2026-06-17 19:24:41,939 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:24:41,939 - __main__ - INFO - 
+迭代 9: newgvn → dce → sccp → loop-simplify
+2026-06-17 19:24:41,940 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:24:41,940 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:24:42,019 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:25:20,649 - src.llm_pass_selector - INFO - ✓ Pass 'loop-simplify' is compatible
+2026-06-17 19:25:20,649 - __main__ - INFO -   ✓ 编译成功 → 13068.19ms (加速比: 1.082x, 目标: 1.20x)
+2026-06-17 19:25:20,649 - __main__ - INFO - 
+迭代 9: newgvn → dce → sccp → loop-predication
+2026-06-17 19:25:20,649 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:25:20,650 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:25:20,752 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-predication'
+
+2026-06-17 19:25:20,753 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:25:20,763 - __main__ - INFO - 
+迭代 10: newgvn → dce → sccp → pgo-memop-opt
+2026-06-17 19:25:20,763 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:25:20,763 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:25:20,862 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:25:59,097 - src.llm_pass_selector - INFO - ✓ Pass 'pgo-memop-opt' is compatible
+2026-06-17 19:25:59,097 - __main__ - INFO -   ✓ 编译成功 → 12798.47ms (加速比: 1.105x, 目标: 1.20x)
+2026-06-17 19:25:59,097 - __main__ - INFO - 
+迭代 10: newgvn → dce → sccp → loop-unroll-and-jam
+2026-06-17 19:25:59,097 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:25:59,098 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:25:59,226 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-unroll-and-jam'
+
+2026-06-17 19:25:59,226 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:25:59,226 - __main__ - INFO - 
+迭代 10: newgvn → dce → sccp → aggressive-instcombine
+2026-06-17 19:25:59,226 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:25:59,226 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:25:59,319 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:26:37,503 - src.llm_pass_selector - INFO - ✓ Pass 'aggressive-instcombine' is compatible
+2026-06-17 19:26:37,503 - __main__ - INFO -   ✓ 编译成功 → 12496.99ms (加速比: 1.131x, 目标: 1.20x)
+2026-06-17 19:26:37,503 - __main__ - INFO -   ★ 新的最优结果！
+2026-06-17 19:26:37,503 - __main__ - INFO - 
+2026-06-17 19:26:37,503 - __main__ - INFO - ════ 进度: 10/150 ════
+2026-06-17 19:26:37,503 - __main__ - INFO - 当前最优: 1.131x (目标: 1.20x)
+2026-06-17 19:26:37,503 - __main__ - INFO - 序列: newgvn → dce → sccp → aggressive-instcombine
+2026-06-17 19:26:37,503 - __main__ - INFO - 编译成功: 11, 失败: 23
+2026-06-17 19:26:37,503 - __main__ - INFO - 已验证Pass数: 30 (兼容: 7, 不兼容: 23)
+2026-06-17 19:26:37,503 - __main__ - INFO - 
+2026-06-17 19:26:37,508 - __main__ - INFO - 
+迭代 11: newgvn → dce → sccp → aggressive-instcombine → loop-load-elim
+2026-06-17 19:26:37,508 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:26:37,509 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:26:37,613 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:27:16,169 - src.llm_pass_selector - INFO - ✓ Pass 'loop-load-elim' is compatible
+2026-06-17 19:27:16,169 - __main__ - INFO -   ✓ 编译成功 → 12896.65ms (加速比: 1.096x, 目标: 1.20x)
+2026-06-17 19:27:16,169 - __main__ - INFO - 
+迭代 11: newgvn → dce → sccp → aggressive-instcombine → loop-simplify
+2026-06-17 19:27:16,169 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:27:16,170 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:27:16,278 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:27:54,657 - src.llm_pass_selector - INFO - ✓ Pass 'loop-simplify' is compatible
+2026-06-17 19:27:54,657 - __main__ - INFO -   ✓ 编译成功 → 12612.74ms (加速比: 1.121x, 目标: 1.20x)
+2026-06-17 19:27:54,658 - __main__ - INFO - 
+迭代 11: newgvn → dce → sccp → aggressive-instcombine → pgo-memop-opt
+2026-06-17 19:27:54,658 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:27:54,658 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:27:54,768 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:28:33,386 - src.llm_pass_selector - INFO - ✓ Pass 'pgo-memop-opt' is compatible
+2026-06-17 19:28:33,387 - __main__ - INFO -   ✓ 编译成功 → 12916.92ms (加速比: 1.095x, 目标: 1.20x)
+2026-06-17 19:28:33,387 - __main__ - INFO - 
+迭代 11: newgvn → dce → sccp → aggressive-instcombine → hexagon-bit-simplify
+2026-06-17 19:28:33,387 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:28:33,388 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:28:33,515 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'hexagon-bit-simplify'
+
+2026-06-17 19:28:33,516 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:28:33,516 - __main__ - INFO - 
+迭代 11: newgvn → dce → sccp → aggressive-instcombine → globals-aa
+2026-06-17 19:28:33,516 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:28:33,516 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:28:33,634 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'globals-aa'
+
+2026-06-17 19:28:33,635 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:28:33,645 - __main__ - INFO - 
+迭代 12: newgvn → dce → sccp → aggressive-instcombine → instrprof
+2026-06-17 19:28:33,645 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:28:33,646 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:28:33,743 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'instrprof'
+
+2026-06-17 19:28:33,743 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:28:33,743 - __main__ - INFO - 
+迭代 12: newgvn → dce → sccp → aggressive-instcombine → speculative-counter-promotion-to-loop
+2026-06-17 19:28:33,744 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:28:33,744 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:28:33,849 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'speculative-counter-promotion-to-loop'
+
+2026-06-17 19:28:33,849 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:28:33,860 - __main__ - INFO - 
+迭代 13: newgvn → dce → sccp → aggressive-instcombine → always-inline
+2026-06-17 19:28:33,860 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:28:33,861 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:28:33,953 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'always-inline'
+
+2026-06-17 19:28:33,953 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:28:33,953 - __main__ - INFO - 
+迭代 13: newgvn → dce → sccp → aggressive-instcombine → lcssa
+2026-06-17 19:28:33,953 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:28:33,954 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:28:34,049 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:29:12,403 - src.llm_pass_selector - INFO - ✓ Pass 'lcssa' is compatible
+2026-06-17 19:29:12,404 - __main__ - INFO -   ✓ 编译成功 → 12917.54ms (加速比: 1.095x, 目标: 1.20x)
+2026-06-17 19:29:12,414 - __main__ - INFO - 
+迭代 14: newgvn → dce → sccp → aggressive-instcombine → inferattrs
+2026-06-17 19:29:12,414 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:12,415 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:12,522 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'inferattrs'
+
+2026-06-17 19:29:12,523 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:12,533 - __main__ - INFO - 
+迭代 15: newgvn → dce → sccp → aggressive-instcombine → asm-show-inst
+2026-06-17 19:29:12,533 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:12,534 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:12,609 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'asm-show-inst'
+
+2026-06-17 19:29:12,610 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:12,620 - __main__ - INFO - 
+迭代 16: newgvn → dce → sccp → aggressive-instcombine → r600-expand-special-instrs
+2026-06-17 19:29:12,620 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:12,620 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:12,697 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'r600-expand-special-instrs'
+
+2026-06-17 19:29:12,697 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:12,708 - __main__ - INFO - 
+迭代 17: newgvn → dce → sccp → aggressive-instcombine → si-form-memory-clauses
+2026-06-17 19:29:12,708 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:12,708 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:12,809 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'si-form-memory-clauses'
+
+2026-06-17 19:29:12,809 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:12,812 - __main__ - INFO - 
+迭代 18: newgvn → dce → sccp → aggressive-instcombine → loop-extract-single
+2026-06-17 19:29:12,812 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:12,812 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:12,887 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-extract-single'
+
+2026-06-17 19:29:12,887 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:12,897 - __main__ - INFO - 
+迭代 19: newgvn → dce → sccp → aggressive-instcombine → instcombine-code-sinking
+2026-06-17 19:29:12,897 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:12,897 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:12,979 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'instcombine-code-sinking'
+
+2026-06-17 19:29:12,980 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:12,987 - __main__ - INFO - 
+迭代 20: newgvn → dce → sccp → aggressive-instcombine → simple-loop-unswitch
+2026-06-17 19:29:12,987 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:12,988 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:13,072 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'simple-loop-unswitch'
+
+2026-06-17 19:29:13,073 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:13,073 - __main__ - INFO - 
+2026-06-17 19:29:13,073 - __main__ - INFO - ════ 进度: 20/150 ════
+2026-06-17 19:29:13,073 - __main__ - INFO - 当前最优: 1.131x (目标: 1.20x)
+2026-06-17 19:29:13,073 - __main__ - INFO - 序列: newgvn → dce → sccp → aggressive-instcombine
+2026-06-17 19:29:13,073 - __main__ - INFO - 编译成功: 15, 失败: 35
+2026-06-17 19:29:13,073 - __main__ - INFO - 已验证Pass数: 43 (兼容: 8, 不兼容: 35)
+2026-06-17 19:29:13,073 - __main__ - INFO - 
+2026-06-17 19:29:13,084 - __main__ - INFO - 
+迭代 21: newgvn → dce → sccp → aggressive-instcombine → memoryssa
+2026-06-17 19:29:13,084 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:13,085 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:13,159 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'memoryssa'
+
+2026-06-17 19:29:13,160 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:13,167 - __main__ - INFO - 
+迭代 22: newgvn → dce → sccp → aggressive-instcombine → pgo-instr-use
+2026-06-17 19:29:13,168 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:13,168 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:13,243 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'pgo-instr-use'
+
+2026-06-17 19:29:13,244 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:13,253 - __main__ - INFO - 
+迭代 23: newgvn → dce → sccp → aggressive-instcombine → globaldce
+2026-06-17 19:29:13,253 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:13,254 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:13,355 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'globaldce'
+
+2026-06-17 19:29:13,355 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:29:13,366 - __main__ - INFO - 
+迭代 24: newgvn → dce → sccp → aggressive-instcombine → bdce
+2026-06-17 19:29:13,366 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:29:13,367 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:13,448 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:29:51,043 - src.llm_pass_selector - INFO - ✓ Pass 'bdce' is compatible
+2026-06-17 19:29:51,043 - __main__ - INFO -   ✓ 编译成功 → 12466.20ms (加速比: 1.134x, 目标: 1.20x)
+2026-06-17 19:29:51,043 - __main__ - INFO -   ★ 新的最优结果！
+2026-06-17 19:29:51,053 - __main__ - INFO - 
+迭代 25: newgvn → dce → sccp → aggressive-instcombine → bdce → loop-load-elim
+2026-06-17 19:29:51,053 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:29:51,054 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:29:51,181 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:30:31,428 - src.llm_pass_selector - INFO - ✓ Pass 'loop-load-elim' is compatible
+2026-06-17 19:30:31,429 - __main__ - INFO -   ✓ 编译成功 → 13588.68ms (加速比: 1.041x, 目标: 1.20x)
+2026-06-17 19:30:31,429 - __main__ - INFO - 
+迭代 25: newgvn → dce → sccp → aggressive-instcombine → bdce → loop-simplify
+2026-06-17 19:30:31,429 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:30:31,430 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:30:31,562 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:31:11,292 - src.llm_pass_selector - INFO - ✓ Pass 'loop-simplify' is compatible
+2026-06-17 19:31:11,293 - __main__ - INFO -   ✓ 编译成功 → 13388.57ms (加速比: 1.056x, 目标: 1.20x)
+2026-06-17 19:31:11,293 - __main__ - INFO - 
+迭代 25: newgvn → dce → sccp → aggressive-instcombine → bdce → pgo-memop-opt
+2026-06-17 19:31:11,293 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:31:11,293 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:31:11,416 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:31:50,782 - src.llm_pass_selector - INFO - ✓ Pass 'pgo-memop-opt' is compatible
+2026-06-17 19:31:50,782 - __main__ - INFO -   ✓ 编译成功 → 13531.46ms (加速比: 1.045x, 目标: 1.20x)
+2026-06-17 19:31:50,782 - __main__ - INFO - 
+迭代 25: newgvn → dce → sccp → aggressive-instcombine → bdce → lcssa
+2026-06-17 19:31:50,782 - __main__ - INFO -   (LLM建议: 已验证兼容, 置信度: 0.90)
+2026-06-17 19:31:50,783 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:31:50,909 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:32:30,822 - src.llm_pass_selector - INFO - ✓ Pass 'lcssa' is compatible
+2026-06-17 19:32:30,822 - __main__ - INFO -   ✓ 编译成功 → 12895.88ms (加速比: 1.096x, 目标: 1.20x)
+2026-06-17 19:32:30,822 - __main__ - INFO - 
+迭代 25: newgvn → dce → sccp → aggressive-instcombine → bdce → amdgpu-disable-loop-alignment
+2026-06-17 19:32:30,822 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:32:30,823 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:32:30,946 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'amdgpu-disable-loop-alignment'
+
+2026-06-17 19:32:30,947 - __main__ - WARNING -   ✗ 编译失败: Compilation failed
+2026-06-17 19:32:30,957 - __main__ - INFO - 
+迭代 26: newgvn → dce → sccp → aggressive-instcombine → bdce → loop-vectorize
+2026-06-17 19:32:30,957 - __main__ - INFO -   (LLM建议: 看起来像优化Pass，需要测试, 置信度: 0.50)
+2026-06-17 19:32:30,958 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:32:31,056 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:33:13,330 - src.llm_pass_selector - INFO - ✓ Pass 'loop-vectorize' is compatible
+2026-06-17 19:33:13,331 - __main__ - INFO -   ✓ 编译成功 → 14570.94ms (加速比: 0.970x, 目标: 1.20x)
+2026-06-17 19:33:13,331 - __main__ - INFO - 
+2026-06-17 19:33:13,331 - __main__ - INFO - ════ 进度: 30/150 ════
+2026-06-17 19:33:13,331 - __main__ - INFO - 当前最优: 1.134x (目标: 1.20x)
+2026-06-17 19:33:13,331 - __main__ - INFO - 序列: newgvn → dce → sccp → aggressive-instcombine → bdce
+2026-06-17 19:33:13,331 - __main__ - INFO - 编译成功: 21, 失败: 39
+2026-06-17 19:33:13,331 - __main__ - INFO - 已验证Pass数: 49 (兼容: 10, 不兼容: 39)
+2026-06-17 19:33:13,332 - __main__ - INFO - 
+2026-06-17 19:33:13,332 - __main__ - INFO - 
+2026-06-17 19:33:13,332 - __main__ - INFO - ════ 进度: 40/150 ════
+2026-06-17 19:33:13,332 - __main__ - INFO - 当前最优: 1.134x (目标: 1.20x)
+2026-06-17 19:33:13,332 - __main__ - INFO - 序列: newgvn → dce → sccp → aggressive-instcombine → bdce
+2026-06-17 19:33:13,332 - __main__ - INFO - 编译成功: 21, 失败: 39
+2026-06-17 19:33:13,332 - __main__ - INFO - 已验证Pass数: 49 (兼容: 10, 不兼容: 39)
+2026-06-17 19:33:13,332 - __main__ - INFO - 
+2026-06-17 19:33:13,332 - __main__ - INFO - 连续21轮无改进且已经运行46轮，停止搜索
+2026-06-17 19:33:13,332 - __main__ - INFO - 搜索停止
+2026-06-17 19:33:13,333 - __main__ - INFO - Results saved to results/3mm_llm_driven.json
+================================================================================
+3MM OPTIMIZATION - LLM-DRIVEN DYNAMIC PASS SELECTION
+================================================================================
+
+
+
+================================================================================
+FINAL RESULTS
+================================================================================
+
+Baseline:              14139.12ms
+Best optimized:        12466.20ms
+Final speedup:         1.134x
+Final improvement:     13.4%
+
+Best sequence (5 passes):
+  1. newgvn
+  2. dce
+  3. sccp
+  4. aggressive-instcombine
+  5. bdce
+
+Search statistics:
+  - Total iterations: 46
+  - Visited sequences: 60
+  - Compilation success: 21
+  - Compilation failures: 39
+  - Success rate: 35.0%
+
+================================================================================
+
+================================================================================
+TARGET ACHIEVEMENT
+================================================================================
+
+目标1: 优化 ≥20%
+  实际: 1.134x (13.4%)
+  状态: ❌ FAIL
+
+目标2: 迭代 ≥100轮
+  实际: 46
+  状态: ❌ FAIL
+
+⚠️  部分目标未达成，但搜索已完全运行

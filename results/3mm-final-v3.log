@@ -1,0 +1,48 @@
+2026-06-17 14:06:16,999 - __main__ - INFO - ======================================================================
+2026-06-17 14:06:16,999 - __main__ - INFO - COMET: Compiler Observable-Guided Monte Carlo Exploration
+2026-06-17 14:06:16,999 - __main__ - INFO - ======================================================================
+2026-06-17 14:06:16,999 - __main__ - INFO - Program: /home/hanning/accelerate/PolyBenchC_no_rag/linear-algebra/kernels/3mm/3mm.c
+2026-06-17 14:06:16,999 - __main__ - INFO - Input: stdin
+2026-06-17 14:06:16,999 - __main__ - INFO - Budget: 50 measurements
+2026-06-17 14:06:16,999 - __main__ - INFO - Config: configs_quick
+2026-06-17 14:06:17,006 - src.config - INFO - Loaded YAML config from configs_quick/config.yaml
+2026-06-17 14:06:17,007 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 14:06:17,028 - src.config - INFO - Loaded pass database from configs_quick/pass_database.yaml
+2026-06-17 14:06:17,041 - src.config - INFO - Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+2026-06-17 14:06:17,041 - __main__ - INFO - 
+======================================================================
+2026-06-17 14:06:17,041 - __main__ - INFO - Phase 0: Compiler Observable Extraction
+2026-06-17 14:06:17,041 - __main__ - INFO - ======================================================================
+2026-06-17 14:06:17,041 - __main__ - INFO - Measuring baseline runtime...
+2026-06-17 14:06:17,481 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:06:17,482 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:06:17,536 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:07:23,025 - __main__ - INFO - Baseline runtime: 24893.18ms
+2026-06-17 14:07:23,025 - __main__ - INFO - Extracting baseline remarks...
+2026-06-17 14:07:23,136 - src.static_analyzer - ERROR - Error parsing remarks file: could not determine a constructor for the tag '!Missed'
+  in "<unicode string>", line 1, column 5:
+    --- !Missed
+        ^
+2026-06-17 14:07:23,136 - __main__ - INFO - Baseline remarks: 0 missed, 0 applied
+2026-06-17 14:07:23,137 - __main__ - INFO - Extracting dynamic profile...
+2026-06-17 14:07:26,073 - src.dynamic_profiler - ERROR - Failed to parse VTune CSV: [Errno 2] No such file or directory: '/tmp/vtune_result/hotspots_tma.csv'
+2026-06-17 14:07:26,073 - __main__ - WARNING - Dynamic profiling not available, using fallback
+2026-06-17 14:07:26,073 - __main__ - INFO - Building structured context C₀...
+2026-06-17 14:07:26,073 - __main__ - INFO - Context built for 3mm
+2026-06-17 14:07:26,073 - __main__ - INFO - 
+======================================================================
+2026-06-17 14:07:26,073 - __main__ - INFO - Phase 1 & 2: LLM Diagnosis + MCTS Search
+2026-06-17 14:07:26,073 - __main__ - INFO - ======================================================================
+2026-06-17 14:07:26,075 - __main__ - ERROR - Phase 2 failed: 'CompilerConfig' object has no attribute 'compiler'
+Traceback (most recent call last):
+  File "/home/hanning/accelerate/comet/run_comet_full.py", line 202, in run_comet_pipeline
+    mcts_orchestrator = MCTSOrchestrator(config)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/src/mcts_orchestrator.py", line 145, in __init__
+    self.compiler = CompilerRunner(config.compiler, {})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/src/compiler_manager.py", line 100, in __init__
+    opt_path = getattr(config.compiler, 'opt_path', '/usr/bin/opt-11')
+                       ^^^^^^^^^^^^^^^
+AttributeError: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:07:26,078 - __main__ - ERROR - COMET failed: Phase 2 failed: 'CompilerConfig' object has no attribute 'compiler'

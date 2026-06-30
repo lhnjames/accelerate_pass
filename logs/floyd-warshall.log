@@ -1,0 +1,181 @@
+============================================================
+COMET: floyd-warshall  rounds=9
+============================================================
+Collecting vectorization remarks for source rounds...
+  11 remarks collected
+
+[Param round]
+  Kernel 'kernel_floyd_warshall': lines 64–79
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_floyd_warshall
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: The Floyd-Warshall kernel suffers from SLP vectorization not being applied due to a cost threshold of zero and LICM failing to hoist loop-invariant loads due to limited alias analysis precision and use traversal depth. Adjusting the SLP threshold to negative values and increasing LICM's use traversal limit along with GVN's dependence cap will enable more aggressive vectorization and load elimination.
+    -slp-threshold: [-4, -2, -1, 0]
+    -licm-max-num-uses-traversed: [8, 16, 32, 64]
+    -gvn-max-num-deps: [100, 200, 500, 1000]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 10
+  Baseline -O3: 16061.19 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 14808.4 ms (1.085x) ← best
+    -slp-threshold=-2 → 14871.6 ms (1.080x)
+    -slp-threshold=-1 → 14780.4 ms (1.087x) ← best
+    -slp-threshold=0 → 15981.6 ms (1.005x)
+    -licm-max-num-uses-traversed=8 → 15187.3 ms (1.058x) ← best
+    -licm-max-num-uses-traversed=16 → 15242.3 ms (1.054x)
+    -licm-max-num-uses-traversed=32 → 15318.0 ms (1.049x)
+    -licm-max-num-uses-traversed=64 → 15284.5 ms (1.051x)
+    -gvn-max-num-deps=100 → 14943.6 ms (1.075x) ← best
+    -gvn-max-num-deps=200 → 14931.0 ms (1.076x) ← best
+    -gvn-max-num-deps=500 → 14943.3 ms (1.075x)
+    -gvn-max-num-deps=1000 → 15036.3 ms (1.068x)
+    -slp-look-ahead-users-budget=4 → 15010.8 ms (1.070x) ← best
+    -slp-look-ahead-users-budget=8 → 14859.0 ms (1.081x) ← best
+    -slp-look-ahead-users-budget=16 → 14815.0 ms (1.084x) ← best
+    -pragma-vectorize-scev-check-threshold=32 → 14911.6 ms (1.077x) ← best
+    -pragma-vectorize-scev-check-threshold=64 → 14868.2 ms (1.080x) ← best
+    -pragma-vectorize-scev-check-threshold=128 → 16314.8 ms (0.984x)
+    -amdgpu-unroll-threshold-if=150 → 14975.9 ms (1.072x) ← best
+    -amdgpu-unroll-threshold-if=300 → 15296.4 ms (1.050x)
+    -amdgpu-unroll-threshold-if=600 → 15317.8 ms (1.049x)
+    -loop-load-elimination-scev-check-threshold=1 → 16450.4 ms (0.976x)
+    -loop-load-elimination-scev-check-threshold=2 → 15554.5 ms (1.033x) ← best
+    -loop-load-elimination-scev-check-threshold=4 → 15062.9 ms (1.066x) ← best
+    -gvn-hoist-max-bbs=5 → 14964.6 ms (1.073x) ← best
+    -gvn-hoist-max-bbs=10 → 15401.0 ms (1.043x)
+    -gvn-hoist-max-bbs=20 → 14942.7 ms (1.075x) ← best
+    -loop-distribute-scev-check-threshold=16 → 14800.8 ms (1.085x) ← best
+    -loop-distribute-scev-check-threshold=32 → 14851.1 ms (1.081x)
+    -loop-distribute-scev-check-threshold=64 → 15119.0 ms (1.062x)
+    -instcombine-max-iterations=1 → 15171.6 ms (1.059x) ← best
+    -instcombine-max-iterations=3 → 14929.6 ms (1.076x) ← best
+    -instcombine-max-iterations=6 → 15693.8 ms (1.023x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-slp-threshold', [-2, -1, 0]), ('-loop-distribute-scev-check-threshold', [16, 32]), ('-slp-look-ahead-users-budget', [8, 16])]
+  Phase B — joint search (best pairs):
+    -slp-threshold=-2, -loop-distribute-scev-check-threshold=16 → 17211.1 ms (0.933x)
+    -slp-threshold=-2, -loop-distribute-scev-check-threshold=32 → 15041.1 ms (1.068x)
+    -slp-threshold=-1, -loop-distribute-scev-check-threshold=16 → 15074.0 ms (1.065x)
+    -slp-threshold=-1, -loop-distribute-scev-check-threshold=32 → 14789.8 ms (1.086x)
+    -slp-threshold=0, -loop-distribute-scev-check-threshold=16 → 14829.3 ms (1.083x)
+    -slp-threshold=0, -loop-distribute-scev-check-threshold=32 → 14684.5 ms (1.094x) ← BEST
+  Best: -mllvm -slp-threshold=0 -mllvm -loop-distribute-scev-check-threshold=32  → 14684.54 ms (1.094x)
+  Param flags for source rounds: -mllvm -slp-threshold=0 -mllvm -loop-distribute-scev-check-threshold=32
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: Floyd-Warshall's k,i,j loop order causes high cache pressure because row `k` (`path[k][*]`) is streamed N times per k iteration (once per i), and column `k` (`path[i][k]`) elements are acc...
+
+[Source round 1/8]
+  Speedup: 1.182x (+18.2%)  12458.82 ms
+  → New best (1.182x)!
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The inner conditional (min) prevents vectorization of the `ii` loop and limits the vectorization efficiency of the innermost `jj` loop, while the row access `aik = base[ii*n+k]` incurs str...
+  Kernel 'kernel_floyd_warshall': lines 64–103
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_floyd_warshall
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: The kernel's SLP vectorization is missed due to cost-model threshold (cost 0 >= 0), suggesting that lowering -slp-threshold may enable beneficial vectorization. Additionally, GVN fails to eliminate i64 loads, which increasing -gvn-max-num-deps could improve via Load PRE. Finally, LICM's limited use traversal may miss invariant loads; raising -licm-max-num-uses-traversed can help identify more hoistable instructions.
+    -slp-threshold: [-4, -2, -1, 0]
+    -gvn-max-num-deps: [100, 200, 500, 1000]
+    -licm-max-num-uses-traversed: [8, 16, 32, 128]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 10
+  Baseline -O3: 12441.81 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 11648.9 ms (1.068x) ← best
+    -slp-threshold=-2 → 11663.5 ms (1.067x)
+    -slp-threshold=-1 → 12346.1 ms (1.008x)
+    -slp-threshold=0 → 13077.7 ms (0.951x)
+    -gvn-max-num-deps=100 → 12183.8 ms (1.021x) ← best
+    -gvn-max-num-deps=200 → 12225.4 ms (1.018x)
+    -gvn-max-num-deps=500 → 12153.9 ms (1.024x) ← best
+    -gvn-max-num-deps=1000 → 12229.9 ms (1.017x)
+    -licm-max-num-uses-traversed=8 → 12369.4 ms (1.006x) ← best
+    -licm-max-num-uses-traversed=16 → 12228.5 ms (1.017x) ← best
+    -licm-max-num-uses-traversed=32 → 12487.1 ms (0.996x)
+    -licm-max-num-uses-traversed=128 → 13079.8 ms (0.951x)
+    -slp-look-ahead-users-budget=4 → 12420.2 ms (1.002x) ← best
+    -slp-look-ahead-users-budget=8 → 12221.0 ms (1.018x) ← best
+    -slp-look-ahead-users-budget=16 → 12202.9 ms (1.020x) ← best
+    -gvn-hoist-max-bbs=5 → 12104.6 ms (1.028x) ← best
+    -gvn-hoist-max-bbs=10 → 12133.5 ms (1.025x)
+    -gvn-hoist-max-bbs=20 → 12044.8 ms (1.033x) ← best
+    -pragma-vectorize-scev-check-threshold=32 → 12062.1 ms (1.031x) ← best
+    -pragma-vectorize-scev-check-threshold=64 → 12301.1 ms (1.011x)
+    -pragma-vectorize-scev-check-threshold=128 → 12343.6 ms (1.008x)
+    -amdgpu-unroll-threshold-if=150 → 12279.8 ms (1.013x) ← best
+    -amdgpu-unroll-threshold-if=300 → 12057.4 ms (1.032x) ← best
+    -amdgpu-unroll-threshold-if=600 → 12306.6 ms (1.011x)
+    -loop-load-elimination-scev-check-threshold=1 → 12287.9 ms (1.013x) ← best
+    -loop-load-elimination-scev-check-threshold=2 → 12212.3 ms (1.019x) ← best
+    -loop-load-elimination-scev-check-threshold=4 → 12223.8 ms (1.018x)
+    -loop-distribute-scev-check-threshold=16 → 12348.3 ms (1.008x) ← best
+    -loop-distribute-scev-check-threshold=32 → 12088.3 ms (1.029x) ← best
+    -loop-distribute-scev-check-threshold=64 → 12582.4 ms (0.989x)
+    -instcombine-max-iterations=1 → 12593.0 ms (0.988x)
+    -instcombine-max-iterations=3 → 12440.4 ms (1.000x) ← best
+    -instcombine-max-iterations=6 → 12508.0 ms (0.995x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-slp-threshold', [-4, -2]), ('-gvn-hoist-max-bbs', [10, 20]), ('-amdgpu-unroll-threshold-if', [150, 300, 600])]
+  Phase B — joint search (best pairs):
+    -slp-threshold=-4, -gvn-hoist-max-bbs=10 → 12458.0 ms (0.999x)
+    -slp-threshold=-4, -gvn-hoist-max-bbs=20 → 12159.0 ms (1.023x)
+    -slp-threshold=-2, -gvn-hoist-max-bbs=10 → 12013.3 ms (1.036x)
+    -slp-threshold=-2, -gvn-hoist-max-bbs=20 → 12118.2 ms (1.027x)
+  Best: -mllvm -slp-threshold=-4  → 11648.93 ms (1.068x)
+  Re-tuned flags: -mllvm -slp-threshold=-4
+
+[Source round 2/8]  (building on round 1 best)
+  Speedup: 0.769x (-23.1%)  19291.70 ms
+  No improvement over best (1.182x) — next round still builds on current best
+
+[Source round 3/8]  (building on round 2 best)
+  Speedup: 1.007x (+0.7%)  14576.83 ms
+  No improvement over best (1.182x) — next round still builds on current best
+
+[Source round 4/8]  (building on round 3 best)
+  Speedup: 0.985x (-1.5%)  14815.22 ms
+  No improvement over best (1.182x) — next round still builds on current best
+
+[Source round 5/8]  (building on round 4 best)
+  Speedup: 0.857x (-14.3%)  17008.29 ms
+  No improvement over best (1.182x) — next round still builds on current best
+
+[Source round 6/8]  (building on round 5 best)
+  Speedup: 1.171x (+17.1%)  12290.19 ms
+  No improvement over best (1.182x) — next round still builds on current best
+
+[Source round 7/8]  (building on round 6 best)
+  Speedup: 1.057x (+5.7%)  13814.30 ms
+  No improvement over best (1.182x) — next round still builds on current best
+
+[Source round 8/8]  (building on round 7 best)
+  Speedup: 1.127x (+12.7%)  12972.00 ms
+  No improvement over best (1.182x) — next round still builds on current best
+
+============================================================
+Program:      floyd-warshall
+Baseline -O3: 16061.19 ms
+Param flags:  -mllvm -slp-threshold=0 -mllvm -loop-distribute-scev-check-threshold=32  (1.094x)
+Source best:  1.182x (source + initial param flags)
+Retune flags: -mllvm -slp-threshold=-4 (applied to final best source)
+Saved:        outputs/floyd-warshall_optimized.c
+To compile:   clang -O3 -march=native -mllvm -slp-threshold=-4 outputs/floyd-warshall_optimized.c ...
+============================================================

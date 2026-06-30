@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-06-17T20:02:44.601019",
+  "test_type": "baseline_only",
+  "total_benchmarks": 5,
+  "successful": 5,
+  "failed": 0,
+  "results": {
+    "3mm": {
+      "status": "SUCCESS",
+      "baseline_ms": 15829.763412475586,
+      "description": "3MM - \u77e9\u9635\u4e58\u6cd5",
+      "category": "\u7ebf\u6027\u4ee3\u6570"
+    },
+    "jacobi-2d": {
+      "status": "SUCCESS",
+      "baseline_ms": 9397.123575210571,
+      "description": "Jacobi-2D - \u8fed\u4ee3\u7f51\u683c\u8ba1\u7b97",
+      "category": "\u7f51\u683c\u8ba1\u7b97"
+    },
+    "gemm": {
+      "status": "SUCCESS",
+      "baseline_ms": 3993.619441986084,
+      "description": "GEMM - \u77e9\u9635\u4e58\u6cd5 BLAS",
+      "category": "\u7ebf\u6027\u4ee3\u6570"
+    },
+    "correlation": {
+      "status": "SUCCESS",
+      "baseline_ms": 8326.207637786865,
+      "description": "Correlation - \u6570\u636e\u76f8\u5173\u6027",
+      "category": "\u6570\u636e\u6316\u6398"
+    },
+    "heat-3d": {
+      "status": "SUCCESS",
+      "baseline_ms": 18822.989463806152,
+      "description": "Heat-3D - \u70ed\u6269\u6563\u65b9\u7a0b",
+      "category": "\u6a21\u677f\u8ba1\u7b97"
+    }
+  }
+}

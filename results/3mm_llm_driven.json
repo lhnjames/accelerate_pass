@@ -1,0 +1,22 @@
+{
+  "baseline_ms": 14139.120101928711,
+  "best_runtime_ms": 12466.203212738037,
+  "final_speedup": 1.134196183123445,
+  "improvement_percent": 13.419618312344506,
+  "best_sequence": [
+    "newgvn",
+    "dce",
+    "sccp",
+    "aggressive-instcombine",
+    "bdce"
+  ],
+  "total_iterations": 46,
+  "visited_sequences": 60,
+  "compilation_success": 21,
+  "compilation_failures": 39,
+  "success_rate": 35.0,
+  "target_achievement": {
+    "20_percent": false,
+    "100_iterations": false
+  }
+}

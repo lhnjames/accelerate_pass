@@ -1,0 +1,71 @@
+{
+  "timestamp": "2026-06-17T20:14:30.016425",
+  "benchmarks_tested": 5,
+  "successful": 5,
+  "failed": 0,
+  "results": {
+    "3mm": {
+      "status": "SUCCESS",
+      "description": "\u77e9\u9635\u4e58\u6cd5 (3MM)",
+      "type": "\u5faa\u73af\u5bc6\u96c6\u578b",
+      "baseline_ms": 14416.356086730957,
+      "best_optimized_ms": 13886.740922927856,
+      "best_speedup": 1.0381381900002666,
+      "improvement_percent": 3.8138190000266636,
+      "best_sequence": [
+        "mem2reg",
+        "sroa"
+      ],
+      "successful_optimizations": 2
+    },
+    "jacobi-2d": {
+      "status": "SUCCESS",
+      "description": "2D Jacobi \u8fed\u4ee3",
+      "type": "\u7f51\u683c\u8ba1\u7b97",
+      "baseline_ms": 9271.307945251465,
+      "best_optimized_ms": 9067.843198776245,
+      "best_speedup": 1.0224380530204447,
+      "improvement_percent": 2.243805302044466,
+      "best_sequence": [
+        "loop-vectorize"
+      ],
+      "successful_optimizations": 1
+    },
+    "gemm": {
+      "status": "SUCCESS",
+      "description": "GEMM (\u77e9\u9635\u4e58\u6cd5)",
+      "type": "\u7ebf\u6027\u4ee3\u6570",
+      "baseline_ms": 3680.5546283721924,
+      "best_optimized_ms": 3620.6443309783936,
+      "best_speedup": 1.0165468607013408,
+      "improvement_percent": 1.6546860701340815,
+      "best_sequence": [
+        "loop-simplify",
+        "loop-vectorize"
+      ],
+      "successful_optimizations": 1
+    },
+    "correlation": {
+      "status": "SUCCESS",
+      "description": "\u6570\u636e\u76f8\u5173\u6027\u8ba1\u7b97",
+      "type": "\u6570\u636e\u6316\u6398",
+      "baseline_ms": 7303.471803665161,
+      "best_optimized_ms": 7303.471803665161,
+      "best_speedup": 1.0,
+      "improvement_percent": 0.0,
+      "best_sequence": [],
+      "successful_optimizations": 0
+    },
+    "heat-3d": {
+      "status": "SUCCESS",
+      "description": "3D \u70ed\u6269\u6563\u65b9\u7a0b",
+      "type": "\u6a21\u677f\u8ba1\u7b97",
+      "baseline_ms": 18866.384029388428,
+      "best_optimized_ms": 18866.384029388428,
+      "best_speedup": 1.0,
+      "improvement_percent": 0.0,
+      "best_sequence": [],
+      "successful_optimizations": 0
+    }
+  }
+}

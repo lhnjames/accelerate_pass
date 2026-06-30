@@ -1,0 +1,76 @@
+2026-06-17 14:32:59,387 - __main__ - INFO - 初始化系统...
+2026-06-17 14:32:59,391 - src.config - INFO - Loaded YAML config from configs_quick/config.yaml
+2026-06-17 14:32:59,392 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 14:32:59,404 - src.config - INFO - Loaded pass database from configs_quick/pass_database.yaml
+2026-06-17 14:32:59,411 - src.config - INFO - Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+2026-06-17 14:32:59,851 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:32:59,852 - __main__ - INFO - 可用passes: 755
+2026-06-17 14:32:59,852 - __main__ - INFO - 测量baseline...
+2026-06-17 14:33:00,377 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:33:00,378 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:33:00,433 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:34:18,857 - __main__ - INFO - Baseline: 26078.88ms
+2026-06-17 14:34:18,857 - __main__ - INFO - 开始渐进式优化搜索...
+2026-06-17 14:34:18,857 - __main__ - INFO - 初始目标: 1.20x
+2026-06-17 14:34:18,880 - src.pass_dependency_analyzer - INFO - Extracted dependencies for 20 passes
+2026-06-17 14:34:19,527 - __main__ - INFO - 
+迭代 1: loop-simplify
+2026-06-17 14:34:19,528 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:34:20,367 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:36:09,088 - __main__ - INFO -   → 27465.12ms (加速比: 0.950x, 目标: 1.20x)
+2026-06-17 14:36:09,088 - __main__ - INFO - 
+迭代 1: -polly-only-region
+2026-06-17 14:36:09,089 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:36:09,288 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name '-polly-only-region'
+
+2026-06-17 14:36:09,288 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:36:09,288 - __main__ - INFO - 
+迭代 1: -emulated-tls
+2026-06-17 14:36:09,289 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:36:09,602 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name '-emulated-tls'
+
+2026-06-17 14:36:09,603 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:36:09,603 - __main__ - INFO - 
+迭代 1: -instcombine
+2026-06-17 14:36:09,603 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:36:09,852 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name '-instcombine'
+
+2026-06-17 14:36:09,852 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:36:09,852 - __main__ - INFO - 
+迭代 1: -ipconstprop
+2026-06-17 14:36:09,852 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:36:10,138 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name '-ipconstprop'
+
+2026-06-17 14:36:10,138 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:36:10,138 - __main__ - INFO - 无法找到更好的优化
+2026-06-17 14:36:10,138 - __main__ - INFO - Results saved to results/3mm_progressive_results.json
+================================================================================
+3MM PROGRESSIVE OPTIMIZATION - TARGETING 20%+ INCREMENTAL IMPROVEMENTS
+================================================================================
+
+
+================================================================================
+STARTING PROGRESSIVE OPTIMIZATION
+================================================================================
+
+
+
+================================================================================
+FINAL RESULTS
+================================================================================
+
+Baseline:              26078.88ms
+Best optimized:        26078.88ms
+Final speedup:         1.000x
+Final improvement:     0.0%
+
+Best sequence (0 passes):
+
+Optimization milestones:
+
+Search statistics:
+  - Total iterations: 1
+  - Visited sequences: 5
+  - Milestones reached: 0
+
+================================================================================

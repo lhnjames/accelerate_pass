@@ -1,0 +1,76 @@
+2026-06-17 12:21:23,843 - __main__ - INFO - ======================================================================
+2026-06-17 12:21:23,843 - __main__ - INFO - COMET: Compiler Observable-Guided Monte Carlo Exploration
+2026-06-17 12:21:23,843 - __main__ - INFO - ======================================================================
+2026-06-17 12:21:23,843 - __main__ - INFO - Program: /home/hanning/accelerate/PolyBenchC/linear-algebra/kernels/3mm/3mm.c
+2026-06-17 12:21:23,843 - __main__ - INFO - Input: stdin
+2026-06-17 12:21:23,843 - __main__ - INFO - Budget: 50 measurements
+2026-06-17 12:21:23,843 - __main__ - INFO - Config: configs
+2026-06-17 12:21:23,847 - src.config - INFO - Loaded YAML config from configs/config.yaml
+2026-06-17 12:21:23,847 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 12:21:23,856 - src.config - INFO - Loaded pass database from configs/pass_database.yaml
+2026-06-17 12:21:23,862 - src.config - INFO - Loaded bottleneck mapping from configs/bottleneck_mapping.yaml
+2026-06-17 12:21:23,862 - __main__ - INFO - 
+======================================================================
+2026-06-17 12:21:23,862 - __main__ - INFO - Phase 0: Compiler Observable Extraction
+2026-06-17 12:21:23,862 - __main__ - INFO - ======================================================================
+2026-06-17 12:21:23,862 - __main__ - INFO - Measuring baseline runtime...
+2026-06-17 12:21:23,862 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC/utilities
+2026-06-17 12:21:23,922 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC/utilities/polybench.c
+2026-06-17 12:22:08,397 - src.runtime_measurement - DEBUG - Measurement complete: 3 runs, times=['16756.52', '14521.73', '13018.53'], median=14521.73ms
+2026-06-17 12:22:08,397 - __main__ - INFO - Baseline runtime: 14521.73ms
+2026-06-17 12:22:08,397 - __main__ - INFO - Extracting baseline remarks...
+2026-06-17 12:22:08,457 - src.static_analyzer - DEBUG - Running remarks extraction: /usr/bin/opt-11 -O3 -pass-remarks-output=/tmp/tmp95dypjjl.yaml
+2026-06-17 12:22:08,506 - src.static_analyzer - ERROR - Error parsing remarks file: could not determine a constructor for the tag '!Missed'
+  in "<unicode string>", line 1, column 5:
+    --- !Missed
+        ^
+2026-06-17 12:22:08,507 - __main__ - INFO - Baseline remarks: 0 missed, 0 applied
+2026-06-17 12:22:08,507 - __main__ - INFO - Extracting dynamic profile...
+2026-06-17 12:22:11,438 - src.dynamic_profiler - ERROR - Failed to parse VTune CSV: [Errno 2] No such file or directory: '/tmp/vtune_result/hotspots_tma.csv'
+2026-06-17 12:22:11,438 - __main__ - WARNING - Dynamic profiling not available, using fallback
+2026-06-17 12:22:11,439 - __main__ - INFO - Building structured context C₀...
+2026-06-17 12:22:11,439 - __main__ - INFO - Context built for 3mm
+2026-06-17 12:22:11,439 - __main__ - INFO - 
+======================================================================
+2026-06-17 12:22:11,439 - __main__ - INFO - Phase 1 & 2: LLM Diagnosis + MCTS Search
+2026-06-17 12:22:11,439 - __main__ - INFO - ======================================================================
+2026-06-17 12:22:11,440 - src.orchestrator - INFO - COMET Orchestrator initialized
+2026-06-17 12:22:11,440 - src.orchestrator - INFO - COMET Pipeline Starting
+2026-06-17 12:22:11,440 - src.orchestrator - INFO - ============================================================
+2026-06-17 12:22:11,440 - src.orchestrator - INFO - ============================================================
+2026-06-17 12:22:11,440 - src.orchestrator - INFO - Phase 0: Information Extraction
+2026-06-17 12:22:11,440 - src.orchestrator - INFO - ============================================================
+2026-06-17 12:22:11,440 - src.orchestrator - INFO - Extracting baseline (-O3) IR and remarks...
+2026-06-17 12:22:11,441 - src.compiler_manager - DEBUG - Extract IR (clang -emit-llvm) command: /usr/bin/clang-11 -S -emit-llvm -O0 -g -std=c99 -I/home/hanning/accelerate/PolyBenchC/utilities /home/hanning/accelerate/PolyBenchC/linear-algebra/kernels/3mm/3mm.c -o /tmp/tmp5su086ci.ll
+2026-06-17 12:22:11,508 - src.static_analyzer - DEBUG - Running remarks extraction: /usr/bin/opt-11 -O3 -pass-remarks-output=/tmp/tmp1hkf5pdo.yaml
+2026-06-17 12:22:11,544 - src.static_analyzer - ERROR - Error parsing remarks file: could not determine a constructor for the tag '!Missed'
+  in "<unicode string>", line 1, column 5:
+    --- !Missed
+        ^
+2026-06-17 12:22:11,545 - src.orchestrator - INFO - Baseline: 0 missed, 0 applied, 257 instructions
+2026-06-17 12:22:11,545 - src.orchestrator - INFO - Structured context built: 0 primary passes
+2026-06-17 12:22:11,545 - src.orchestrator - INFO - ============================================================
+2026-06-17 12:22:11,545 - src.orchestrator - INFO - Phase 1: LLM Initial Diagnosis
+2026-06-17 12:22:11,546 - src.orchestrator - INFO - ============================================================
+2026-06-17 12:22:11,546 - src.llm_client - DEBUG - Calling Deepseek API (model=ep-20260617184819-9ftrx, tokens=2000)
+2026-06-17 12:22:11,550 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): ark.cn-beijing.volces.com:443
+2026-06-17 12:22:43,997 - urllib3.connectionpool - DEBUG - https://ark.cn-beijing.volces.com:443 "POST /api/v3/chat/completions HTTP/11" 200 1900
+2026-06-17 12:22:43,998 - src.llm_client - DEBUG - API call #1 succeeded
+2026-06-17 12:22:43,998 - src.orchestrator - INFO - Diagnosis: The program is memory-bound due to poor data locality in nested loops, limiting performance despite no missed optimization remarks.
+2026-06-17 12:22:43,998 - src.orchestrator - INFO - Strategies: ['Loop Tiling/Blocking', 'Loop Interchange', 'Loop Fusion', 'Vectorization', 'Memory Access Optimizations', 'Inlining', 'Interprocedural Optimization', 'Auto-parallelization']
+2026-06-17 12:22:43,998 - src.orchestrator - INFO - ============================================================
+2026-06-17 12:22:43,998 - src.orchestrator - INFO - Phase 2: MCTS Search
+2026-06-17 12:22:43,998 - src.orchestrator - INFO - ============================================================
+2026-06-17 12:22:43,998 - __main__ - ERROR - Phase 2 failed: 'StructuredContext' object has no attribute 'baseline_remarks'
+Traceback (most recent call last):
+  File "/home/hanning/accelerate/comet/run_comet_full.py", line 199, in run_comet_pipeline
+    best_passes = orchestrator.run_full_pipeline(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/src/orchestrator.py", line 474, in run_full_pipeline
+    best_node = self.run_phase2_mcts(source_file, context)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/src/orchestrator.py", line 301, in run_phase2_mcts
+    baseline_missed_count=len(context.baseline_remarks.missed) if context.baseline_remarks else 0,
+                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'StructuredContext' object has no attribute 'baseline_remarks'
+2026-06-17 12:22:44,004 - __main__ - ERROR - COMET failed: Phase 2 failed: 'StructuredContext' object has no attribute 'baseline_remarks'

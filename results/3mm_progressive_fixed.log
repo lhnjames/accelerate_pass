@@ -1,0 +1,140 @@
+2026-06-17 19:05:43,913 - __main__ - INFO - 初始化系统...
+2026-06-17 19:05:43,916 - src.config - INFO - Loaded YAML config from configs_quick/config.yaml
+2026-06-17 19:05:43,916 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 19:05:43,926 - src.config - INFO - Loaded pass database from configs_quick/pass_database.yaml
+2026-06-17 19:05:43,932 - src.config - INFO - Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+2026-06-17 19:05:44,465 - src.dynamic_pass_extractor - INFO - Found 737 available passes
+2026-06-17 19:05:44,465 - __main__ - INFO - 可用passes: 737
+2026-06-17 19:05:44,465 - __main__ - INFO - 测量baseline...
+2026-06-17 19:05:44,991 - src.dynamic_pass_extractor - INFO - Found 737 available passes
+2026-06-17 19:05:44,993 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:05:45,055 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:06:28,323 - __main__ - INFO - Baseline: 14601.40ms
+2026-06-17 19:06:28,324 - __main__ - INFO - 开始渐进式优化搜索...
+2026-06-17 19:06:28,324 - __main__ - INFO - 初始目标: 1.20x
+2026-06-17 19:06:28,353 - src.pass_dependency_analyzer - INFO - Extracted dependencies for 20 passes
+2026-06-17 19:06:28,612 - __main__ - INFO - 
+迭代 1: memdep
+2026-06-17 19:06:28,613 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:06:28,748 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'memdep'
+
+2026-06-17 19:06:28,748 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:06:28,748 - __main__ - INFO - 
+迭代 1: loop-simplify
+2026-06-17 19:06:28,749 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:06:28,846 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:07:17,585 - __main__ - INFO -   → 14482.20ms (加速比: 1.008x, 目标: 1.20x)
+2026-06-17 19:07:17,585 - __main__ - INFO -   ✓ 新的最优结果！
+2026-06-17 19:07:17,585 - __main__ - INFO - 
+迭代 1: loop-simplify → domtree
+2026-06-17 19:07:17,586 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:07:17,711 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'domtree'
+
+2026-06-17 19:07:17,712 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:07:17,712 - __main__ - INFO - 
+迭代 1: loop-simplify → msan
+2026-06-17 19:07:17,712 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:07:17,807 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:07:17,994 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/ld: /tmp/prog-262761.o: in function `main':
+3mm.c:(.text+0x1a1): undefined reference to `__msan_param_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1b8): undefined reference to `__msan_retval_tls'
+/usr/bin/ld: 3mm.c:(.text+0x535): undefined reference to `__msan_param_tls'
+/usr/bin/ld: 3mm.c:(.text+0x54d): undefined reference to `__msan_retval_tls'
+/usr/bin/ld: 3mm.c:(.text+0x57b): undefined reference to `__msan_param_tls'
+/usr/bin/ld: 3mm.c:(.text+0x5a5): undefined reference to `__msan_param_tls'
+/usr/bin/ld: 3mm.c:(.text+0x659): undefined reference to `__msan_retval_tls'
+/usr/bin/ld: /tmp/prog-262761.o: in function `print_array':
+3mm.c:(.text+0x18ef): undefined reference to `__msan_param_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1907): undefined reference to `__msan_va_arg_overflow_size_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1916): undefined reference to `__msan_retval_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1965): undefined reference to `__msan_va_arg_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1a20): undefined reference to `__msan_param_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1a38): undefined reference to `__msan_va_arg_overflow_size_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1a47): undefined reference to `__msan_retval_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1a88): undefined reference to `__msan_param_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1aa9): undefined reference to `__msan_va_arg_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1ab9): undefined reference to `__msan_va_arg_overflow_size_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1ac8): undefined reference to `__msan_retval_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1b3d): undefined reference to `__msan_param_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1b5e): undefined reference to `__msan_va_arg_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1b6e): undefined reference to `__msan_va_arg_overflow_size_tls'
+/usr/bin/ld: 3mm.c:(.text+0x1b7d): undefined reference to `__msan_retval_tls'
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+
+2026-06-17 19:07:17,994 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:07:17,994 - __main__ - INFO - 
+迭代 1: loop-simplify → targetlibinfo
+2026-06-17 19:07:17,994 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:07:18,087 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'targetlibinfo'
+
+2026-06-17 19:07:18,087 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:07:18,515 - __main__ - INFO - 
+迭代 2: loop-simplify → lcssa
+2026-06-17 19:07:18,515 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:07:18,615 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:08:02,751 - __main__ - INFO -   → 14862.40ms (加速比: 0.982x, 目标: 1.20x)
+2026-06-17 19:08:02,752 - __main__ - INFO - 
+迭代 2: loop-simplify → memdep
+2026-06-17 19:08:02,752 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:08:02,875 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'memdep'
+
+2026-06-17 19:08:02,876 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:08:04,881 - __main__ - INFO - ════ 进度: 10/200 ════
+2026-06-17 19:08:04,882 - __main__ - INFO - 当前最优: 1.008x (目标: 1.20x)
+2026-06-17 19:08:04,882 - __main__ - INFO - 序列: loop-simplify
+2026-06-17 19:08:07,291 - __main__ - INFO - ════ 进度: 20/200 ════
+2026-06-17 19:08:07,292 - __main__ - INFO - 当前最优: 1.008x (目标: 1.20x)
+2026-06-17 19:08:07,292 - __main__ - INFO - 序列: loop-simplify
+2026-06-17 19:08:09,892 - __main__ - INFO - ════ 进度: 30/200 ════
+2026-06-17 19:08:09,892 - __main__ - INFO - 当前最优: 1.008x (目标: 1.20x)
+2026-06-17 19:08:09,892 - __main__ - INFO - 序列: loop-simplify
+2026-06-17 19:08:13,012 - __main__ - INFO - ════ 进度: 40/200 ════
+2026-06-17 19:08:13,012 - __main__ - INFO - 当前最优: 1.008x (目标: 1.20x)
+2026-06-17 19:08:13,012 - __main__ - INFO - 序列: loop-simplify
+2026-06-17 19:08:15,676 - __main__ - INFO - ════ 进度: 50/200 ════
+2026-06-17 19:08:15,676 - __main__ - INFO - 当前最优: 1.008x (目标: 1.20x)
+2026-06-17 19:08:15,676 - __main__ - INFO - 序列: loop-simplify
+2026-06-17 19:08:15,676 - __main__ - INFO - 连续49轮无改进，停止搜索
+2026-06-17 19:08:15,676 - __main__ - INFO - 无法找到更好的优化
+2026-06-17 19:08:15,677 - __main__ - INFO - Results saved to results/3mm_progressive_results.json
+================================================================================
+3MM PROGRESSIVE OPTIMIZATION - TARGETING 20%+ INCREMENTAL IMPROVEMENTS
+================================================================================
+
+
+================================================================================
+STARTING PROGRESSIVE OPTIMIZATION
+================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+================================================================================
+FINAL RESULTS
+================================================================================
+
+Baseline:              14601.40ms
+Best optimized:        14482.20ms
+Final speedup:         1.008x
+Final improvement:     0.8%
+
+Best sequence (1 passes):
+  1. loop-simplify
+
+Optimization milestones:
+
+Search statistics:
+  - Total iterations: 51
+  - Visited sequences: 7
+  - Milestones reached: 0
+
+================================================================================

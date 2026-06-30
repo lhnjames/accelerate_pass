@@ -1,0 +1,68 @@
+[19:03:32] START correlation
+[19:03:32] START covariance
+[19:03:32] START gemm
+[19:19:23] DONE  gemm
+[19:41:54] DONE  covariance
+[19:47:13] DONE  correlation
+[19:47:13] START gemver
+[19:47:13] START gesummv
+[19:47:13] START symm
+[19:59:32] DONE  gesummv
+[20:02:48] DONE  gemver
+[20:02:48] START syr2k
+[20:02:48] START syrk
+[20:17:56] DONE  symm
+[20:17:56] START trmm
+[20:26:40] DONE  syrk
+[20:46:09] DONE  syr2k
+[20:46:09] START 2mm
+[20:46:09] START 3mm
+[20:49:06] DONE  trmm
+[20:49:06] START atax
+[21:06:58] DONE  atax
+[21:22:29] DONE  2mm
+[21:22:29] START bicg
+[21:22:50] DONE  3mm
+[21:22:50] START doitgen
+[21:22:50] START mvt
+[21:42:34] DONE  bicg
+[21:42:34] START cholesky
+[21:43:09] DONE  mvt
+[21:48:39] DONE  doitgen
+[21:48:39] START durbin
+[21:48:39] START gramschmidt
+[21:58:45] DONE  durbin
+[22:59:12] DONE  gramschmidt
+[23:25:25] DONE  cholesky
+[23:25:25] START ludcmp
+[23:25:25] START lu
+[23:25:25] START trisolv
+[23:36:49] DONE  trisolv
+[01:25:13] DONE  lu
+[06:41:49] DONE  ludcmp
+[06:41:49] START deriche
+[06:41:49] START floyd-warshall
+[06:41:49] START nussinov
+[06:59:23] DONE  deriche
+[06:59:23] START adi
+[07:30:16] DONE  nussinov
+[08:18:32] DONE  floyd-warshall
+[08:18:32] START fdtd-2d
+[08:18:32] START heat-3d
+[08:26:26] DONE  adi
+[08:26:26] START jacobi-1d
+[08:38:15] DONE  jacobi-1d
+[08:50:38] DONE  heat-3d
+[09:09:00] DONE  fdtd-2d
+[09:09:01] START jacobi-2d
+[09:09:01] START seidel-2d
+[09:28:15] DONE  jacobi-2d
+[11:37:38] DONE  seidel-2d
+
+========================================
+All 30 benchmarks complete.
+========================================
+
+=== RESULTS SUMMARY ===
+benchmark               baseline(ms)  param     source  
+---------               ------------  -----     ------  

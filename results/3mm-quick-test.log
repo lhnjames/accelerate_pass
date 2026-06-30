@@ -1,0 +1,18 @@
+2026-06-17 14:04:51,113 - __main__ - INFO - ======================================================================
+2026-06-17 14:04:51,113 - __main__ - INFO - COMET: Compiler Observable-Guided Monte Carlo Exploration
+2026-06-17 14:04:51,113 - __main__ - INFO - ======================================================================
+2026-06-17 14:04:51,113 - __main__ - INFO - Program: /home/hanning/accelerate/PolyBenchC_no_rag/linear-algebra/kernels/3mm/3mm.c
+2026-06-17 14:04:51,113 - __main__ - INFO - Input: stdin
+2026-06-17 14:04:51,113 - __main__ - INFO - Budget: 50 measurements
+2026-06-17 14:04:51,113 - __main__ - INFO - Config: /tmp
+2026-06-17 14:04:51,113 - __main__ - ERROR - Failed to load config: Config file not found: /tmp/config.yaml
+Traceback (most recent call last):
+  File "/home/hanning/accelerate/comet/run_comet_full.py", line 87, in run_comet_pipeline
+    config = loader.load_all()
+             ^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/src/config.py", line 134, in load_all
+    self.load_yaml_config()
+  File "/home/hanning/accelerate/comet/src/config.py", line 81, in load_yaml_config
+    raise FileNotFoundError(f"Config file not found: {config_path}")
+FileNotFoundError: Config file not found: /tmp/config.yaml
+2026-06-17 14:04:51,114 - __main__ - ERROR - COMET failed: Config file not found: /tmp/config.yaml

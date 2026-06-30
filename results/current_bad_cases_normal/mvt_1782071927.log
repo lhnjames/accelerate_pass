@@ -1,0 +1,366 @@
+2026-06-21 20:58:47,335 INFO [comet.run] Log file: results/current_bad_cases_normal/mvt_1782071927.log
+2026-06-21 20:58:47,335 INFO [comet.run] ======================================================================
+2026-06-21 20:58:47,335 INFO [comet.run] COMET - Compiler Observable-Guided Monte Carlo Exploration
+2026-06-21 20:58:47,335 INFO [comet.run] Program : mvt
+2026-06-21 20:58:47,335 INFO [comet.run] Source  : PolyBenchC_no_rag/linear-algebra/kernels/mvt/mvt.c
+2026-06-21 20:58:47,335 INFO [comet.run] Config  : configs
+2026-06-21 20:58:47,335 INFO [comet.run] Output  : results/current_bad_cases_normal
+2026-06-21 20:58:47,335 INFO [comet.run] LLM     : deepseek-v4-flash
+2026-06-21 20:58:47,335 INFO [comet.run] MCTS    : 150 iterations, budget=50
+2026-06-21 20:58:47,335 INFO [comet.run] ======================================================================
+2026-06-21 20:58:47,336 INFO [src.orchestrator] [Ablation] --no-llm: LLM disabled, running pure MCTS+keyword heuristics
+2026-06-21 20:58:47,337 INFO [src.knowledge_base] Loaded KB from configs/knowledge_base.json with 11 entries
+2026-06-21 20:58:47,580 INFO [src.profiler] [Profiler] VTune environment verified — VTune profiling enabled
+2026-06-21 20:58:47,581 INFO [src.measurement_cache] [MeasCache] Loaded 72 entries from outputs/measurement_cache.json (72 match current toolchain fingerprint)
+2026-06-21 20:58:47,581 INFO [src.orchestrator] COMET Orchestrator initialized
+2026-06-21 20:58:47,581 INFO [src.orchestrator] [RNG] random.seed(42) set for reproducibility
+2026-06-21 20:58:47,581 INFO [src.orchestrator] ============================================================
+2026-06-21 20:58:47,581 INFO [src.orchestrator] Phase 0: Information Extraction
+2026-06-21 20:58:47,582 INFO [src.orchestrator] ============================================================
+2026-06-21 20:58:49,381 INFO [src.dynamic_pass_extractor] [PassPool] 'pgo-instr-gen' inserts instrumentation (@llvm.instrprof) — excluded from optimization pool, LLM will be notified
+2026-06-21 20:59:02,000 INFO [src.dynamic_pass_extractor] [PassPool] 'asan-module' inserts instrumentation (@__asan_) — excluded from optimization pool, LLM will be notified
+2026-06-21 20:59:03,855 INFO [src.dynamic_pass_extractor] [PassPool] 'tsan' inserts instrumentation (@__tsan_) — excluded from optimization pool, LLM will be notified
+2026-06-21 20:59:09,229 INFO [src.dynamic_pass_extractor] [PassPool] 'instrprof' inserts instrumentation (@__llvm_profile_) — excluded from optimization pool, LLM will be notified
+2026-06-21 20:59:10,362 INFO [src.dynamic_pass_extractor] [PassPool] 'hwasan' inserts instrumentation (@__hwasan_) — excluded from optimization pool, LLM will be notified
+2026-06-21 20:59:11,170 INFO [src.dynamic_pass_extractor] Found 120 valid passes after verification (filtered from 650 candidates)
+2026-06-21 20:59:11,170 INFO [src.orchestrator] Building pass keyword index and dependency map from opt binary...
+2026-06-21 20:59:14,970 INFO [src.orchestrator] [PassPool] Detected instrumentation passes (excluded, LLM notified): ['asan-module', 'hwasan', 'instrprof', 'pgo-instr-gen', 'tsan']
+2026-06-21 20:59:14,970 INFO [src.orchestrator] [PassPool] Adding 13 transformation passes that O3 does NOT run by default: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'indvars', 'loop-deletion', 'loop-unroll', 'loop-unroll-and-jam', 'loop-vectorize', 'memcpyopt', 'sccp', 'simplifycfg', 'slp-vectorizer']
+2026-06-21 20:59:14,970 INFO [src.orchestrator] [PassPool] Polly passes detected but not added to the general pool (runtime.enable_polly_passes=false): ['polly-codegen']
+2026-06-21 20:59:14,970 INFO [src.orchestrator] O3 remarks: 72 missed, 3 applied, 367 instructions
+2026-06-21 20:59:14,970 INFO [src.orchestrator] Beyond-O3 pass pool: 16 passes (from O3 missed-remarks=5, re-applicable=3, union∩available=16)
+2026-06-21 20:59:14,970 INFO [src.orchestrator] Measuring true O3 baseline runtime (clang -O3 integrated pipeline)...
+2026-06-21 20:59:15,042 INFO [src.runtime_measurement] [DirectO3] PolyBench -DPOLYBENCH_TIME -DLARGE_DATASET included
+2026-06-21 20:59:18,527 WARNING [src.runtime_measurement] [Measurement] High variance: CV=13.2% (median=26.7ms, stdev=3.5ms, n=9). CPU governor may be throttling. Consider more runs.
+2026-06-21 20:59:18,527 INFO [src.orchestrator] O3 baseline runtime: 26.71ms  (all MCTS improvements measured against this)
+2026-06-21 20:59:18,532 INFO [src.orchestrator] O3 IR stats: 170 instrs, 5 loops, 4 functions
+2026-06-21 20:59:18,533 INFO [src.orchestrator] O3 baseline IR saved: outputs/mvt_o3_baseline.ll
+2026-06-21 20:59:18,541 INFO [src.orchestrator] [Analyzer] Running LLVM analysis passes on O3 IR...
+2026-06-21 20:59:18,648 INFO [src.program_analyzer] [Analyzer] loops=8 depth=2 trip=[1999, 1999, 1999] vec=False fp=True stride1=True
+2026-06-21 20:59:18,648 INFO [src.orchestrator] [Analyzer] Loops: 8 loops, max depth=2, nested, known trip counts: [999, 1999]
+2026-06-21 20:59:18,649 INFO [src.orchestrator] [PreScreen] Testing 16 passes on O3 IR...
+2026-06-21 20:59:18,797 INFO [src.pass_prescreener] [PreScreen] 16 passes screened: 6 effective, 10 no-op, 0 failed
+2026-06-21 20:59:18,797 INFO [src.pass_prescreener] [PreScreen]   indvars: instrs +1
+2026-06-21 20:59:18,797 INFO [src.pass_prescreener] [PreScreen]   licm: instrs +1
+2026-06-21 20:59:18,797 INFO [src.pass_prescreener] [PreScreen]   loop-deletion: instrs +1
+2026-06-21 20:59:18,797 INFO [src.pass_prescreener] [PreScreen]   loop-unroll: instrs +1
+2026-06-21 20:59:18,797 INFO [src.pass_prescreener] [PreScreen]   loop-unroll-and-jam: instrs +1
+2026-06-21 20:59:18,797 INFO [src.pass_prescreener] [PreScreen]   loop-vectorize: instrs +1
+2026-06-21 20:59:18,797 INFO [src.orchestrator] [PreScreen] effective=['indvars', 'licm', 'loop-deletion', 'loop-unroll', 'loop-unroll-and-jam', 'loop-vectorize'], noop=['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'inline', 'memcpyopt', 'sccp', 'simplifycfg', 'slp-vectorizer']
+2026-06-21 20:59:18,797 INFO [src.orchestrator] [Profiler] Running perf on O3 baseline binary...
+2026-06-21 20:59:24,931 INFO [src.orchestrator] [Profiler] O3 baseline: ipc=0.5448 cache_miss=102.575% hot_fns=['main', 'page_fault', 'do_page_fault']
+2026-06-21 20:59:24,932 INFO [src.orchestrator] [Workload] Classification: memory_bound
+2026-06-21 20:59:24,932 INFO [src.orchestrator] [Workload] Hint (first line): ## WORKLOAD CLASSIFICATION: MEMORY-BOUND
+2026-06-21 20:59:24,933 INFO [src.orchestrator] Cleaned up temporary O0 IR file: /home/hanning/accelerate/comet/tmp/tmpw081dbik.ll
+2026-06-21 20:59:24,933 INFO [src.orchestrator] Cleaned up temporary O3 IR file: /home/hanning/accelerate/comet/tmp/tmp18lsgj6a_o3.ll
+2026-06-21 20:59:24,933 INFO [src.orchestrator] ============================================================
+2026-06-21 20:59:24,934 INFO [src.orchestrator] Phase 1: LLM Initial Diagnosis (1 LLM call)
+2026-06-21 20:59:24,934 INFO [src.orchestrator] ============================================================
+2026-06-21 20:59:24,934 WARNING [src.orchestrator] No LLM client, skipping diagnosis
+2026-06-21 20:59:24,934 INFO [src.orchestrator] ============================================================
+2026-06-21 20:59:24,934 INFO [src.orchestrator] Phase 2: Beyond-O3 MCTS  (O3 baseline = 26.71ms)
+2026-06-21 20:59:24,934 INFO [src.orchestrator] ============================================================
+2026-06-21 20:59:24,935 INFO [src.orchestrator] Pre-computing O3 IR for MCTS starting point...
+2026-06-21 20:59:25,004 INFO [src.orchestrator] O3 IR ready: /home/hanning/accelerate/comet/tmp/tmpwkcp44_5_o3.ll
+2026-06-21 20:59:25,005 INFO [src.orchestrator] [SeedConstructor] 4 seeds: seed_kb(prior=0.35), seed_diverse_noinline(prior=0.26), seed_diverse_reverse(prior=0.21), seed_empty(prior=0.18)
+2026-06-21 20:59:25,005 INFO [src.orchestrator] Seeds: [('seed_kb', 2, 0.3509), ('seed_diverse_noinline', 8, 0.2632), ('seed_diverse_reverse', 6, 0.2105), ('seed_empty', 0, 0.1754)]
+2026-06-21 20:59:25,211 INFO [src.orchestrator]   seed_kb: missed=72, resolved=0, prior=0.351
+2026-06-21 20:59:25,612 INFO [src.orchestrator]   seed_diverse_noinline: missed=72, resolved=0, prior=0.263
+2026-06-21 20:59:25,782 WARNING [src.mcts_core] [add_seed_branch] seed 'seed_diverse_reverse' has duplicate ir_hash (e9febfd1); skipping
+2026-06-21 20:59:25,954 INFO [src.orchestrator]   seed_empty: missed=72, resolved=0, prior=0.175
+2026-06-21 20:59:25,954 INFO [src.orchestrator] [RewardFn] workload_class=memory_bound, effective_pool_size=6
+2026-06-21 20:59:25,954 INFO [src.orchestrator] [Orchestrator] Active microarchitectural bottlenecks detected: ['MEMORY_BOUND', 'DRAM_BOUND', 'L3_BOUND']
+2026-06-21 20:59:25,954 INFO [src.orchestrator] [Measure] iter=0 seq=['dse', 'licm']... runtime=24.7ms (faster by 7.6% vs O3) reward=0.0756
+2026-06-21 20:59:25,955 INFO [src.orchestrator] [Measure] iter=1 seq=['aggressive-instcombine', 'correlated-propagation', 'dse']... runtime=25.4ms (faster by 5.0% vs O3) reward=0.0496
+2026-06-21 20:59:25,956 INFO [src.orchestrator] [Measure] iter=2 seq=[]... runtime=25.4ms (faster by 4.9% vs O3) reward=0.0486
+2026-06-21 20:59:25,960 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 20:59:25,961 INFO [src.orchestrator] [MicroSearch] Generated 3 configurations (possible=3) for base passes ['dse', 'licm', 'licm']
+2026-06-21 20:59:26,218 INFO [src.orchestrator] [MicroSearch] Deduplicated to 1 unique IR states
+2026-06-21 20:59:26,319 INFO [src.runtime_measurement] Linked PolyBench utilities with -DPOLYBENCH_TIME -DLARGE_DATASET: PolyBenchC_no_rag/utilities/polybench.c
+2026-06-21 20:59:35,470 INFO [src.orchestrator] [MicroSearch] Seq ['dse', 'licm', 'licm'] -> Median Runtime: 26.39ms
+2026-06-21 20:59:41,586 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 20:59:41,686 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 20:59:41,687 INFO [src.orchestrator] [MicroSearch] Generated 9 configurations (possible=9) for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 20:59:43,750 INFO [src.orchestrator] [MicroSearch] Deduplicated to 1 unique IR states
+2026-06-21 20:59:43,993 INFO [src.runtime_measurement] Linked PolyBench utilities with -DPOLYBENCH_TIME -DLARGE_DATASET: PolyBenchC_no_rag/utilities/polybench.c
+2026-06-21 20:59:52,996 INFO [src.orchestrator] [MicroSearch] Seq ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] -> Median Runtime: 26.06ms
+2026-06-21 20:59:58,991 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 20:59:59,220 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 20:59:59,220 INFO [src.orchestrator] [MicroSearch] Generated 3 configurations (possible=3) for base passes ['dse', 'licm', 'dse']
+2026-06-21 20:59:59,492 INFO [src.orchestrator] [MicroSearch] Deduplicated to 1 unique IR states
+2026-06-21 20:59:59,627 INFO [src.runtime_measurement] Linked PolyBench utilities with -DPOLYBENCH_TIME -DLARGE_DATASET: PolyBenchC_no_rag/utilities/polybench.c
+2026-06-21 21:00:08,772 INFO [src.orchestrator] [MicroSearch] Seq ['dse', 'licm', 'dse'] -> Median Runtime: 25.72ms
+2026-06-21 21:00:15,033 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:15,137 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:15,138 INFO [src.orchestrator] [MicroSearch] Generated 3 configurations (possible=3) for base passes ['licm']
+2026-06-21 21:00:15,240 INFO [src.orchestrator] [MicroSearch] Deduplicated to 1 unique IR states
+2026-06-21 21:00:15,319 INFO [src.runtime_measurement] Linked PolyBench utilities with -DPOLYBENCH_TIME -DLARGE_DATASET: PolyBenchC_no_rag/utilities/polybench.c
+2026-06-21 21:00:21,617 WARNING [src.runtime_measurement] [Measurement] High variance: CV=8.9% (median=27.8ms, stdev=2.5ms, n=9). CPU governor may be throttling. Consider more runs.
+2026-06-21 21:00:24,639 INFO [src.orchestrator] [MicroSearch] Seq ['licm'] -> Median Runtime: 27.13ms
+2026-06-21 21:00:30,698 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['licm']
+2026-06-21 21:00:30,726 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:30,727 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:30,727 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:30,948 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:30,948 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:30,949 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:31,049 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:31,049 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:31,050 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:31,316 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:31,316 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:31,316 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:31,565 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:31,565 INFO [src.orchestrator] [MicroSearch] Generated 3 configurations (possible=3) for base passes ['dse', 'licm']
+2026-06-21 21:00:31,734 INFO [src.orchestrator] [MicroSearch] Deduplicated to 1 unique IR states
+2026-06-21 21:00:31,832 INFO [src.runtime_measurement] Linked PolyBench utilities with -DPOLYBENCH_TIME -DLARGE_DATASET: PolyBenchC_no_rag/utilities/polybench.c
+2026-06-21 21:00:40,917 INFO [src.orchestrator] [MicroSearch] Seq ['dse', 'licm'] -> Median Runtime: 26.22ms
+2026-06-21 21:00:46,984 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:47,040 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:47,040 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:47,040 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:47,131 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:47,131 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:47,131 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:47,370 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:47,370 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:47,370 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:47,485 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:47,485 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:47,485 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:47,551 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:47,551 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:47,551 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:47,882 INFO [src.runtime_measurement] Linked PolyBench utilities with -DPOLYBENCH_TIME -DLARGE_DATASET: PolyBenchC_no_rag/utilities/polybench.c
+2026-06-21 21:00:50,469 INFO [src.knowledge_base] Saved KB to configs/knowledge_base.json with 11 entries
+2026-06-21 21:00:50,633 INFO [src.orchestrator] [Measure] iter=24 seq=['dse']... runtime=26.0ms (faster by 2.8% vs O3) reward=0.0777
+2026-06-21 21:00:50,634 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:50,634 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:50,634 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:50,719 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:50,719 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:50,719 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:50,905 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:50,905 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:00:50,905 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:50,957 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:50,957 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:50,957 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:51,039 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:51,039 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:51,039 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:51,114 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:51,115 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:51,115 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:51,391 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:51,391 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:51,392 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:51,605 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:51,605 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:51,605 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:51,682 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:51,682 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:51,682 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:51,758 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:51,759 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:00:51,759 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:51,811 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:51,812 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:51,812 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:52,019 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:52,019 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:52,019 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:52,102 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:52,103 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:52,103 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:52,155 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:52,155 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:52,155 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:52,450 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:52,451 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:52,451 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:52,546 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:52,547 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:52,547 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:52,786 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:52,787 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:52,787 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:52,886 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:52,886 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:00:52,887 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:52,963 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:52,963 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:52,964 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:53,163 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:53,163 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:53,163 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:53,247 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:53,247 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:53,248 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:53,392 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:53,392 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:53,393 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:53,635 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:53,636 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:53,636 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:53,688 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:53,689 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:53,689 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:53,921 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:53,922 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:53,922 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:53,997 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:53,997 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:00:53,997 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:54,053 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:54,053 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:54,053 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:54,164 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:54,164 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:54,164 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:54,385 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:54,385 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:54,385 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:54,505 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:54,505 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:54,506 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:54,723 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:54,723 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:54,724 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:54,825 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:54,825 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:54,825 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:54,906 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:54,907 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:54,907 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:55,110 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:55,111 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:00:55,111 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:55,173 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:55,173 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:55,173 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:55,263 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:55,263 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:55,263 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:55,494 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:55,494 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:55,494 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:55,659 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:55,659 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:55,659 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:55,745 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:55,746 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:55,746 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:55,991 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:55,992 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:55,992 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:56,081 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:56,081 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:00:56,081 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:56,142 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:56,143 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:56,143 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:56,362 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:56,362 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:56,362 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:56,445 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:56,445 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:56,446 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:56,607 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:56,607 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:56,607 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:56,841 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:56,841 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:56,841 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:56,913 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:56,913 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:56,914 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:57,138 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:57,138 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:57,139 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:57,207 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:57,207 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:00:57,208 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:57,258 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:57,258 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:57,258 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:57,346 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:57,346 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:57,347 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:57,548 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:57,548 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:57,548 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:57,660 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:57,661 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:57,661 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:57,948 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:57,948 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:57,948 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:58,030 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:58,030 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:58,030 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:58,106 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:58,107 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:00:58,107 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:58,160 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:58,161 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:58,161 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:58,354 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:58,355 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:58,355 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:58,433 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:58,433 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:58,433 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:58,678 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:58,678 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:58,679 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:58,807 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:58,807 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:58,808 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:58,903 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:58,904 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:58,904 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:59,127 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:59,127 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:59,127 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:59,220 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:59,220 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:00:59,220 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:00:59,261 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:59,261 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:59,261 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:59,445 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:59,445 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:59,446 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:59,581 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:00:59,582 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:00:59,582 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:00:59,646 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:59,647 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:59,647 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:59,865 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:00:59,866 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:00:59,866 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:00:59,940 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:00:59,940 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:00:59,941 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:01:00,122 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'dse'] qualifies. Spawning micro search...
+2026-06-21 21:01:00,122 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'dse']
+2026-06-21 21:01:00,122 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'dse']
+2026-06-21 21:01:00,187 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:01:00,188 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm']
+2026-06-21 21:01:00,188 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm']
+2026-06-21 21:01:00,245 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['dse', 'licm', 'licm'] qualifies. Spawning micro search...
+2026-06-21 21:01:00,245 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['dse', 'licm', 'licm']
+2026-06-21 21:01:00,246 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['dse', 'licm', 'licm']
+2026-06-21 21:01:00,327 INFO [src.orchestrator] [MicroSearch] Coarse sequence ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion'] qualifies. Spawning micro search...
+2026-06-21 21:01:00,327 INFO [src.orchestrator] [MicroSearch] Cache hit for base passes ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:01:00,327 INFO [src.orchestrator] [MicroSearch] Optimal parameterized sequence: ['aggressive-instcombine', 'correlated-propagation', 'dse', 'early-cse-memssa', 'gvn', 'indvars', 'licm', 'loop-deletion']
+2026-06-21 21:01:00,613 INFO [src.orchestrator] Post-search: compiling top candidates in parallel...
+2026-06-21 21:01:00,613 INFO [src.orchestrator] Post-search: 0 unmeasured → 0 after dedup
+2026-06-21 21:01:00,614 INFO [src.orchestrator] Post-search: timing 0 candidates sequentially in top-candidate order (with drift normalization)...
+2026-06-21 21:01:00,614 INFO [src.orchestrator] MCTS done. Reward trend: avg=0.0678
+2026-06-21 21:01:00,614 INFO [src.orchestrator] Cleaned up baseline O3 IR file: /home/hanning/accelerate/comet/tmp/tmpwkcp44_5_o3.ll
+2026-06-21 21:01:00,615 INFO [src.orchestrator] Cleaned up baseline O3 binary file: /home/hanning/accelerate/comet/tmp/comet_o3direct_2_140157039342208_670487
+2026-06-21 21:01:00,619 INFO [src.orchestrator] Cleaned up temporary compiler measurement binaries
+2026-06-21 21:01:00,619 WARNING [src.orchestrator] [DiagnosisReport] No LLM client available, skipping report generation.

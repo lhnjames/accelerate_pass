@@ -1,0 +1,26 @@
+2026-06-17 14:05:56,354 - __main__ - INFO - ======================================================================
+2026-06-17 14:05:56,354 - __main__ - INFO - COMET: Compiler Observable-Guided Monte Carlo Exploration
+2026-06-17 14:05:56,355 - __main__ - INFO - ======================================================================
+2026-06-17 14:05:56,355 - __main__ - INFO - Program: /home/hanning/accelerate/PolyBenchC_no_rag/linear-algebra/kernels/3mm/3mm.c
+2026-06-17 14:05:56,355 - __main__ - INFO - Input: stdin
+2026-06-17 14:05:56,355 - __main__ - INFO - Budget: 50 measurements
+2026-06-17 14:05:56,355 - __main__ - INFO - Config: /tmp/test_configs
+2026-06-17 14:05:56,358 - src.config - INFO - Loaded YAML config from /tmp/test_configs/config.yaml
+2026-06-17 14:05:56,358 - src.config - WARNING - ENV file not found: /tmp/.env, using system environment variables
+2026-06-17 14:05:56,368 - src.config - INFO - Loaded pass database from /tmp/test_configs/pass_database.yaml
+2026-06-17 14:05:56,374 - src.config - INFO - Loaded bottleneck mapping from /tmp/test_configs/bottleneck_mapping.yaml
+2026-06-17 14:05:56,374 - __main__ - ERROR - Failed to load config: Configuration not found for llm.api_key
+Traceback (most recent call last):
+  File "/home/hanning/accelerate/comet/run_comet_full.py", line 87, in run_comet_pipeline
+    config = loader.load_all()
+             ^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/src/config.py", line 139, in load_all
+    return self.build_comet_config()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/src/config.py", line 165, in build_comet_config
+    api_key=get_value("llm.api_key", self.env_config.get("DEEPSEEK_API_KEY")),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/src/config.py", line 154, in get_value
+    raise ValueError(f"Configuration not found for {path}")
+ValueError: Configuration not found for llm.api_key
+2026-06-17 14:05:56,375 - __main__ - ERROR - COMET failed: Configuration not found for llm.api_key

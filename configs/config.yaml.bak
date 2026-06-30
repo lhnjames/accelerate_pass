@@ -1,0 +1,64 @@
+system:
+  name: COMET
+  version: 1.0
+  description: Compiler Observable-Guided Monte Carlo Exploration for Transformation Ordering
+
+compiler:
+  clang_path: /usr/bin/clang
+  clang_cxx_path: /usr/bin/clang++
+  opt_path: /home/hanning/Software/clang+llvm-17.0.2-x86_64-linux-gnu-ubuntu-22.04/bin/opt
+  llc_path: /home/hanning/Software/clang+llvm-17.0.2-x86_64-linux-gnu-ubuntu-22.04/bin/llc
+  timeout_seconds: 300
+
+mcts:
+  iterations: 300
+  max_depth: 30
+  min_sequence_length: 4
+  max_sequence_length: 30
+  puct_exploration_constant: 1.5
+  expansion_visit_threshold: 3
+  measure_visit_threshold: 5
+  periodic_measure_interval: 20
+
+llm:
+  model: deepseek-reasoner
+  timeout_seconds: 60
+  max_tokens: 2000
+  temperature: 0.5
+  call_budget: 20
+  stagnation_detection_window: 3
+
+runtime:
+  total_budget: 100
+  baseline_measurement_cost: 1
+  seed_measurement_cost: 1
+  mcts_search_budget: 58
+  top_candidates_budget: 20
+  local_refinement_budget: 20
+  measurement_timeout: 600
+  measurement_repeat: 1
+
+knowledge_base:
+  confidence_threshold: 0.3
+  support_threshold: 3
+  success_rate_threshold: 0.3
+
+rollout:
+  max_depth: 3
+  tier1_kb_use: true
+  tier2_keyword_use: true
+  tier3_random_use: true
+
+output:
+  directory: ./outputs
+  verbose: false
+  log_level: INFO
+  save_search_tree: true
+  save_measurements: true
+  save_final_sequence: true
+
+profiling:
+  vtune_enabled: true
+  perf_enabled: true
+  trace_functions: 5
+  cpu_time_threshold: 0.85

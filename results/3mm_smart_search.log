@@ -1,0 +1,139 @@
+2026-06-17 19:09:54,923 - __main__ - INFO - 初始化系统...
+2026-06-17 19:09:54,927 - src.config - INFO - Loaded YAML config from configs_quick/config.yaml
+2026-06-17 19:09:54,927 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 19:09:54,940 - src.config - INFO - Loaded pass database from configs_quick/pass_database.yaml
+2026-06-17 19:09:54,946 - src.config - INFO - Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+2026-06-17 19:09:55,486 - src.dynamic_pass_extractor - INFO - Found 737 available passes
+2026-06-17 19:09:55,486 - __main__ - INFO - 可用passes: 737
+2026-06-17 19:09:55,486 - __main__ - INFO - 测量baseline...
+2026-06-17 19:09:55,968 - src.dynamic_pass_extractor - INFO - Found 737 available passes
+2026-06-17 19:09:55,969 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:09:56,030 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:10:40,434 - __main__ - INFO - Baseline: 14499.93ms
+2026-06-17 19:10:40,434 - __main__ - INFO - 开始智能渐进式优化搜索...
+2026-06-17 19:10:40,434 - __main__ - INFO - 初始目标: 1.20x
+2026-06-17 19:10:40,434 - __main__ - INFO - 最大迭代: 150轮
+2026-06-17 19:10:40,434 - __main__ - INFO - 无改进停止阈值: 20轮
+2026-06-17 19:10:40,434 - __main__ - INFO - 使用SmartPassFilter优先推荐可靠Passes
+2026-06-17 19:10:40,464 - src.pass_dependency_analyzer - INFO - Extracted dependencies for 20 passes
+2026-06-17 19:10:40,729 - __main__ - INFO - 
+迭代 1: si-memory-legalizer
+2026-06-17 19:10:40,729 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:10:40,855 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'si-memory-legalizer'
+
+2026-06-17 19:10:40,855 - src.smart_pass_filter - INFO - Saved pass cache: 0 verified
+2026-06-17 19:10:40,855 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:10:40,855 - __main__ - INFO - 
+迭代 1: enable-loop-simplifycfg-term-folding
+2026-06-17 19:10:40,856 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:10:40,948 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'enable-loop-simplifycfg-term-folding'
+
+2026-06-17 19:10:40,949 - src.smart_pass_filter - INFO - Saved pass cache: 0 verified
+2026-06-17 19:10:40,949 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:10:40,949 - __main__ - INFO - 
+迭代 1: bpf-abstract-member-access
+2026-06-17 19:10:40,950 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:10:41,043 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name 'bpf-abstract-member-access'
+
+2026-06-17 19:10:41,044 - src.smart_pass_filter - INFO - Saved pass cache: 0 verified
+2026-06-17 19:10:41,044 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:10:41,306 - __main__ - INFO - 
+迭代 2: dce
+2026-06-17 19:10:41,306 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:10:41,403 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:11:23,953 - src.smart_pass_filter - INFO - Saved pass cache: 1 verified
+2026-06-17 19:11:23,953 - __main__ - INFO -   → 14047.12ms (加速比: 1.032x, 目标: 1.20x)
+2026-06-17 19:11:23,953 - __main__ - INFO -   ✓ 新的最优结果！
+2026-06-17 19:11:23,953 - __main__ - INFO - 
+迭代 2: dce → amdgpu-always-inline
+2026-06-17 19:11:23,954 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:11:24,142 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'amdgpu-always-inline'
+
+2026-06-17 19:11:24,142 - src.smart_pass_filter - INFO - Saved pass cache: 1 verified
+2026-06-17 19:11:24,142 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:11:24,142 - __main__ - INFO - 
+迭代 2: dce → early-cse
+2026-06-17 19:11:24,143 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:11:24,232 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:12:02,888 - src.smart_pass_filter - INFO - Saved pass cache: 2 verified
+2026-06-17 19:12:02,889 - __main__ - INFO -   → 12946.99ms (加速比: 1.120x, 目标: 1.20x)
+2026-06-17 19:12:02,889 - __main__ - INFO -   ✓ 新的最优结果！
+2026-06-17 19:12:03,188 - __main__ - INFO - 
+迭代 3: dce → early-cse → ppc-early-ret
+2026-06-17 19:12:03,190 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:12:03,313 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'ppc-early-ret'
+
+2026-06-17 19:12:03,314 - src.smart_pass_filter - INFO - Saved pass cache: 2 verified
+2026-06-17 19:12:03,315 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:12:03,315 - __main__ - INFO - 
+迭代 3: dce → early-cse → loop-instsimplify
+2026-06-17 19:12:03,315 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:12:03,417 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-instsimplify'
+
+2026-06-17 19:12:03,418 - src.smart_pass_filter - INFO - Saved pass cache: 2 verified
+2026-06-17 19:12:03,418 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:12:03,418 - __main__ - INFO - 
+迭代 3: dce → early-cse → loop-extract-single
+2026-06-17 19:12:03,418 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:12:03,500 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-extract-single'
+
+2026-06-17 19:12:03,500 - src.smart_pass_filter - INFO - Saved pass cache: 2 verified
+2026-06-17 19:12:03,501 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:12:03,784 - __main__ - INFO - 
+迭代 4: dce → early-cse → amdgpu-disable-loop-alignment
+2026-06-17 19:12:03,784 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:12:03,884 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'amdgpu-disable-loop-alignment'
+
+2026-06-17 19:12:03,884 - src.smart_pass_filter - INFO - Saved pass cache: 2 verified
+2026-06-17 19:12:03,884 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:12:03,884 - __main__ - INFO - 
+迭代 4: dce → early-cse → adce
+2026-06-17 19:12:03,885 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:12:03,988 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:12:45,858 - src.smart_pass_filter - INFO - Saved pass cache: 3 verified
+2026-06-17 19:12:45,858 - __main__ - INFO -   → 14349.33ms (加速比: 1.010x, 目标: 1.20x)
+2026-06-17 19:12:45,858 - __main__ - INFO - 
+迭代 4: dce → early-cse → polly-dce
+2026-06-17 19:12:45,858 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:12:45,982 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'polly-dce'
+
+2026-06-17 19:12:45,982 - src.smart_pass_filter - INFO - Saved pass cache: 3 verified
+2026-06-17 19:12:45,982 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:12:46,310 - __main__ - INFO - 
+迭代 5: dce → early-cse → loop-load-elim
+2026-06-17 19:12:46,310 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:12:46,411 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:13:32,250 - src.smart_pass_filter - INFO - Saved pass cache: 4 verified
+2026-06-17 19:13:32,250 - __main__ - INFO -   → 15976.73ms (加速比: 0.908x, 目标: 1.20x)
+2026-06-17 19:13:32,250 - __main__ - INFO - 
+迭代 5: dce → early-cse → instcombine-negator-enabled
+2026-06-17 19:13:32,251 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:13:32,374 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'instcombine-negator-enabled'
+
+2026-06-17 19:13:32,375 - src.smart_pass_filter - INFO - Saved pass cache: 4 verified
+2026-06-17 19:13:32,375 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:13:32,375 - __main__ - INFO - 
+迭代 5: dce → early-cse → x86-fixup-bw-insts
+2026-06-17 19:13:32,376 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:13:32,458 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'x86-fixup-bw-insts'
+
+2026-06-17 19:13:32,459 - src.smart_pass_filter - INFO - Saved pass cache: 4 verified
+2026-06-17 19:13:32,459 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:13:32,738 - __main__ - INFO - 
+迭代 6: dce → early-cse → memop-size-large
+2026-06-17 19:13:32,739 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:13:32,835 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'memop-size-large'
+
+2026-06-17 19:13:32,836 - src.smart_pass_filter - INFO - Saved pass cache: 4 verified
+2026-06-17 19:13:32,836 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:13:32,836 - __main__ - INFO - 
+迭代 6: dce → early-cse → enable-load-in-loop-pre
+2026-06-17 19:13:32,837 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:13:32,913 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'enable-load-in-loop-pre'
+
+2026-06-17 19:13:32,914 - src.smart_pass_filter - INFO - Saved pass cache: 4 verified
+2026-06-17 19:13:32,914 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 19:13:32,914 - __main__ - INFO - 
+迭代 6: dce → early-cse → newgvn
+2026-06-17 19:13:32,915 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:13:32,990 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c

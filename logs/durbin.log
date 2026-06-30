@@ -1,0 +1,256 @@
+============================================================
+COMET: durbin  rounds=9
+============================================================
+Collecting vectorization remarks for source rounds...
+  14 remarks collected
+
+[Param round]
+  Kernel 'kernel_durbin': lines 61–95
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_durbin
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: The kernel has high GVN load elimination failures (22 misses) and SLP/loop vectorization failures (3 and 1 misses respectively), indicating opportunities for better scalar optimization and vectorization. Tuning slp-threshold to negative values may enable more SLP vectorization, reducing vectorizer-min-trip-count may allow vectorization of small loops, and increasing gvn-max-num-deps can improve load PRE to eliminate redundant loads.
+    -slp-threshold: [-4, -2, -1, 0]
+    -vectorizer-min-trip-count: [0, 1, 2, 4]
+    -gvn-max-num-deps: [100, 200, 500, 1000]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 3.15 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 3.0 ms (1.050x) ← best
+    -slp-threshold=-2 → 3.3 ms (0.962x)
+    -slp-threshold=-1 → 3.2 ms (0.977x)
+    -slp-threshold=0 → 3.6 ms (0.879x)
+    -vectorizer-min-trip-count=0 → 3.3 ms (0.952x)
+    -vectorizer-min-trip-count=1 → 3.2 ms (0.981x)
+    -vectorizer-min-trip-count=2 → 3.1 ms (1.010x) ← best
+    -vectorizer-min-trip-count=4 → 3.1 ms (1.016x) ← best
+    -gvn-max-num-deps=100 → 2.9 ms (1.093x) ← best
+    -gvn-max-num-deps=200 → 3.0 ms (1.035x)
+    -gvn-max-num-deps=500 → 3.2 ms (0.980x)
+    -gvn-max-num-deps=1000 → 3.2 ms (0.997x)
+    -gvn-hoist-max-bbs=5 → 2.9 ms (1.084x) ← best
+    -gvn-hoist-max-bbs=10 → 3.2 ms (0.998x)
+    -gvn-hoist-max-bbs=20 → 3.0 ms (1.038x)
+    -slp-look-ahead-users-budget=4 → 2.9 ms (1.080x) ← best
+    -slp-look-ahead-users-budget=8 → 3.1 ms (1.010x)
+    -slp-look-ahead-users-budget=16 → 3.2 ms (0.974x)
+    -pragma-vectorize-scev-check-threshold=32 → 3.3 ms (0.948x)
+    -pragma-vectorize-scev-check-threshold=64 → 3.2 ms (0.989x)
+    -pragma-vectorize-scev-check-threshold=128 → 3.0 ms (1.040x) ← best
+    -amdgpu-unroll-threshold-if=150 → 3.2 ms (0.972x)
+    -amdgpu-unroll-threshold-if=300 → 3.3 ms (0.947x)
+    -amdgpu-unroll-threshold-if=600 → 3.3 ms (0.958x)
+    -loop-load-elimination-scev-check-threshold=1 → 4.1 ms (0.771x)
+    -loop-load-elimination-scev-check-threshold=2 → 3.2 ms (0.996x)
+    -loop-load-elimination-scev-check-threshold=4 → 3.0 ms (1.040x) ← best
+    -loop-distribute-scev-check-threshold=16 → 3.3 ms (0.965x)
+    -loop-distribute-scev-check-threshold=32 → 3.2 ms (0.970x)
+    -loop-distribute-scev-check-threshold=64 → 2.9 ms (1.100x) ← best
+    -licm-max-num-uses-traversed=16 → 3.2 ms (0.980x)
+    -licm-max-num-uses-traversed=32 → 3.2 ms (0.976x)
+    -licm-max-num-uses-traversed=64 → 3.3 ms (0.954x)
+    -instcombine-max-iterations=1 → 3.2 ms (0.969x)
+    -instcombine-max-iterations=3 → 3.3 ms (0.950x)
+    -instcombine-max-iterations=6 → 3.3 ms (0.967x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-loop-distribute-scev-check-threshold', [32, 64]), ('-gvn-max-num-deps', [100, 200]), ('-gvn-hoist-max-bbs', [5, 10])]
+  Phase B — joint search (best pairs):
+    -loop-distribute-scev-check-threshold=32, -gvn-max-num-deps=100 → 3.3 ms (0.968x)
+    -loop-distribute-scev-check-threshold=32, -gvn-max-num-deps=200 → 3.4 ms (0.935x)
+    -loop-distribute-scev-check-threshold=64, -gvn-max-num-deps=100 → 3.0 ms (1.037x)
+    -loop-distribute-scev-check-threshold=64, -gvn-max-num-deps=200 → 3.1 ms (1.016x)
+  Best: -mllvm -loop-distribute-scev-check-threshold=64  → 2.86 ms (1.100x)
+  Param flags for source rounds: -mllvm -loop-distribute-scev-check-threshold=64
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The reduction loop for `sum` is not vectorized due to floating‑point reassociation safety, forcing a serial accumulation that dominates runtime for large `N`....
+
+[Source round 1/8]
+  Speedup: 3.596x (+259.6%)  0.90 ms
+  → New best (3.596x)!
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: Memory bandwidth waste from redundant loads of `y[]` across three sequential loops; every `y[i]` is read three times per outer iteration (once in the sum loop, twice in the z-update loop) ...
+  Kernel 'kernel_durbin': lines 61–96
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_durbin
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: GVN load elimination misses dominate, indicating redundant loads that could be hoisted; adjusting GVN's max-num-deps may enable more PRE. SLP vectorization is blocked by cost threshold; lowering slp-threshold could trigger vectorization of inner loops, and LICM's use traversal limit affects memory invariant code hoisting.
+    --gvn-max-num-deps: [100, 200, 500, 1000]
+    --slp-threshold: [-4, -2, -1, 0]
+    --licm-max-num-uses-traversed: [8, 32, 128]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 0.81 ms
+  Phase A — independent flag search:
+    --gvn-max-num-deps=100 → 0.9 ms (0.916x)
+    --gvn-max-num-deps=200 → 0.8 ms (0.999x)
+    --gvn-max-num-deps=500 → 1.1 ms (0.709x)
+    --gvn-max-num-deps=1000 → 1.0 ms (0.829x)
+    --slp-threshold=-4 → 0.9 ms (0.871x)
+    --slp-threshold=-2 → 1.0 ms (0.779x)
+    --slp-threshold=-1 → 0.8 ms (0.983x)
+    --slp-threshold=0 → 1.0 ms (0.793x)
+    --licm-max-num-uses-traversed=8 → 1.1 ms (0.727x)
+    --licm-max-num-uses-traversed=32 → 1.0 ms (0.784x)
+    --licm-max-num-uses-traversed=128 → 0.9 ms (0.886x)
+    -gvn-hoist-max-bbs=5 → 0.9 ms (0.874x)
+    -gvn-hoist-max-bbs=10 → 0.9 ms (0.925x)
+    -gvn-hoist-max-bbs=20 → 1.0 ms (0.840x)
+    -slp-look-ahead-users-budget=4 → 0.9 ms (0.897x)
+    -slp-look-ahead-users-budget=8 → 0.9 ms (0.867x)
+    -slp-look-ahead-users-budget=16 → 0.8 ms (1.083x) ← best
+    -pragma-vectorize-scev-check-threshold=32 → 0.9 ms (0.917x)
+    -pragma-vectorize-scev-check-threshold=64 → 0.9 ms (0.907x)
+    -pragma-vectorize-scev-check-threshold=128 → 1.0 ms (0.842x)
+    -amdgpu-unroll-threshold-if=150 → 1.0 ms (0.782x)
+    -amdgpu-unroll-threshold-if=300 → 0.9 ms (0.924x)
+    -amdgpu-unroll-threshold-if=600 → 0.9 ms (0.866x)
+    -loop-load-elimination-scev-check-threshold=1 → 0.9 ms (0.922x)
+    -loop-load-elimination-scev-check-threshold=2 → 0.9 ms (0.900x)
+    -loop-load-elimination-scev-check-threshold=4 → 1.1 ms (0.755x)
+    -loop-distribute-scev-check-threshold=16 → 0.9 ms (0.901x)
+    -loop-distribute-scev-check-threshold=32 → 0.9 ms (0.905x)
+    -loop-distribute-scev-check-threshold=64 → 0.9 ms (0.874x)
+    -licm-max-num-uses-traversed=16 → 1.1 ms (0.771x)
+    -licm-max-num-uses-traversed=32 → 1.0 ms (0.854x)
+    -licm-max-num-uses-traversed=64 → 0.9 ms (0.861x)
+    -instcombine-max-iterations=1 → 1.0 ms (0.801x)
+    -instcombine-max-iterations=3 → 0.9 ms (0.913x)
+    -instcombine-max-iterations=6 → 0.8 ms (1.005x) ← best
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-slp-look-ahead-users-budget', [8, 16, 32])]
+  Phase B — joint search (best pairs):
+  Best: -mllvm -slp-look-ahead-users-budget=16  → 0.75 ms (1.083x)
+  Re-tuned flags: -mllvm -slp-look-ahead-users-budget=16
+
+[Source round 2/8]  (building on round 1 best)
+  Speedup: 3.454x (+245.4%)  0.94 ms
+  No improvement over best (3.596x) — next round still builds on current best
+
+[Source round 3/8]  (building on round 2 best)
+  Speedup: 3.894x (+289.4%)  0.83 ms
+  → New best (3.894x)!
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: Variable-length inner loop trips (dependent on outer index `k`) prevent full vector utilization and force scalar remainder iterations, while separate loops for sum and update increase memo...
+  Kernel 'kernel_durbin': lines 61–94
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_durbin
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: SLPVectorizer misses indicate unprofitable vectorization; lowering slp-threshold may allow more SLP. GVN fails to eliminate loads due to dependency limits; adjusting gvn-max-num-deps could improve load PRE. Loop unrolling may expose more vectorization opportunities and reduce overhead.
+    -slp-threshold: [-4, -2, -1, 0]
+    -gvn-max-num-deps: [50, 100, 200, 400]
+    -unroll-threshold: [100, 150, 200, 300]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 0.80 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 0.8 ms (0.942x)
+    -slp-threshold=-2 → 0.9 ms (0.879x)
+    -slp-threshold=-1 → 1.0 ms (0.799x)
+    -slp-threshold=0 → 0.9 ms (0.866x)
+    -gvn-max-num-deps=50 → 0.9 ms (0.877x)
+    -gvn-max-num-deps=100 → 0.9 ms (0.866x)
+    -gvn-max-num-deps=200 → 0.8 ms (1.035x) ← best
+    -gvn-max-num-deps=400 → 0.9 ms (0.918x)
+    -unroll-threshold=100 → 1.1 ms (0.740x)
+    -unroll-threshold=150 → 0.9 ms (0.870x)
+    -unroll-threshold=200 → 0.9 ms (0.909x)
+    -unroll-threshold=300 → 0.8 ms (0.950x)
+    -slp-look-ahead-users-budget=4 → 1.0 ms (0.834x)
+    -slp-look-ahead-users-budget=8 → 0.9 ms (0.903x)
+    -slp-look-ahead-users-budget=16 → 0.9 ms (0.866x)
+    -gvn-hoist-max-bbs=5 → 0.9 ms (0.915x)
+    -gvn-hoist-max-bbs=10 → 1.0 ms (0.791x)
+    -gvn-hoist-max-bbs=20 → 0.8 ms (1.028x) ← best
+    -pragma-vectorize-scev-check-threshold=32 → 0.8 ms (0.984x)
+    -pragma-vectorize-scev-check-threshold=64 → 0.9 ms (0.906x)
+    -pragma-vectorize-scev-check-threshold=128 → 0.8 ms (1.015x) ← best
+    -amdgpu-unroll-threshold-if=150 → 0.9 ms (0.872x)
+    -amdgpu-unroll-threshold-if=300 → 1.0 ms (0.824x)
+    -amdgpu-unroll-threshold-if=600 → 0.9 ms (0.865x)
+    -loop-load-elimination-scev-check-threshold=1 → 0.9 ms (0.871x)
+    -loop-load-elimination-scev-check-threshold=2 → 1.0 ms (0.766x)
+    -loop-load-elimination-scev-check-threshold=4 → 0.9 ms (0.889x)
+    -loop-distribute-scev-check-threshold=16 → 0.9 ms (0.848x)
+    -loop-distribute-scev-check-threshold=32 → 0.9 ms (0.919x)
+    -loop-distribute-scev-check-threshold=64 → 0.8 ms (0.947x)
+    -licm-max-num-uses-traversed=16 → 0.9 ms (0.868x)
+    -licm-max-num-uses-traversed=32 → 1.0 ms (0.827x)
+    -licm-max-num-uses-traversed=64 → 0.8 ms (0.960x)
+    -instcombine-max-iterations=1 → 1.0 ms (0.836x)
+    -instcombine-max-iterations=3 → 0.9 ms (0.868x)
+    -instcombine-max-iterations=6 → 1.1 ms (0.729x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-gvn-max-num-deps', [150, 200, 250]), ('-gvn-hoist-max-bbs', [15, 20, 25]), ('-pragma-vectorize-scev-check-threshold', [96, 128, 160])]
+  Phase B — joint search (best pairs):
+    -gvn-max-num-deps=150, -gvn-hoist-max-bbs=15 → 0.8 ms (0.951x)
+    -gvn-max-num-deps=150, -gvn-hoist-max-bbs=20 → 1.1 ms (0.717x)
+    -gvn-max-num-deps=150, -gvn-hoist-max-bbs=25 → 0.9 ms (0.867x)
+    -gvn-max-num-deps=200, -gvn-hoist-max-bbs=15 → 0.8 ms (1.009x)
+    -gvn-max-num-deps=200, -gvn-hoist-max-bbs=20 → 0.9 ms (0.862x)
+    -gvn-max-num-deps=200, -gvn-hoist-max-bbs=25 → 0.9 ms (0.847x)
+    -gvn-max-num-deps=250, -gvn-hoist-max-bbs=15 → 1.1 ms (0.759x)
+    -gvn-max-num-deps=250, -gvn-hoist-max-bbs=20 → 1.0 ms (0.838x)
+    -gvn-max-num-deps=250, -gvn-hoist-max-bbs=25 → 0.9 ms (0.909x)
+  Best: -mllvm -gvn-max-num-deps=200  → 0.77 ms (1.035x)
+  Re-tuned flags: -mllvm -gvn-max-num-deps=200
+
+[Source round 4/8]  (building on round 3 best)
+  Speedup: 2.969x (+196.9%)  1.12 ms
+  No improvement over best (3.894x) — next round still builds on current best
+
+[Source round 5/8]  (building on round 4 best)
+  Speedup: 2.724x (+172.4%)  1.17 ms
+  No improvement over best (3.894x) — next round still builds on current best
+
+[Source round 6/8]  (building on round 5 best)
+  Speedup: 3.253x (+225.3%)  1.08 ms
+  No improvement over best (3.894x) — next round still builds on current best
+
+[Source round 7/8]  (building on round 6 best)
+  Speedup: 2.519x (+151.9%)  1.20 ms
+  No improvement over best (3.894x) — next round still builds on current best
+
+[Source round 8/8]  (building on round 7 best)
+  Speedup: 2.399x (+139.9%)  1.20 ms
+  No improvement over best (3.894x) — next round still builds on current best
+
+============================================================
+Program:      durbin
+Baseline -O3: 3.15 ms
+Param flags:  -mllvm -loop-distribute-scev-check-threshold=64  (1.100x)
+Source best:  3.894x (source + initial param flags)
+Retune flags: -mllvm -gvn-max-num-deps=200 (applied to final best source)
+Saved:        outputs/durbin_optimized.c
+To compile:   clang -O3 -march=native -mllvm -gvn-max-num-deps=200 outputs/durbin_optimized.c ...
+============================================================

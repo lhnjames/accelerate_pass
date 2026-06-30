@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-06-18T14:18:48.180200",
+  "test_type": "adaptive_optimization",
+  "target_speedup": 1.2,
+  "results": {
+    "baseline_ms": 7275.885820388794,
+    "best_runtime_ms": 6662.168264389038,
+    "best_speedup": 1.0921197921824086,
+    "improvement_percent": 9.211979218240863,
+    "best_sequence": [
+      "mem2reg",
+      "dse"
+    ],
+    "total_iterations": 100,
+    "phase_completed": "ADAPTIVE",
+    "target_speedup": 1.2,
+    "reached_target": false,
+    "compilation_success": 38,
+    "compilation_failure": 0
+  }
+}

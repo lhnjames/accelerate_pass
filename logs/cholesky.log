@@ -1,0 +1,148 @@
+============================================================
+COMET: cholesky  rounds=9
+============================================================
+Collecting vectorization remarks for source rounds...
+  29 remarks collected
+
+[Param round]
+  Kernel 'kernel_cholesky': lines 83–106
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_cholesky
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: The kernel's inner loops (lines 18-49, 74-105) fail to vectorize (2 SLP and 2 LV misses) and suffer from redundant loads (40 GVN misses and 10 LICM misses). Lowering SLP threshold and increasing LICM's traversal budget can promote vectorization and load hoisting, respectively.
+    -slp-threshold: [-2, -1, 0, 2]
+    -licm-max-num-uses-traversed: [8, 16, 32, 64]
+    -gvn-max-num-deps: [100, 200, 500]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 10
+  Baseline -O3: 1448.90 ms
+  Phase A — independent flag search:
+    -slp-threshold=-2 → 1461.3 ms (0.991x)
+    -slp-threshold=-1 → 1445.6 ms (1.002x) ← best
+    -slp-threshold=0 → 1554.9 ms (0.932x)
+    -slp-threshold=2 → 1468.1 ms (0.987x)
+    -licm-max-num-uses-traversed=8 → 1480.5 ms (0.979x)
+    -licm-max-num-uses-traversed=16 → 1466.1 ms (0.988x)
+    -licm-max-num-uses-traversed=32 → 1463.3 ms (0.990x)
+    -licm-max-num-uses-traversed=64 → 1539.2 ms (0.941x)
+    -gvn-max-num-deps=100 → 1440.3 ms (1.006x) ← best
+    -gvn-max-num-deps=200 → 1448.4 ms (1.000x)
+    -gvn-max-num-deps=500 → 1459.2 ms (0.993x)
+    -gvn-hoist-max-bbs=5 → 1438.3 ms (1.007x) ← best
+    -gvn-hoist-max-bbs=10 → 1454.6 ms (0.996x)
+    -gvn-hoist-max-bbs=20 → 1466.7 ms (0.988x)
+    -slp-look-ahead-users-budget=4 → 1452.0 ms (0.998x)
+    -slp-look-ahead-users-budget=8 → 1487.8 ms (0.974x)
+    -slp-look-ahead-users-budget=16 → 1470.9 ms (0.985x)
+    -pragma-vectorize-scev-check-threshold=32 → 1465.5 ms (0.989x)
+    -pragma-vectorize-scev-check-threshold=64 → 1433.1 ms (1.011x) ← best
+    -pragma-vectorize-scev-check-threshold=128 → 1470.4 ms (0.985x)
+    -amdgpu-unroll-threshold-if=150 → 1432.2 ms (1.012x) ← best
+    -amdgpu-unroll-threshold-if=300 → 1462.7 ms (0.991x)
+    -amdgpu-unroll-threshold-if=600 → 1518.8 ms (0.954x)
+    -loop-load-elimination-scev-check-threshold=1 → 1531.3 ms (0.946x)
+    -loop-load-elimination-scev-check-threshold=2 → 1461.5 ms (0.991x)
+    -loop-load-elimination-scev-check-threshold=4 → 1443.8 ms (1.004x) ← best
+    -loop-distribute-scev-check-threshold=16 → 1592.1 ms (0.910x)
+    -loop-distribute-scev-check-threshold=32 → 1456.9 ms (0.995x)
+    -loop-distribute-scev-check-threshold=64 → 1463.8 ms (0.990x)
+    -instcombine-max-iterations=1 → 1488.0 ms (0.974x)
+    -instcombine-max-iterations=3 → 1515.9 ms (0.956x)
+    -instcombine-max-iterations=6 → 1542.9 ms (0.939x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-amdgpu-unroll-threshold-if', [150, 300]), ('-pragma-vectorize-scev-check-threshold', [32, 64, 128]), ('-gvn-hoist-max-bbs', [5, 10])]
+  Phase B — joint search (best pairs):
+    -amdgpu-unroll-threshold-if=150, -pragma-vectorize-scev-check-threshold=32 → 1534.6 ms (0.944x)
+    -amdgpu-unroll-threshold-if=150, -pragma-vectorize-scev-check-threshold=64 → 1485.9 ms (0.975x)
+    -amdgpu-unroll-threshold-if=150, -pragma-vectorize-scev-check-threshold=128 → 1478.6 ms (0.980x)
+    -amdgpu-unroll-threshold-if=300, -pragma-vectorize-scev-check-threshold=32 → 1459.9 ms (0.992x)
+    -amdgpu-unroll-threshold-if=300, -pragma-vectorize-scev-check-threshold=64 → 1468.5 ms (0.987x)
+    -amdgpu-unroll-threshold-if=300, -pragma-vectorize-scev-check-threshold=128 → 1478.4 ms (0.980x)
+  Best: -mllvm -amdgpu-unroll-threshold-if=150  → 1432.25 ms (1.012x)
+  Param flags for source rounds: -mllvm -amdgpu-unroll-threshold-if=150
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The left-looking Cholesky kernel is compute‑bound with low arithmetic intensity due to redundant loads of each row multiple times per outer iteration, and the inner reductions are written ...
+
+[Source round 1/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Lik
+  Round 1 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Likely multi-accumulator split or reordered FP summation.
+FIX: Use exactly ONE scal
+
+[Source round 2/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Lik
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  Round 2 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1.00e-02, rel=1.08e-02. Max abs_diff=1.00e-02 at index 64. Max rel_diff=1.25e-01.
+
+[Source round 3/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  Round 3 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1.00e-02, rel=1.08e-02. Max abs_diff=1.00e-02 at index 64. Max rel_diff=1.25e-01.
+
+[Source round 4/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  Round 4 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1.00e-02, rel=1.08e-02. Max abs_diff=1.00e-02 at index 64. Max rel_diff=1.25e-01.
+
+[Source round 5/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  Round 5 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1.00e-02, rel=1.08e-02. Max abs_diff=1.00e-02 at index 64. Max rel_diff=1.25e-01.
+
+[Source round 6/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  Round 6 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1.00e-02, rel=1.08e-02. Max abs_diff=1.00e-02 at index 64. Max rel_diff=1.25e-01.
+
+[Source round 7/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 3/3]
+  Speedup: 0.967x (-3.3%)  1515.17 ms
+  No improvement over best (1.000x) — next round still builds on current best
+
+[Source round 8/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  Round 8 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1.00e-02, rel=1.08e-02. Max abs_diff=1.00e-02 at index 64. Max rel_diff=1.25e-01.
+
+============================================================
+Program:      cholesky
+Baseline -O3: 1448.90 ms
+Param flags:  -mllvm -amdgpu-unroll-threshold-if=150  (1.012x)
+Source:       no verified improvement
+============================================================

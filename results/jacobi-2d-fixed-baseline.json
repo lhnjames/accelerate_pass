@@ -1,0 +1,30 @@
+{
+  "metadata": {
+    "program": "/home/hanning/accelerate/PolyBenchC/stencils/jacobi-2d/jacobi-2d.c",
+    "start_time": 1781696237.9105859,
+    "end_time": 1781696534.319027,
+    "total_time": 296.40844106674194,
+    "budget": 50
+  },
+  "baseline": {
+    "runtime_ms": 8530.34496307373,
+    "missed_remarks": 0,
+    "ir_instructions": 0
+  },
+  "result": {
+    "pass_sequence": [
+      "mem2reg",
+      "sroa"
+    ],
+    "sequence_length": 2,
+    "speedup": 0.927656630206629,
+    "final_runtime_ms": 9195.584535598755
+  },
+  "search_stats": {
+    "total_iterations": 300,
+    "llm_calls": 1,
+    "measurements_used": 50,
+    "best_speedup": 1.0,
+    "nodes_created": 0
+  }
+}

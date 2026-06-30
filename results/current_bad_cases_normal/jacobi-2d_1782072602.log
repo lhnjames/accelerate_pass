@@ -1,0 +1,15 @@
+2026-06-21 21:10:02,725 INFO [comet.run] Log file: results/current_bad_cases_normal/jacobi-2d_1782072602.log
+2026-06-21 21:10:02,725 INFO [comet.run] ======================================================================
+2026-06-21 21:10:02,725 INFO [comet.run] COMET - Compiler Observable-Guided Monte Carlo Exploration
+2026-06-21 21:10:02,725 INFO [comet.run] Program : jacobi-2d
+2026-06-21 21:10:02,725 INFO [comet.run] Source  : PolyBenchC_no_rag/stencils/jacobi-2d/jacobi-2d.c
+2026-06-21 21:10:02,725 INFO [comet.run] Config  : configs
+2026-06-21 21:10:02,725 INFO [comet.run] Output  : results/current_bad_cases_normal
+2026-06-21 21:10:02,725 INFO [comet.run] LLM     : deepseek-v4-flash
+2026-06-21 21:10:02,725 INFO [comet.run] MCTS    : 150 iterations, budget=50
+2026-06-21 21:10:02,725 INFO [comet.run] ======================================================================
+2026-06-21 21:10:02,784 INFO [comet.run] LLM check: model=deepseek-v4-flash base_url=https://api.deepseek.com endpoint=https://api.deepseek.com/chat/completions api_key=present no_llm=False
+2026-06-21 21:10:02,961 INFO [openai._base_client] Retrying request to /chat/completions in 0.416793 seconds
+2026-06-21 21:10:03,380 INFO [openai._base_client] Retrying request to /chat/completions in 0.897858 seconds
+2026-06-21 21:10:04,280 INFO [openai._base_client] Retrying request to /chat/completions in 1.680106 seconds
+2026-06-21 21:10:05,962 ERROR [comet.run] LLM check failed: OpenAI SDK error: Connection error.

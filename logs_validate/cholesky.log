@@ -1,0 +1,134 @@
+============================================================
+COMET: cholesky  rounds=5
+============================================================
+Collecting vectorization remarks for source rounds...
+  29 remarks collected
+
+[Param round]
+  Kernel 'kernel_cholesky': lines 83–106
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_cholesky
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: The kernel suffers from redundant loads that GVN fails to eliminate and loop-invariant loads that LICM fails to hoist, likely due to conservative thresholds. Additionally, the lack of vectorization (0 vector ops) indicates that the SLP vectorizer needs a higher minimum register size to exploit AVX-512.
+    --gvn-max-num-deps: [100, 200, 500, 1000]
+    --licm-max-num-uses-traversed: [8, 32, 64, 128]
+    --slp-min-reg-size: [128, 256, 512]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 1919.08 ms
+  Phase A — independent flag search:
+    --gvn-max-num-deps=100 → 2042.0 ms (0.940x)
+    --gvn-max-num-deps=200 → 2570.8 ms (0.746x)
+    --gvn-max-num-deps=500 → 2042.7 ms (0.939x)
+    --gvn-max-num-deps=1000 → 2313.7 ms (0.829x)
+    --licm-max-num-uses-traversed=8 → 2005.0 ms (0.957x)
+    --licm-max-num-uses-traversed=32 → 2040.8 ms (0.940x)
+    --licm-max-num-uses-traversed=64 → 1989.2 ms (0.965x)
+    --licm-max-num-uses-traversed=128 → 1980.6 ms (0.969x)
+    --slp-min-reg-size=128 → 1990.2 ms (0.964x)
+    --slp-min-reg-size=256 → 1975.8 ms (0.971x)
+    --slp-min-reg-size=512 → 2048.9 ms (0.937x)
+    -gvn-hoist-max-bbs=5 → 1962.5 ms (0.978x)
+    -gvn-hoist-max-bbs=10 → 1997.9 ms (0.961x)
+    -gvn-hoist-max-bbs=20 → 1967.3 ms (0.975x)
+    -licm-max-num-uses-traversed=16 → 1925.5 ms (0.997x)
+    -licm-max-num-uses-traversed=32 → 1962.5 ms (0.978x)
+    -licm-max-num-uses-traversed=64 → 2023.6 ms (0.948x)
+    -slp-look-ahead-users-budget=4 → 1980.7 ms (0.969x)
+    -slp-look-ahead-users-budget=8 → 1964.7 ms (0.977x)
+    -slp-look-ahead-users-budget=16 → 1944.3 ms (0.987x)
+    -pragma-vectorize-scev-check-threshold=32 → 2002.6 ms (0.958x)
+    -pragma-vectorize-scev-check-threshold=64 → 1955.3 ms (0.981x)
+    -pragma-vectorize-scev-check-threshold=128 → 1817.3 ms (1.056x) ← best
+    -amdgpu-unroll-threshold-if=150 → 1874.0 ms (1.024x) ← best
+    -amdgpu-unroll-threshold-if=300 → 1850.5 ms (1.037x) ← best
+    -amdgpu-unroll-threshold-if=600 → 1792.6 ms (1.071x) ← best
+    -loop-load-elimination-scev-check-threshold=1 → 1853.2 ms (1.036x) ← best
+    -loop-load-elimination-scev-check-threshold=2 → 1859.9 ms (1.032x)
+    -loop-load-elimination-scev-check-threshold=4 → 1752.2 ms (1.095x) ← best
+    -loop-distribute-scev-check-threshold=16 → 1950.2 ms (0.984x)
+    -loop-distribute-scev-check-threshold=32 → 1829.3 ms (1.049x) ← best
+    -loop-distribute-scev-check-threshold=64 → 1755.9 ms (1.093x) ← best
+    -instcombine-max-iterations=1 → 1824.3 ms (1.052x) ← best
+    -instcombine-max-iterations=3 → 1828.6 ms (1.049x)
+    -instcombine-max-iterations=6 → 1791.0 ms (1.072x) ← best
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-pragma-vectorize-scev-check-threshold', [64, 128, 256]), ('-amdgpu-unroll-threshold-if', [300, 600, 1200]), ('-loop-load-elimination-scev-check-threshold', [2, 4, 8]), ('-loop-distribute-scev-check-threshold', [32, 64, 128]), ('-instcombine-max-iterations', [3, 6, 9])]
+  Phase B — joint search (best pairs):
+    -loop-load-elimination-scev-check-threshold=2, -loop-distribute-scev-check-threshold=32 → 1810.6 ms (1.060x)
+    -loop-load-elimination-scev-check-threshold=2, -loop-distribute-scev-check-threshold=64 → 1719.8 ms (1.116x) ← BEST
+    -loop-load-elimination-scev-check-threshold=2, -loop-distribute-scev-check-threshold=128 → 1814.1 ms (1.058x)
+    -loop-load-elimination-scev-check-threshold=4, -loop-distribute-scev-check-threshold=32 → 1879.2 ms (1.021x)
+    -loop-load-elimination-scev-check-threshold=4, -loop-distribute-scev-check-threshold=64 → 1760.9 ms (1.090x)
+    -loop-load-elimination-scev-check-threshold=4, -loop-distribute-scev-check-threshold=128 → 1746.3 ms (1.099x)
+    -loop-load-elimination-scev-check-threshold=8, -loop-distribute-scev-check-threshold=32 → 1783.5 ms (1.076x)
+    -loop-load-elimination-scev-check-threshold=8, -loop-distribute-scev-check-threshold=64 → 1777.5 ms (1.080x)
+    -loop-load-elimination-scev-check-threshold=8, -loop-distribute-scev-check-threshold=128 → 1799.4 ms (1.067x)
+  Best: -mllvm -loop-load-elimination-scev-check-threshold=2 -mllvm -loop-distribute-scev-check-threshold=64  → 1719.81 ms (1.116x)
+  Param flags for source rounds: -mllvm -loop-load-elimination-scev-check-threshold=2 -mllvm -loop-distribute-scev-check-threshold=64
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The naive Cholesky kernel suffers poor temporal locality because the same row `A[i][*]` is loaded from memory separately for each outer `j` iteration, leading to redundant global memory tr...
+
+[Source round 1/4]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 518/7260 elements differ > epsilon=0.0001. First error at index 64: ref=0.93, opt=0.92, abs=1
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  Round 1 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Floating-point reordering. Changing the order of additions (e.g. multi-accumulator 
+
+[Source round 2/4]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  Round 2 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Floating-point reordering. Changing the order of additions (e.g. multi-accumulator 
+
+[Source round 3/4]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  Round 3 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Floating-point reordering. Changing the order of additions (e.g. multi-accumulator 
+
+[Source round 4/4]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Flo
+  Round 4 failed (precision_error): PRECISION ERROR: Size mismatch: reference=7260, optimized=239. LLM likely changed the output array structure.
+CAUSE: Floating-point reordering. Changing the order of additions (e.g. multi-accumulator 
+
+============================================================
+Program:      cholesky
+Baseline -O3: 1919.08 ms
+Param flags:  -mllvm -loop-load-elimination-scev-check-threshold=2 -mllvm -loop-distribute-scev-check-threshold=64  (1.116x)
+Source:       no verified improvement
+============================================================

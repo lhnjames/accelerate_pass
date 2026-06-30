@@ -1,0 +1,104 @@
+2026-06-17 14:29:47,563 - __main__ - INFO - 初始化系统...
+2026-06-17 14:29:47,571 - src.config - INFO - Loaded YAML config from configs_quick/config.yaml
+2026-06-17 14:29:47,571 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 14:29:47,593 - src.config - INFO - Loaded pass database from configs_quick/pass_database.yaml
+2026-06-17 14:29:47,606 - src.config - INFO - Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+2026-06-17 14:29:47,607 - __main__ - INFO - 发现可用的LLVM passes...
+2026-06-17 14:29:48,119 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:29:48,119 - __main__ - INFO - 找到 755 个可用passes
+2026-06-17 14:29:48,119 - __main__ - INFO - 分析Pass依赖关系...
+2026-06-17 14:29:48,119 - __main__ - INFO - 测量baseline性能...
+2026-06-17 14:29:48,561 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:29:48,562 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:29:48,642 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:30:17,241 - src.runtime_measurement - WARNING - Run 2 failed: Program execution failed: [Errno 2] No such file or directory: '/tmp/comet_prog_833369'
+2026-06-17 14:30:17,242 - src.runtime_measurement - WARNING - Run 3 failed: Program execution failed: [Errno 2] No such file or directory: '/tmp/comet_prog_833369'
+2026-06-17 14:30:17,242 - __main__ - INFO - Baseline (-O3): 28406.11ms
+2026-06-17 14:30:17,242 - __main__ - INFO - 初始化图感知LLM优化器...
+2026-06-17 14:30:17,242 - __main__ - INFO - 初始化MCTS搜索器...
+2026-06-17 14:30:17,271 - src.pass_dependency_analyzer - INFO - Extracted dependencies for 20 passes
+2026-06-17 14:30:17,553 - __main__ - INFO - 
+迭代 1: 测试 loop-simplify
+2026-06-17 14:30:17,554 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:30:17,674 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:31:00,960 - __main__ - INFO -   结果: 14053.80ms (加速比: 2.021x)
+2026-06-17 14:31:00,961 - __main__ - INFO -   ✓ 新的最优结果！ speedup=2.021x
+2026-06-17 14:31:00,961 - __main__ - INFO -   ✓✓ 达到20%优化阈值！
+2026-06-17 14:31:00,961 - __main__ - INFO - 
+迭代 1: 测试 -relax-elf-relocations
+2026-06-17 14:31:00,962 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:31:01,066 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name '-relax-elf-relocations'
+
+2026-06-17 14:31:01,067 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:31:01,067 - __main__ - INFO - 
+迭代 1: 测试 -tbaa
+2026-06-17 14:31:01,068 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:31:01,161 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown pass name '-tbaa'
+
+2026-06-17 14:31:01,161 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:31:01,623 - __main__ - INFO - 
+迭代 2: 测试 loop-simplify → lcssa
+2026-06-17 14:31:01,623 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:31:01,701 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:31:45,400 - __main__ - INFO -   结果: 14071.57ms (加速比: 2.019x)
+2026-06-17 14:31:45,400 - __main__ - INFO - 
+迭代 2: 测试 loop-simplify → -relax-elf-relocations
+2026-06-17 14:31:45,401 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:31:45,524 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass '-relax-elf-relocations'
+
+2026-06-17 14:31:45,524 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:31:45,525 - __main__ - INFO - 
+迭代 2: 测试 loop-simplify → -tbaa
+2026-06-17 14:31:45,525 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:31:45,611 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass '-tbaa'
+
+2026-06-17 14:31:45,611 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:31:45,927 - __main__ - INFO - 
+迭代 3: 测试 loop-simplify → lcssa → -relax-elf-relocations
+2026-06-17 14:31:45,928 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:31:46,030 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass '-relax-elf-relocations'
+
+2026-06-17 14:31:46,030 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:31:46,030 - __main__ - INFO - 
+迭代 3: 测试 loop-simplify → lcssa → -tbaa
+2026-06-17 14:31:46,031 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:31:46,128 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass '-tbaa'
+
+2026-06-17 14:31:46,128 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:31:46,129 - __main__ - INFO - 
+迭代 3: 测试 loop-simplify → lcssa → -verify
+2026-06-17 14:31:46,129 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:31:46,222 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass '-verify'
+
+2026-06-17 14:31:46,222 - __main__ - WARNING -   编译失败: Compilation failed
+2026-06-17 14:31:46,222 - __main__ - INFO - Results saved to results/3mm_mcts_search_results.json
+================================================================================
+3MM COMPLETE MCTS SEARCH - TARGETING 20%+ OPTIMIZATION
+================================================================================
+
+
+================================================================================
+STARTING MCTS SEARCH
+================================================================================
+
+
+================================================================================
+FINAL RESULTS
+================================================================================
+
+Baseline (-O3):        28406.11ms
+Best optimized:        14053.80ms
+Speedup:               2.021x
+Improvement:           102.1%
+
+✓✓ GOAL ACHIEVED: 102.1% >= 20%
+
+Best sequence (1 passes):
+  1. loop-simplify
+
+Search statistics:
+  - Iterations: 3
+  - Visited sequences: 9
+  - Max sequence length explored: 1
+
+================================================================================

@@ -1,0 +1,129 @@
+bottleneck_to_pass_directions:
+  DRAM_BOUND:
+    description: "DRAM bandwidth/latency is the bottleneck"
+    primary_directions:
+      - "LICM: Hoist invariant loads outside loops to reduce memory traffic"
+      - "Loop Vectorize: Use SIMD to batch load operations"
+      - "Loop Interchange/Distribution: Improve spatial locality"
+    relevant_passes:
+      - licm
+      - loop-vectorize
+      - loop-interchange
+      - loop-distribute
+      - loop-unroll
+      - loop-simplify
+      - indvars
+    priority: 1
+
+  L3_BOUND:
+    description: "Last-level cache (L3) is the bottleneck"
+    primary_directions:
+      - "Loop Distribute: Reduce working set per loop iteration"
+      - "Loop Unroll: Increase cache line utilization"
+      - "LICM: Reduce redundant L3 accesses"
+    relevant_passes:
+      - loop-distribute
+      - loop-unroll
+      - licm
+      - loop-simplify
+      - indvars
+    priority: 2
+
+  L2_BOUND:
+    description: "L2 cache is the bottleneck"
+    primary_directions:
+      - "Loop Interchange: Improve cache access pattern"
+      - "SLP Vectorize: Combine adjacent accesses"
+      - "Instcombine: Reduce instruction count"
+    relevant_passes:
+      - loop-interchange
+      - slp-vectorizer
+      - instcombine
+      - loop-simplify
+      - reassociate
+    priority: 2
+
+  L1_BOUND:
+    description: "L1 cache is the bottleneck"
+    primary_directions:
+      - "SLP Vectorize: Merge scalar operations into vectors"
+      - "Instcombine: Reduce redundant instructions"
+      - "GVN: Eliminate repeated computations"
+    relevant_passes:
+      - slp-vectorizer
+      - instcombine
+      - gvn
+      - early-cse
+      - reassociate
+    priority: 2
+
+  CORE_BOUND:
+    description: "CPU execution units are the bottleneck"
+    primary_directions:
+      - "Loop Vectorize: Utilize wider execution units"
+      - "Loop Unroll: Increase instruction-level parallelism (ILP)"
+      - "GVN: Eliminate redundant computation"
+    relevant_passes:
+      - loop-vectorize
+      - loop-unroll
+      - gvn
+      - early-cse
+      - reassociate
+      - instcombine
+      - loop-simplify
+      - indvars
+    priority: 1
+
+  FRONTEND_BOUND:
+    description: "Instruction fetch/decode is the bottleneck"
+    primary_directions:
+      - "Inline: Eliminate function call overhead and improve I-cache locality"
+      - "SimplifyCFG: Reduce branches and improve branch predictor efficiency"
+      - "Loop Unswitch: Move branches out of loops"
+    relevant_passes:
+      - inline
+      - simplifycfg
+      - jump-threading
+      - loop-unswitch
+      - instcombine
+    priority: 1
+
+  BAD_SPECULATION:
+    description: "Branch prediction or wrong-path execution is the bottleneck"
+    primary_directions:
+      - "Loop Unswitch: Hoist branches out of loops"
+      - "Jump Threading: Eliminate redundant conditional branches"
+      - "SimplifyCFG: Simplify control flow to reduce branch density"
+    relevant_passes:
+      - loop-unswitch
+      - jump-threading
+      - simplifycfg
+      - correlated-propagation
+      - instcombine
+    priority: 1
+
+  MEMORY_BOUND:
+    description: "Generic memory stall (could be any level)"
+    primary_directions:
+      - "LICM: Reduce memory operations in hot loops"
+      - "Loop Interchange: Improve locality"
+      - "Loop Vectorize: Use SIMD for batch loading"
+    relevant_passes:
+      - licm
+      - loop-interchange
+      - loop-vectorize
+      - loop-simplify
+      - indvars
+      - basicaa
+      - loop-distribute
+    priority: 1
+
+  NO_BOTTLENECK:
+    description: "Code is well-balanced, limited further optimization potential"
+    primary_directions:
+      - "Local micro-optimizations only"
+    relevant_passes:
+      - instcombine
+      - dce
+      - simplifycfg
+    priority: 3

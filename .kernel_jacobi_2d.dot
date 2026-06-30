@@ -1,0 +1,42 @@
+digraph "CFG for 'kernel_jacobi_2d' function" {
+	label="CFG for 'kernel_jacobi_2d' function";
+
+	Node0x3aabcda0 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#7396f570",label="{%4:\l  %5 = alloca i32, align 4\l  %6 = alloca i32, align 4\l  %7 = alloca [1300 x double]*, align 8\l  %8 = alloca [1300 x double]*, align 8\l  %9 = alloca i32, align 4\l  %10 = alloca i32, align 4\l  %11 = alloca i32, align 4\l  br label %.split\l}"];
+	Node0x3aabcda0 -> Node0x3aac2350;
+	Node0x3aac2350 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#7396f570",label="{.split:                                           \l  store i32 %0, i32* %5, align 4\l  store i32 %1, i32* %6, align 4\l  store [1300 x double]* %2, [1300 x double]** %7, align 8\l  store [1300 x double]* %3, [1300 x double]** %8, align 8\l  br label %12\l}"];
+	Node0x3aac2350 -> Node0x3aac25e0;
+	Node0x3aac25e0 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#cedaeb70",label="{%12:\l12:                                               \l  %storemerge = phi i32 [ 0, %.split ], [ %109, %107 ]\l  store i32 %storemerge, i32* %9, align 4\l  %13 = load i32, i32* %5, align 4\l  %14 = icmp slt i32 %storemerge, %13\l  br i1 %14, label %15, label %110\l|{<s0>T|<s1>F}}"];
+	Node0x3aac25e0:s0 -> Node0x3aac2630;
+	Node0x3aac25e0:s1 -> Node0x3aac2a40;
+	Node0x3aac2630 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#cedaeb70",label="{%15:\l15:                                               \l  br label %16\l}"];
+	Node0x3aac2630 -> Node0x3aac2680;
+	Node0x3aac2680 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#f6a38570",label="{%16:\l16:                                               \l  %storemerge1 = phi i32 [ 1, %15 ], [ %60, %58 ]\l  store i32 %storemerge1, i32* %10, align 4\l  %17 = load i32, i32* %6, align 4\l  %18 = add nsw i32 %17, -1\l  %19 = icmp slt i32 %storemerge1, %18\l  br i1 %19, label %20, label %61\l|{<s0>T|<s1>F}}"];
+	Node0x3aac2680:s0 -> Node0x3aac26d0;
+	Node0x3aac2680:s1 -> Node0x3aac2810;
+	Node0x3aac26d0 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#f7a88970",label="{%20:\l20:                                               \l  br label %21\l}"];
+	Node0x3aac26d0 -> Node0x3aac2720;
+	Node0x3aac2720 [shape=record,color="#b70d28ff", style=filled, fillcolor="#b70d2870",label="{%21:\l21:                                               \l  %22 = phi i32 [ 1, %20 ], [ %57, %26 ]\l  store i32 %22, i32* %11, align 4\l  %23 = load i32, i32* %6, align 4\l  %24 = add nsw i32 %23, -1\l  %25 = icmp slt i32 %22, %24\l  br i1 %25, label %26, label %58\l|{<s0>T|<s1>F}}"];
+	Node0x3aac2720:s0 -> Node0x3aac2770;
+	Node0x3aac2720:s1 -> Node0x3aac27c0;
+	Node0x3aac2770 [shape=record,color="#b70d28ff", style=filled, fillcolor="#b70d2870",label="{%26:\l26:                                               \l  %27 = load [1300 x double]*, [1300 x double]** %7, align 8\l  %28 = load i32, i32* %10, align 4\l  %29 = sext i32 %28 to i64\l  %30 = sext i32 %22 to i64\l  %31 = getelementptr inbounds [1300 x double], [1300 x double]* %27, i64 %29,\l... i64 %30\l  %32 = load double, double* %31, align 8\l  %33 = add nsw i32 %22, -1\l  %34 = sext i32 %33 to i64\l  %35 = getelementptr inbounds [1300 x double], [1300 x double]* %27, i64 %29,\l... i64 %34\l  %36 = load double, double* %35, align 8\l  %37 = fadd double %32, %36\l  %38 = add nsw i32 %22, 1\l  %39 = sext i32 %38 to i64\l  %40 = getelementptr inbounds [1300 x double], [1300 x double]* %27, i64 %29,\l... i64 %39\l  %41 = load double, double* %40, align 8\l  %42 = fadd double %37, %41\l  %43 = add nsw i32 %28, 1\l  %44 = sext i32 %43 to i64\l  %45 = getelementptr inbounds [1300 x double], [1300 x double]* %27, i64 %44,\l... i64 %30\l  %46 = load double, double* %45, align 8\l  %47 = fadd double %42, %46\l  %48 = add nsw i32 %28, -1\l  %49 = sext i32 %48 to i64\l  %50 = getelementptr inbounds [1300 x double], [1300 x double]* %27, i64 %49,\l... i64 %30\l  %51 = load double, double* %50, align 8\l  %52 = fadd double %47, %51\l  %53 = fmul double %52, 2.000000e-01\l  %54 = load [1300 x double]*, [1300 x double]** %8, align 8\l  %55 = getelementptr inbounds [1300 x double], [1300 x double]* %54, i64 %29,\l... i64 %30\l  store double %53, double* %55, align 8\l  %56 = load i32, i32* %11, align 4\l  %57 = add nsw i32 %56, 1\l  br label %21\l}"];
+	Node0x3aac2770 -> Node0x3aac2720;
+	Node0x3aac27c0 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#f7a88970",label="{%58:\l58:                                               \l  %59 = load i32, i32* %10, align 4\l  %60 = add nsw i32 %59, 1\l  br label %16\l}"];
+	Node0x3aac27c0 -> Node0x3aac2680;
+	Node0x3aac2810 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#cedaeb70",label="{%61:\l61:                                               \l  br label %62\l}"];
+	Node0x3aac2810 -> Node0x3aac2860;
+	Node0x3aac2860 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#f6a38570",label="{%62:\l62:                                               \l  %storemerge2 = phi i32 [ 1, %61 ], [ %106, %104 ]\l  store i32 %storemerge2, i32* %10, align 4\l  %63 = load i32, i32* %6, align 4\l  %64 = add nsw i32 %63, -1\l  %65 = icmp slt i32 %storemerge2, %64\l  br i1 %65, label %66, label %107\l|{<s0>T|<s1>F}}"];
+	Node0x3aac2860:s0 -> Node0x3aac28b0;
+	Node0x3aac2860:s1 -> Node0x3aac29f0;
+	Node0x3aac28b0 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#f7a88970",label="{%66:\l66:                                               \l  br label %67\l}"];
+	Node0x3aac28b0 -> Node0x3aac2900;
+	Node0x3aac2900 [shape=record,color="#b70d28ff", style=filled, fillcolor="#b70d2870",label="{%67:\l67:                                               \l  %68 = phi i32 [ 1, %66 ], [ %103, %72 ]\l  store i32 %68, i32* %11, align 4\l  %69 = load i32, i32* %6, align 4\l  %70 = add nsw i32 %69, -1\l  %71 = icmp slt i32 %68, %70\l  br i1 %71, label %72, label %104\l|{<s0>T|<s1>F}}"];
+	Node0x3aac2900:s0 -> Node0x3aac2950;
+	Node0x3aac2900:s1 -> Node0x3aac29a0;
+	Node0x3aac2950 [shape=record,color="#b70d28ff", style=filled, fillcolor="#b70d2870",label="{%72:\l72:                                               \l  %73 = load [1300 x double]*, [1300 x double]** %8, align 8\l  %74 = load i32, i32* %10, align 4\l  %75 = sext i32 %74 to i64\l  %76 = sext i32 %68 to i64\l  %77 = getelementptr inbounds [1300 x double], [1300 x double]* %73, i64 %75,\l... i64 %76\l  %78 = load double, double* %77, align 8\l  %79 = add nsw i32 %68, -1\l  %80 = sext i32 %79 to i64\l  %81 = getelementptr inbounds [1300 x double], [1300 x double]* %73, i64 %75,\l... i64 %80\l  %82 = load double, double* %81, align 8\l  %83 = fadd double %78, %82\l  %84 = add nsw i32 %68, 1\l  %85 = sext i32 %84 to i64\l  %86 = getelementptr inbounds [1300 x double], [1300 x double]* %73, i64 %75,\l... i64 %85\l  %87 = load double, double* %86, align 8\l  %88 = fadd double %83, %87\l  %89 = add nsw i32 %74, 1\l  %90 = sext i32 %89 to i64\l  %91 = getelementptr inbounds [1300 x double], [1300 x double]* %73, i64 %90,\l... i64 %76\l  %92 = load double, double* %91, align 8\l  %93 = fadd double %88, %92\l  %94 = add nsw i32 %74, -1\l  %95 = sext i32 %94 to i64\l  %96 = getelementptr inbounds [1300 x double], [1300 x double]* %73, i64 %95,\l... i64 %76\l  %97 = load double, double* %96, align 8\l  %98 = fadd double %93, %97\l  %99 = fmul double %98, 2.000000e-01\l  %100 = load [1300 x double]*, [1300 x double]** %7, align 8\l  %101 = getelementptr inbounds [1300 x double], [1300 x double]* %100, i64\l... %75, i64 %76\l  store double %99, double* %101, align 8\l  %102 = load i32, i32* %11, align 4\l  %103 = add nsw i32 %102, 1\l  br label %67\l}"];
+	Node0x3aac2950 -> Node0x3aac2900;
+	Node0x3aac29a0 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#f7a88970",label="{%104:\l104:                                              \l  %105 = load i32, i32* %10, align 4\l  %106 = add nsw i32 %105, 1\l  br label %62\l}"];
+	Node0x3aac29a0 -> Node0x3aac2860;
+	Node0x3aac29f0 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#cedaeb70",label="{%107:\l107:                                              \l  %108 = load i32, i32* %9, align 4\l  %109 = add nsw i32 %108, 1\l  br label %12\l}"];
+	Node0x3aac29f0 -> Node0x3aac25e0;
+	Node0x3aac2a40 [shape=record,color="#3d50c3ff", style=filled, fillcolor="#7396f570",label="{%110:\l110:                                              \l  ret void\l}"];
+}

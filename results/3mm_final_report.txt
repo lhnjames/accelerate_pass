@@ -1,0 +1,142 @@
+================================================================================
+3MM OPTIMIZATION WITH GRAPH-AWARE LLM OPTIMIZER - FINAL REPORT
+================================================================================
+Date: 2026-06-17
+Duration: ~4 minutes
+Status: COMPLETED SUCCESSFULLY
+
+================================================================================
+PERFORMANCE METRICS
+================================================================================
+
+Baseline Configuration:
+  - Compiler: clang-11
+  - Optimization Level: -O3 (no custom passes)
+  - Runtime: 20447.39 ms
+  - Measurement: 3 runs, median aggregation
+
+Best Optimized Configuration:
+  - Passes: 6 custom LLVM passes (mem2reg → instcombine → dce → loop-simplify → lcssa → loop-vectorize)
+  - Runtime: 17874.25 ms
+  - Speedup: 1.144x
+  - Improvement: 14.4% faster
+  - Time Saved: 2573.14 ms per execution
+
+================================================================================
+SYSTEM ARCHITECTURE
+================================================================================
+
+Layer 1: Pass Dependency Analysis
+  - Dynamic pass discovery: 755 available passes
+  - Dependency extraction: 20 passes analyzed
+  - Key dependencies identified:
+    • loop-vectorize requires: [lcssa, loop-simplify]
+    • lcssa requires: [loop-simplify]
+    • sroa requires: [domtree]
+
+Layer 2-3 (Merged): GraphAwareLLMOptimizer
+  - MCTS expansion: Constrained to valid pass sequences
+  - Heuristic scoring: unlock_potential (60%) + criticality (40%)
+  - OptimizationContext generation
+  - LLM prompt building with graph relationships
+
+================================================================================
+OPTIMIZATION ITERATIONS
+================================================================================
+
+Iteration 1: mem2reg → sroa → instcombine → dce → loop-simplify → lcssa → loop-vectorize
+  Result: 18854.40 ms (1.084x speedup) ✓ New best
+
+Iteration 2: mem2reg → sroa → instcombine → dce → loop-simplify → lcssa → loop-vectorize → loop-unroll
+  Result: FAILED (loop-unroll not available in LLVM 11)
+
+Iteration 3: mem2reg → instcombine → dce → loop-simplify → lcssa → loop-vectorize
+  Result: 17874.25 ms (1.144x speedup) ✓ New best (FINAL)
+
+Iteration 4: mem2reg → sroa → dce → loop-simplify → lcssa → loop-vectorize → instcombine
+  Result: 19986.14 ms (1.023x speedup)
+
+================================================================================
+BEST SEQUENCE ANALYSIS
+================================================================================
+
+Sequence: [mem2reg, instcombine, dce, loop-simplify, lcssa, loop-vectorize]
+Length: 6 passes
+Performance: 17874.25 ms (1.144x faster than baseline)
+
+Pass Breakdown:
+  1. mem2reg
+     - Purpose: Memory to register promotion
+     - Dependencies: none
+     - Role: Early-stage memory optimization
+
+  2. instcombine
+     - Purpose: Instruction combining/canonicalization
+     - Dependencies: none
+     - Role: Code simplification
+
+  3. dce
+     - Purpose: Dead code elimination
+     - Dependencies: none
+     - Role: Remove unused instructions
+
+  4. loop-simplify
+     - Purpose: Loop normalization
+     - Dependencies: none
+     - Role: Prepare loops for vectorization/unrolling
+
+  5. lcssa
+     - Purpose: Loop-closed SSA form
+     - Dependencies: [loop-simplify]
+     - Role: Required by vectorization passes
+
+  6. loop-vectorize
+     - Purpose: Auto-vectorization
+     - Dependencies: [lcssa, loop-simplify]
+     - Role: Key optimization for 3mm (matrix multiplication)
+
+================================================================================
+KEY INSIGHTS
+================================================================================
+
+✓ Graph-aware MCTS successfully identified valid pass sequences
+✓ Dependency constraints prevented invalid compilations
+✓ 14.4% performance improvement on 3mm benchmark
+✓ System correctly identified unavailable passes (loop-unroll in LLVM 11)
+✓ Core optimization pipeline: mem2reg → instcombine → dce → loop-simplify → lcssa → loop-vectorize
+✓ Loop vectorization is critical for 3mm performance (matrix multiplication workload)
+
+================================================================================
+SYSTEM CAPABILITIES DEMONSTRATED
+================================================================================
+
+1. Dynamic Pass Discovery
+   - 755 passes detected from /usr/bin/opt-11
+   - No hardcoded pass lists
+
+2. Dependency Analysis
+   - Transitive dependency computation
+   - Availability checking for sequence validity
+   - Critical path identification
+
+3. Graph-Aware MCTS
+   - Unlock potential scoring (0.0-1.0)
+   - Criticality scoring (0.0-1.0)
+   - Constrained node expansion
+
+4. LLM Integration Ready
+   - Detailed optimization context generation
+   - Pass relationship documentation
+   - Decision suggestions with graph reasoning
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Integrate GraphAwareLLMOptimizer into full MCTS orchestrator
+2. Test with actual LLM (Deepseek/GPT) for decision-making
+3. Validate on additional benchmarks (jacobi-2d, etc.)
+4. Improve graph analysis for architecture-specific passes
+5. Explore longer sequences and backtracking strategies
+
+================================================================================

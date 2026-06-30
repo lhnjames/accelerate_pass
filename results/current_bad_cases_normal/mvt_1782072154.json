@@ -1,0 +1,71 @@
+{
+  "program": "mvt",
+  "timestamp": 1782072154,
+  "mode": "llm-guided",
+  "best_pass_sequence": [
+    "dse",
+    "licm"
+  ],
+  "sequence_length": 2,
+  "runtime_ms": 24.691571815316156,
+  "baseline_runtime_ms": 25.242,
+  "speedup": 1.0223,
+  "missed_remaining": 72,
+  "resolved_count": 0,
+  "best_node_source": "keyword",
+  "source_report": {
+    "top_k": [
+      {
+        "rank": 1,
+        "passes": [
+          "dse",
+          "licm"
+        ],
+        "runtime_ms": 24.69,
+        "speedup": 1.0223,
+        "source": "keyword",
+        "expansion_method": "seed_keyword"
+      },
+      {
+        "rank": 2,
+        "passes": [
+          "aggressive-instcombine",
+          "correlated-propagation",
+          "dse",
+          "early-cse-memssa",
+          "gvn",
+          "indvars",
+          "licm",
+          "loop-deletion"
+        ],
+        "runtime_ms": 25.39,
+        "speedup": 0.9943,
+        "source": "keyword",
+        "expansion_method": "seed_keyword"
+      },
+      {
+        "rank": 3,
+        "passes": [],
+        "runtime_ms": 25.41,
+        "speedup": 0.9932,
+        "source": "empty",
+        "expansion_method": "seed_empty"
+      },
+      {
+        "rank": 4,
+        "passes": [
+          "dse"
+        ],
+        "runtime_ms": 25.72,
+        "speedup": 0.9816,
+        "source": "kb",
+        "expansion_method": "kb"
+      }
+    ],
+    "source_counts": {
+      "keyword": 2,
+      "empty": 1,
+      "kb": 1
+    }
+  }
+}

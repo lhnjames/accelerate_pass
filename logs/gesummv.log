@@ -1,0 +1,235 @@
+============================================================
+COMET: gesummv  rounds=9
+============================================================
+Collecting vectorization remarks for source rounds...
+  11 remarks collected
+
+[Param round]
+  Kernel 'kernel_gesummv': lines 71–96
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_gesummv
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: Key bottlenecks: GVN fails to eliminate redundant loads (36 misses) increasing memory traffic; LICM cannot hoist loop-invariant loads due to aliasing concerns (12 misses); SLP vectorization is not triggered despite available SIMD parallelism. Adjusting GVN's dependence limit, LICM's use traversal threshold, and SLP's cost threshold can enable these optimizations.
+    --gvn-max-num-deps: [50, 100, 200, 500]
+    --licm-max-num-uses-traversed: [4, 8, 16, 32]
+    --slp-threshold: [-4, -2, -1, 0]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 4.78 ms
+  Phase A — independent flag search:
+    --gvn-max-num-deps=50 → 5.0 ms (0.951x)
+    --gvn-max-num-deps=100 → 4.9 ms (0.984x)
+    --gvn-max-num-deps=200 → 4.7 ms (1.016x) ← best
+    --gvn-max-num-deps=500 → 5.1 ms (0.941x)
+    --licm-max-num-uses-traversed=4 → 4.7 ms (1.023x) ← best
+    --licm-max-num-uses-traversed=8 → 5.1 ms (0.934x)
+    --licm-max-num-uses-traversed=16 → 4.7 ms (1.013x)
+    --licm-max-num-uses-traversed=32 → 4.7 ms (1.010x)
+    --slp-threshold=-4 → 4.8 ms (0.996x)
+    --slp-threshold=-2 → 5.0 ms (0.955x)
+    --slp-threshold=-1 → 4.8 ms (0.994x)
+    --slp-threshold=0 → 4.6 ms (1.030x) ← best
+    -gvn-hoist-max-bbs=5 → 4.6 ms (1.037x) ← best
+    -gvn-hoist-max-bbs=10 → 4.7 ms (1.016x)
+    -gvn-hoist-max-bbs=20 → 4.7 ms (1.016x)
+    -licm-max-num-uses-traversed=16 → 4.7 ms (1.008x) ← best
+    -licm-max-num-uses-traversed=32 → 4.7 ms (1.007x)
+    -licm-max-num-uses-traversed=64 → 4.8 ms (0.987x)
+    -pragma-vectorize-scev-check-threshold=32 → 4.7 ms (1.006x) ← best
+    -pragma-vectorize-scev-check-threshold=64 → 4.9 ms (0.980x)
+    -pragma-vectorize-scev-check-threshold=128 → 4.7 ms (1.014x) ← best
+    -slp-look-ahead-users-budget=4 → 4.7 ms (1.015x) ← best
+    -slp-look-ahead-users-budget=8 → 5.9 ms (0.811x)
+    -slp-look-ahead-users-budget=16 → 5.0 ms (0.956x)
+    -amdgpu-unroll-threshold-if=150 → 4.9 ms (0.984x)
+    -amdgpu-unroll-threshold-if=300 → 4.8 ms (0.994x)
+    -amdgpu-unroll-threshold-if=600 → 4.9 ms (0.985x)
+    -loop-load-elimination-scev-check-threshold=1 → 5.1 ms (0.934x)
+    -loop-load-elimination-scev-check-threshold=2 → 5.1 ms (0.946x)
+    -loop-load-elimination-scev-check-threshold=4 → 4.7 ms (1.008x) ← best
+    -loop-distribute-scev-check-threshold=16 → 4.8 ms (0.996x)
+    -loop-distribute-scev-check-threshold=32 → 5.1 ms (0.941x)
+    -loop-distribute-scev-check-threshold=64 → 5.0 ms (0.951x)
+    -instcombine-max-iterations=1 → 5.0 ms (0.957x)
+    -instcombine-max-iterations=3 → 5.0 ms (0.962x)
+    -instcombine-max-iterations=6 → 4.8 ms (0.999x)
+  LLM refinement (Phase A → refined candidates)...
+  Refinement JSON parse failed, using original params
+  Phase B — joint search (best pairs):
+    -gvn-hoist-max-bbs=5, --slp-threshold=-4 → 5.0 ms (0.965x)
+    -gvn-hoist-max-bbs=5, --slp-threshold=-2 → 4.7 ms (1.020x)
+    -gvn-hoist-max-bbs=5, --slp-threshold=-1 → 4.8 ms (0.988x)
+    -gvn-hoist-max-bbs=5, --slp-threshold=0 → 5.0 ms (0.964x)
+    -gvn-hoist-max-bbs=10, --slp-threshold=-4 → 4.8 ms (1.006x)
+    -gvn-hoist-max-bbs=10, --slp-threshold=-2 → 4.7 ms (1.024x)
+    -gvn-hoist-max-bbs=10, --slp-threshold=-1 → 4.5 ms (1.055x) ← BEST
+    -gvn-hoist-max-bbs=10, --slp-threshold=0 → 4.5 ms (1.053x)
+    -gvn-hoist-max-bbs=20, --slp-threshold=-4 → 4.5 ms (1.055x)
+    -gvn-hoist-max-bbs=20, --slp-threshold=-2 → 4.9 ms (0.984x)
+    -gvn-hoist-max-bbs=20, --slp-threshold=-1 → 5.0 ms (0.956x)
+    -gvn-hoist-max-bbs=20, --slp-threshold=0 → 4.9 ms (0.971x)
+  Best: -mllvm -gvn-hoist-max-bbs=10 -mllvm --slp-threshold=-1  → 4.53 ms (1.055x)
+  Param flags for source rounds: -mllvm -gvn-hoist-max-bbs=10 -mllvm --slp-threshold=-1
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The kernel is memory-bandwidth bound due to the low arithmetic intensity (2 FLOPs per 7 memory operations) in the inner loop, and while the inner loop is vectorized, the outer loop and the...
+
+[Source round 1/8]
+  Speedup: 1.686x (+68.6%)  2.88 ms
+  → New best (1.686x)!
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The inner reduction loop fails to auto‑vectorize because the compiler cannot prove it is safe to reassociate floating‑point operations, leaving SIMD units unused in a memory‑bound kernel....
+  Kernel 'kernel_gesummv': lines 70–112
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_gesummv
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: The inner loop contains two reductions that are not vectorized due to SLP cost model (cost >= 0). GVN fails to eliminate redundant loads in the outer loop. Tuning slp-threshold to negative values forces SLP vectorization, increasing gvn-max-num-deps may enable more load PRE, and adjusting vectorizer-min-trip-count ensures no threshold barrier prevents loop vectorization.
+    -slp-threshold: [-4, -2, -1, 0]
+    -gvn-max-num-deps: [100, 200, 500, 1000]
+    -vectorizer-min-trip-count: [0, 8, 32, 64]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 3.02 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 3.0 ms (1.011x) ← best
+    -slp-threshold=-2 → 2.5 ms (1.215x) ← best
+    -slp-threshold=-1 → 2.8 ms (1.096x)
+    -slp-threshold=0 → 2.6 ms (1.146x)
+    -gvn-max-num-deps=100 → 2.6 ms (1.180x) ← best
+    -gvn-max-num-deps=200 → 2.5 ms (1.197x) ← best
+    -gvn-max-num-deps=500 → 2.5 ms (1.199x) ← best
+    -gvn-max-num-deps=1000 → 2.5 ms (1.199x)
+    -vectorizer-min-trip-count=0 → 2.5 ms (1.206x) ← best
+    -vectorizer-min-trip-count=8 → 2.4 ms (1.235x) ← best
+    -vectorizer-min-trip-count=32 → 2.5 ms (1.200x)
+    -vectorizer-min-trip-count=64 → 2.5 ms (1.193x)
+    -gvn-hoist-max-bbs=5 → 2.8 ms (1.084x) ← best
+    -gvn-hoist-max-bbs=10 → 2.5 ms (1.205x) ← best
+    -gvn-hoist-max-bbs=20 → 2.5 ms (1.202x)
+    -slp-look-ahead-users-budget=4 → 2.8 ms (1.080x) ← best
+    -slp-look-ahead-users-budget=8 → 2.5 ms (1.199x) ← best
+    -slp-look-ahead-users-budget=16 → 2.6 ms (1.178x)
+    -pragma-vectorize-scev-check-threshold=32 → 2.5 ms (1.204x) ← best
+    -pragma-vectorize-scev-check-threshold=64 → 2.5 ms (1.205x) ← best
+    -pragma-vectorize-scev-check-threshold=128 → 2.6 ms (1.156x)
+    -amdgpu-unroll-threshold-if=150 → 2.6 ms (1.185x) ← best
+    -amdgpu-unroll-threshold-if=300 → 2.5 ms (1.197x) ← best
+    -amdgpu-unroll-threshold-if=600 → 2.6 ms (1.160x)
+    -loop-load-elimination-scev-check-threshold=1 → 2.5 ms (1.196x) ← best
+    -loop-load-elimination-scev-check-threshold=2 → 2.5 ms (1.207x) ← best
+    -loop-load-elimination-scev-check-threshold=4 → 2.5 ms (1.195x)
+    -licm-max-num-uses-traversed=16 → 2.6 ms (1.174x) ← best
+    -licm-max-num-uses-traversed=32 → 2.5 ms (1.202x) ← best
+    -licm-max-num-uses-traversed=64 → 2.8 ms (1.062x)
+    -loop-distribute-scev-check-threshold=16 → 2.5 ms (1.193x) ← best
+    -loop-distribute-scev-check-threshold=32 → 2.5 ms (1.217x) ← best
+    -loop-distribute-scev-check-threshold=64 → 2.5 ms (1.202x)
+    -instcombine-max-iterations=1 → 2.5 ms (1.195x) ← best
+    -instcombine-max-iterations=3 → 2.5 ms (1.213x) ← best
+    -instcombine-max-iterations=6 → 3.0 ms (0.992x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-vectorizer-min-trip-count', [4, 8, 16]), ('-loop-distribute-scev-check-threshold', [24, 32, 40]), ('-slp-threshold', [-3, -2, -1])]
+  Phase B — joint search (best pairs):
+    -vectorizer-min-trip-count=4, -loop-distribute-scev-check-threshold=24 → 3.0 ms (0.998x)
+    -vectorizer-min-trip-count=4, -loop-distribute-scev-check-threshold=32 → 3.0 ms (1.009x)
+    -vectorizer-min-trip-count=4, -loop-distribute-scev-check-threshold=40 → 2.9 ms (1.025x)
+    -vectorizer-min-trip-count=8, -loop-distribute-scev-check-threshold=24 → 3.0 ms (1.011x)
+    -vectorizer-min-trip-count=8, -loop-distribute-scev-check-threshold=32 → 2.9 ms (1.028x)
+    -vectorizer-min-trip-count=8, -loop-distribute-scev-check-threshold=40 → 3.1 ms (0.978x)
+    -vectorizer-min-trip-count=16, -loop-distribute-scev-check-threshold=24 → 2.6 ms (1.185x)
+    -vectorizer-min-trip-count=16, -loop-distribute-scev-check-threshold=32 → 2.7 ms (1.125x)
+    -vectorizer-min-trip-count=16, -loop-distribute-scev-check-threshold=40 → 3.0 ms (1.013x)
+  Best: -mllvm -vectorizer-min-trip-count=8  → 2.45 ms (1.235x)
+  Re-tuned flags: -mllvm -vectorizer-min-trip-count=8
+
+[Source round 2/8]  (building on round 1 best)
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  Round 2 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.00e-02, rel=1.64e-04. Max abs_diff=1.00e-02 at index 14. Max rel_diff=1.68e-04.
+C
+
+[Source round 3/8]  (building on round 2 best)
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  Round 3 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.00e-02, rel=1.64e-04. Max abs_diff=1.00e-02 at index 14. Max rel_diff=1.68e-04.
+C
+
+[Source round 4/8]  (building on round 3 best)
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  Round 4 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.00e-02, rel=1.64e-04. Max abs_diff=1.00e-02 at index 14. Max rel_diff=1.68e-04.
+C
+
+[Source round 5/8]  (building on round 4 best)
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  Round 5 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.00e-02, rel=1.64e-04. Max abs_diff=1.00e-02 at index 14. Max rel_diff=1.68e-04.
+C
+
+[Source round 6/8]  (building on round 5 best)
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  Round 6 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.00e-02, rel=1.64e-04. Max abs_diff=1.00e-02 at index 14. Max rel_diff=1.68e-04.
+C
+
+[Source round 7/8]  (building on round 6 best)
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  Round 7 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.00e-02, rel=1.64e-04. Max abs_diff=1.00e-02 at index 14. Max rel_diff=1.68e-04.
+C
+
+[Source round 8/8]  (building on round 7 best)
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.0
+  Round 8 failed (precision_error): PRECISION ERROR: Mismatch: 5/90 elements differ > epsilon=0.0001. First error at index 14: ref=60.87, opt=60.88, abs=1.00e-02, rel=1.64e-04. Max abs_diff=1.00e-02 at index 14. Max rel_diff=1.68e-04.
+C
+
+============================================================
+Program:      gesummv
+Baseline -O3: 4.78 ms
+Param flags:  -mllvm -gvn-hoist-max-bbs=10 -mllvm --slp-threshold=-1  (1.055x)
+Source best:  1.686x (source + initial param flags)
+Retune flags: -mllvm -vectorizer-min-trip-count=8 (applied to final best source)
+Saved:        outputs/gesummv_optimized.c
+To compile:   clang -O3 -march=native -mllvm -vectorizer-min-trip-count=8 outputs/gesummv_optimized.c ...
+============================================================

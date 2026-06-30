@@ -1,0 +1,437 @@
+2026-06-17 14:22:28,378 - __main__ - INFO - 初始化系统...
+2026-06-17 14:22:28,381 - src.config - INFO - Loaded YAML config from configs_quick/config.yaml
+2026-06-17 14:22:28,381 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 14:22:28,393 - src.config - INFO - Loaded pass database from configs_quick/pass_database.yaml
+2026-06-17 14:22:28,399 - src.config - INFO - Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+2026-06-17 14:22:28,399 - __main__ - INFO - 发现可用的LLVM passes...
+2026-06-17 14:22:28,879 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:22:28,880 - __main__ - INFO - 找到 755 个可用passes
+2026-06-17 14:22:28,880 - __main__ - INFO - 分析Pass依赖关系...
+2026-06-17 14:22:28,880 - __main__ - INFO - 测量baseline性能...
+2026-06-17 14:22:29,344 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:22:29,345 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:22:29,405 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:23:30,998 - __main__ - INFO - Baseline (-O3): 20447.39ms
+2026-06-17 14:23:30,998 - __main__ - INFO - 初始化图感知LLM优化器...
+2026-06-17 14:23:30,999 - __main__ - INFO - 关键路径（最重要的passes）: ['-aarch64-expand-pseudo', '-edge-bundles', '-internalize-public-api-file', '-machine-loops', '-polly-dump-before-file']
+2026-06-17 14:23:31,015 - src.pass_dependency_analyzer - INFO - Extracted dependencies for 20 passes
+2026-06-17 14:23:35,907 - __main__ - INFO - 建议的seed序列: loop-simplify → lcssa → -aarch64-expand-pseudo → -edge-bundles → -internalize-public-api-file → -machine-loops → -polly-dump-before-file → -debugger-tune → -nvptx-assign-valid-global-names → -debugify → instcombine → -stackrealign → -generic-to-nvvm → -ppc-reduce-cr-ops → -code-model → -loop-versioning-licm
+2026-06-17 14:23:35,907 - __main__ - INFO - 
+迭代 1: 测试序列 mem2reg → sroa → instcombine → dce → loop-simplify → lcssa → loop-vectorize
+2026-06-17 14:23:35,908 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:23:36,003 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:24:32,876 - __main__ - INFO - 运行时间: 18854.40ms, 加速比: 1.084x
+2026-06-17 14:24:32,877 - __main__ - INFO - ✓ 新的最优结果！
+2026-06-17 14:24:33,186 - __main__ - INFO - 
+【优化上下文 - 当前分析】
+2026-06-17 14:24:33,186 - __main__ - INFO - 
+【MCTS建议 - 下一步candidates】
+2026-06-17 14:24:33,186 - __main__ - INFO -   → -aarch64-expand-pseudo (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:24:33,186 - __main__ - INFO -   → -edge-bundles        (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:24:33,186 - __main__ - INFO -   → -internalize-public-api-file (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:24:33,186 - __main__ - INFO -   → -machine-loops       (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:24:33,186 - __main__ - INFO -   → -polly-dump-before-file (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:24:33,186 - __main__ - INFO - 
+【LLM决策提示】
+2026-06-17 14:24:33,186 - __main__ - INFO - 
+迭代 2: 测试序列 mem2reg → sroa → instcombine → dce → loop-simplify → lcssa → loop-vectorize → loop-unroll
+2026-06-17 14:24:33,187 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:24:33,312 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-unroll'
+
+2026-06-17 14:24:33,312 - __main__ - WARNING - 测量失败: Compilation failed
+2026-06-17 14:24:33,312 - __main__ - INFO - 
+迭代 3: 测试序列 mem2reg → instcombine → dce → loop-simplify → lcssa → loop-vectorize
+2026-06-17 14:24:33,313 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:24:33,409 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:25:27,365 - __main__ - INFO - 运行时间: 17874.25ms, 加速比: 1.144x
+2026-06-17 14:25:27,365 - __main__ - INFO - ✓ 新的最优结果！
+2026-06-17 14:25:27,704 - __main__ - INFO - 
+【优化上下文 - 当前分析】
+2026-06-17 14:25:27,704 - __main__ - INFO - 
+【MCTS建议 - 下一步candidates】
+2026-06-17 14:25:27,704 - __main__ - INFO -   → -aarch64-expand-pseudo (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:25:27,704 - __main__ - INFO -   → -edge-bundles        (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:25:27,704 - __main__ - INFO -   → -internalize-public-api-file (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:25:27,704 - __main__ - INFO -   → -machine-loops       (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:25:27,704 - __main__ - INFO -   → -polly-dump-before-file (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:25:27,704 - __main__ - INFO - 
+【LLM决策提示】
+2026-06-17 14:25:27,704 - __main__ - INFO - 
+迭代 4: 测试序列 mem2reg → sroa → dce → loop-simplify → lcssa → loop-vectorize → instcombine
+2026-06-17 14:25:27,704 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:25:27,808 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:26:26,078 - __main__ - INFO - 运行时间: 19986.14ms, 加速比: 1.023x
+2026-06-17 14:26:26,388 - __main__ - INFO - 
+【优化上下文 - 当前分析】
+================================================================================
+3MM OPTIMIZATION WITH GRAPH-AWARE LLM GUIDANCE
+================================================================================
+
+
+=== Pass Dependency Graph Analysis ===
+Total passes: 0
+Graph density: 0.000
+Longest dependency path: 0
+
+Top bottleneck passes (unlock most others):
+
+
+
+================================================================================
+SIMULATED MCTS SEARCH WITH GRAPH AWARENESS
+================================================================================
+
+【当前优化状态】
+当前加速比: 1.084x
+运行时间: 18854.4ms (基线: 20447.4ms)
+序列长度: 7 passes
+平均改进: 1.084x
+
+【当前序列分析】
+  1. mem2reg              (无依赖)
+  2. sroa                 (依赖: domtree)
+  3. instcombine          (无依赖)
+  4. dce                  (无依赖)
+  5. loop-simplify        (无依赖)
+  6. lcssa                (依赖: loop-simplify)
+  7. loop-vectorize       (依赖: lcssa, loop-simplify)
+
+【可用的下一步Passes (745个)】
+
+1. -aarch64-expand-pseudo
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+2. -edge-bundles
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+3. -internalize-public-api-file
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+4. -machine-loops
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+5. -polly-dump-before-file
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+6. -debugger-tune
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+7. -nvptx-assign-valid-global-names
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+8. -debugify
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+9. -stackrealign
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+10. -generic-to-nvvm
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+【关键路径建议】
+最影响性能的Pass（按优先级）:
+  1. -aarch64-expand-pseudo
+  2. -edge-bundles
+  3. -internalize-public-api-file
+  4. -machine-loops
+  5. -polly-dump-before-file
+【LLM决策提示】
+当前加速比: 1.084x | 序列: mem2reg → sroa → instcombine → dce → loop-simplify → lcssa → loop-vectorize
+可添加的passes: 745个
+
+【基于图的MCTS推荐（Top 8）】
+(按综合评分排序)
+
+1. -aarch64-expand-pseudo (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+2. -edge-bundles        (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+3. -internalize-public-api-file (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+4. -machine-loops       (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+5. -polly-dump-before-file (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+6. -debugger-tune       (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+7. -nvptx-assign-valid-global-names (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+8. -debugify            (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+【建议】
+优先考虑: -aarch64-expand-pseudo → -edge-bundles → -internalize-public-api-file
+(这些pass的图分析评分最高)
+
+【当前优化状态】
+当前加速比: 1.144x
+运行时间: 17874.2ms (基线: 20447.4ms)
+序列长度: 6 passes
+平均改进: 1.114x
+
+【当前序列分析】
+  1. mem2reg              (无依赖)
+  2. instcombine          (无依赖)
+  3. dce                  (无依赖)
+  4. loop-simplify        (无依赖)
+  5. lcssa                (依赖: loop-simplify)
+  6. loop-vectorize       (依赖: lcssa, loop-simplify)
+
+【可用的下一步Passes (745个)】
+
+1. -aarch64-expand-pseudo
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+2. -edge-bundles
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+3. -internalize-public-api-file
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+4. -machine-loops
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+5. -polly-dump-before-file
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+6. -debugger-tune
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+7. -nvptx-assign-valid-global-names
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+8. -debugify
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+9. -stackrealign
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+10. -generic-to-nvvm
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+【关键路径建议】
+最影响性能的Pass（按优先级）:
+  1. -aarch64-expand-pseudo
+  2. -edge-bundles
+  3. -internalize-public-api-file
+  4. -machine-loops
+  5. -polly-dump-before-file
+【LLM决策提示】
+当前加速比: 1.144x | 序列: mem2reg → instcombine → dce → loop-simplify → lcssa → loop-vectorize
+可添加的passes: 745个
+
+【基于图的MCTS推荐（Top 8）】
+(按综合评分排序)
+
+1. -aarch64-expand-pseudo (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+2. -edge-bundles        (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+3. -internalize-public-api-file (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+4. -machine-loops       (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+5. -polly-dump-before-file (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+6. -debugger-tune       (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+7. -nvptx-assign-valid-global-names (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+8. -debugify            (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+【建议】
+优先考虑: -aarch64-expand-pseudo → -edge-bundles → -internalize-public-api-file
+(这些pass的图分析评分最高)
+
+【当前优化状态】
+当前加速比: 1.023x
+运行时间: 19986.1ms (基线: 20447.4ms)
+序列长度: 7 passes
+平均改进: 1.084x
+
+【当前序列分析】
+  1. mem2reg              (无依赖)
+  2. sroa                 (依赖: domtree)
+  3. dce                  (无依赖)
+  4. loop-simplify        (无依赖)
+  5. lcssa                (依赖: loop-simplify)
+  6. loop-vectorize       (依赖: lcssa, loop-simplify)
+  7. instcombine          (无依赖)
+
+【可用的下一步Passes (745个)】
+
+1. -aarch64-expand-pseudo
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+2. -edge-bundles
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+3. -internalize-public-api-file
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+4. -machine-loops
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+5. -polly-dump-before-file
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+6. -debugger-tune
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+7. -nvptx-assign-valid-global-names
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+8. -debugify
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+9. -stackrealign
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+10. -generic-to-nvvm
+   综合得分: 0.00
+   解锁潜力: 0.00 (能打开多少其他passes)
+   关键性:   0.00 (对整体的重要性)
+
+【关键路径建议】
+最影响性能的Pass（按优先级）:
+  1. -aarch64-expand-pseudo
+  2. -edge-bundles
+  3. -internalize-public-api-file
+  4. -machine-loops
+  5. -polly-dump-before-file2026-06-17 14:26:26,388 - __main__ - INFO - 
+【MCTS建议 - 下一步candidates】
+2026-06-17 14:26:26,388 - __main__ - INFO -   → -aarch64-expand-pseudo (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:26:26,388 - __main__ - INFO -   → -edge-bundles        (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:26:26,388 - __main__ - INFO -   → -internalize-public-api-file (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:26:26,388 - __main__ - INFO -   → -machine-loops       (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:26:26,388 - __main__ - INFO -   → -polly-dump-before-file (得分: 0.00, 理由: 综合评分0.00)
+2026-06-17 14:26:26,388 - __main__ - INFO - 
+【LLM决策提示】
+
+【LLM决策提示】
+当前加速比: 1.023x | 序列: mem2reg → sroa → dce → loop-simplify → lcssa → loop-vectorize → instcombine
+可添加的passes: 745个
+
+【基于图的MCTS推荐（Top 8）】
+(按综合评分排序)
+
+1. -aarch64-expand-pseudo (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+2. -edge-bundles        (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+3. -internalize-public-api-file (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+4. -machine-loops       (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+5. -polly-dump-before-file (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+6. -debugger-tune       (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+7. -nvptx-assign-valid-global-names (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+8. -debugify            (评分: 0.00)
+   解锁: 0.00 | 关键: 0.00
+
+【建议】
+优先考虑: -aarch64-expand-pseudo → -edge-bundles → -internalize-public-api-file
+(这些pass的图分析评分最高)
+
+================================================================================
+FINAL RESULTS
+================================================================================
+
+Baseline (-O3):      20447.39ms
+Best optimized:      17874.25ms
+Speedup:             1.144x (2573.14ms saved)
+
+Best sequence (6 passes):
+  1. mem2reg
+  2. instcombine
+  3. dce
+  4. loop-simplify
+  5. lcssa
+  6. loop-vectorize
+
+Performance improvement: 14.4% faster
+
+================================================================================

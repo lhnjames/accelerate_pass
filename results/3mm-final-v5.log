@@ -1,0 +1,234 @@
+2026-06-17 14:12:58,237 - __main__ - INFO - ======================================================================
+2026-06-17 14:12:58,237 - __main__ - INFO - COMET: Compiler Observable-Guided Monte Carlo Exploration
+2026-06-17 14:12:58,237 - __main__ - INFO - ======================================================================
+2026-06-17 14:12:58,237 - __main__ - INFO - Program: /home/hanning/accelerate/PolyBenchC_no_rag/linear-algebra/kernels/3mm/3mm.c
+2026-06-17 14:12:58,237 - __main__ - INFO - Input: stdin
+2026-06-17 14:12:58,237 - __main__ - INFO - Budget: 50 measurements
+2026-06-17 14:12:58,237 - __main__ - INFO - Config: configs_quick
+2026-06-17 14:12:58,241 - src.config - INFO - Loaded YAML config from configs_quick/config.yaml
+2026-06-17 14:12:58,241 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 14:12:58,251 - src.config - INFO - Loaded pass database from configs_quick/pass_database.yaml
+2026-06-17 14:12:58,258 - src.config - INFO - Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+2026-06-17 14:12:58,258 - __main__ - INFO - 
+======================================================================
+2026-06-17 14:12:58,258 - __main__ - INFO - Phase 0: Compiler Observable Extraction
+2026-06-17 14:12:58,258 - __main__ - INFO - ======================================================================
+2026-06-17 14:12:58,258 - __main__ - INFO - Measuring baseline runtime...
+2026-06-17 14:12:58,752 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:12:58,754 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:12:58,816 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:13:53,990 - __main__ - INFO - Baseline runtime: 18347.62ms
+2026-06-17 14:13:53,990 - __main__ - INFO - Extracting baseline remarks...
+2026-06-17 14:13:54,092 - src.static_analyzer - ERROR - Error parsing remarks file: could not determine a constructor for the tag '!Missed'
+  in "<unicode string>", line 1, column 5:
+    --- !Missed
+        ^
+2026-06-17 14:13:54,093 - __main__ - INFO - Baseline remarks: 0 missed, 0 applied
+2026-06-17 14:13:54,093 - __main__ - INFO - Extracting dynamic profile...
+2026-06-17 14:13:57,293 - src.dynamic_profiler - ERROR - Failed to parse VTune CSV: [Errno 2] No such file or directory: '/tmp/vtune_result/hotspots_tma.csv'
+2026-06-17 14:13:57,293 - __main__ - WARNING - Dynamic profiling not available, using fallback
+2026-06-17 14:13:57,294 - __main__ - INFO - Building structured context C₀...
+2026-06-17 14:13:57,294 - __main__ - INFO - Context built for 3mm
+2026-06-17 14:13:57,294 - __main__ - INFO - 
+======================================================================
+2026-06-17 14:13:57,294 - __main__ - INFO - Phase 1 & 2: LLM Diagnosis + MCTS Search
+2026-06-17 14:13:57,294 - __main__ - INFO - ======================================================================
+2026-06-17 14:13:57,311 - src.mcts_orchestrator - INFO - ============================================================
+2026-06-17 14:13:57,311 - src.mcts_orchestrator - INFO - COMET MCTS Phase 2: Remarks-Guided Search
+2026-06-17 14:13:57,311 - src.mcts_orchestrator - INFO - ============================================================
+2026-06-17 14:13:57,312 - src.mcts_orchestrator - INFO - Baseline (-O3): runtime=18347.6ms, missed_count=0
+2026-06-17 14:13:57,312 - src.mcts_orchestrator - INFO - Calling LLM for initial diagnosis...
+2026-06-17 14:14:22,427 - src.mcts_orchestrator - ERROR - LLM diagnosis failed: type object 'DiagnosisParser' has no attribute 'parse_response'
+2026-06-17 14:14:22,427 - src.mcts_orchestrator - ERROR - LLM diagnosis failed. Using fallback.
+2026-06-17 14:14:22,427 - src.mcts_orchestrator - INFO - Diagnosis: Unable to diagnose; using uniform strategy.
+2026-06-17 14:14:22,427 - src.mcts_orchestrator - INFO - Constructing 4 seed branches...
+2026-06-17 14:14:22,940 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:14:22,941 - src.mcts_orchestrator - INFO -   seed_llm: 4 passes, missed=0
+2026-06-17 14:14:22,941 - src.mcts_orchestrator - INFO -   seed_fixed: 9 passes, missed=0
+2026-06-17 14:14:22,941 - src.mcts_orchestrator - INFO -   seed_remarks: 10 passes, missed=0
+2026-06-17 14:14:22,941 - src.mcts_orchestrator - INFO -   seed_empty: 4 passes, missed=0
+2026-06-17 14:14:22,941 - src.mcts_orchestrator - INFO - LLM seed will be measured in main MCTS loop...
+2026-06-17 14:14:22,942 - src.mcts_orchestrator - INFO - Starting MCTS search (30 iterations)...
+2026-06-17 14:14:22,942 - src.mcts_orchestrator - INFO -   Iteration 0/30 - Budget remaining: 50, LLM calls: 1/10, Best improved: 1.000x
+2026-06-17 14:14:22,942 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'loop-simplify', 'lcssa', 'loop-vectorize']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:14:22,943 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:14:22,943 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'loop-simplify', 'loop-unroll']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:14:22,943 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:14:22,943 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'simplifycfg', 'instcombine']: Invalid pass: simplifycfg
+2026-06-17 14:14:22,944 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:14:22,944 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: simplifycfg
+2026-06-17 14:14:23,496 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:14:23,497 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:14:23,629 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:15:23,117 - src.mcts_orchestrator - INFO -   Iter 0: Measured 7 passes -> 19141.40ms
+2026-06-17 14:15:32,033 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:15:32,034 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:15:32,034 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:15:32,034 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'loop-simplify', 'loop-unroll']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:15:32,034 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:15:32,034 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'simplifycfg', 'instcombine']: Invalid pass: simplifycfg
+2026-06-17 14:15:32,034 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:15:32,034 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: simplifycfg
+2026-06-17 14:15:32,524 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:15:32,525 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:15:32,657 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:16:32,122 - src.mcts_orchestrator - INFO -   Iter 1: Measured 9 passes -> 19382.72ms
+2026-06-17 14:16:41,380 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:16:41,380 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:16:41,380 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:16:41,380 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'loop-unroll']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:16:41,381 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:16:41,381 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'simplifycfg', 'instcombine']: Invalid pass: simplifycfg
+2026-06-17 14:16:41,381 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:16:41,381 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: simplifycfg
+2026-06-17 14:16:41,924 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:16:41,924 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:16:42,050 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:17:40,906 - src.mcts_orchestrator - INFO -   Iter 2: Measured 11 passes -> 19927.40ms
+2026-06-17 14:17:52,330 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:17:52,331 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:17:52,331 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:17:52,332 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'loop-unroll']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:17:52,332 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:17:52,332 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'simplifycfg', 'instcombine']: Invalid pass: simplifycfg
+2026-06-17 14:17:52,332 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:17:52,332 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: simplifycfg
+2026-06-17 14:17:52,821 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:17:52,822 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:17:52,935 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:18:46,992 - src.mcts_orchestrator - INFO -   Iter 3: Measured 13 passes -> 18412.31ms
+2026-06-17 14:18:54,324 - src.mcts_orchestrator - INFO -   LLM decision: pivot_strategy
+2026-06-17 14:18:54,324 - src.mcts_orchestrator - INFO -   Pivoting to different strategy...
+2026-06-17 14:18:54,324 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'loop-simplify', 'lcssa', 'loop-vectorize']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:18:54,324 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:18:54,324 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'loop-simplify', 'loop-unroll']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:18:54,325 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:18:54,325 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'simplifycfg', 'instcombine']: Invalid pass: simplifycfg
+2026-06-17 14:18:54,325 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:18:54,325 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: simplifycfg
+2026-06-17 14:18:54,787 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:18:54,788 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:18:54,891 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:19:49,828 - src.mcts_orchestrator - INFO -   Iter 4: Measured 16 passes -> 18394.56ms
+2026-06-17 14:19:58,675 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:19:58,675 - src.mcts_orchestrator - INFO -   Iteration 5/30 - Budget remaining: 50, LLM calls: 6/10, Best improved: 1.000x
+2026-06-17 14:19:58,676 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:19:58,676 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:19:58,677 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'loop-simplify', 'loop-unroll']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:19:58,677 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:19:58,677 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'simplifycfg', 'instcombine']: Invalid pass: simplifycfg
+2026-06-17 14:19:58,677 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:19:58,678 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: simplifycfg
+2026-06-17 14:19:59,152 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:19:59,153 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:19:59,253 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:20:56,455 - src.mcts_orchestrator - INFO -   Iter 5: Measured 18 passes -> 20422.58ms
+2026-06-17 14:21:08,749 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:21:08,750 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:21:08,750 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:21:08,751 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'loop-unroll']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:21:08,751 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:21:08,751 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'simplifycfg', 'instcombine']: Invalid pass: simplifycfg
+2026-06-17 14:21:08,751 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:21:08,751 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: simplifycfg
+2026-06-17 14:21:09,303 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:21:09,303 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:21:09,404 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:21:57,295 - src.mcts_orchestrator - INFO -   Iter 6: Measured 20 passes -> 15985.41ms
+2026-06-17 14:22:13,492 - src.mcts_orchestrator - INFO -   LLM decision: continue
+2026-06-17 14:22:13,492 - src.mcts_orchestrator - INFO -   *** New best improvement: 1.148x ***  Sequence: mem2reg -> sroa -> instcombine -> dce -> mem2reg -> sroa -> mem2reg -> sroa -> mem2reg -> sroa -> loop-simplify -> lcssa -> loop-vectorize -> mem2reg -> sroa -> mem2reg -> sroa -> loop-simplify -> lcssa -> loop-vectorize
+2026-06-17 14:22:13,492 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:22:13,493 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:22:13,493 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'loop-unroll']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:22:13,493 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:22:13,493 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'simplifycfg', 'instcombine']: Invalid pass: simplifycfg
+2026-06-17 14:22:13,493 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:22:13,493 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: simplifycfg
+2026-06-17 14:22:14,000 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:22:14,000 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:22:14,105 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:23:20,758 - src.mcts_orchestrator - INFO -   Iter 7: Measured 22 passes -> 23922.32ms
+2026-06-17 14:23:34,465 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:23:34,465 - src.mcts_orchestrator - INFO -   Backtracking to best node: 1.148x
+2026-06-17 14:23:34,466 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'loop-simplify', 'lcssa', 'loop-vectorize']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:23:34,466 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:23:34,466 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'loop-simplify', 'loop-unroll']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:23:34,466 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:23:34,467 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'simplifycfg', 'instcombine']: Invalid pass: simplifycfg
+2026-06-17 14:23:34,467 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'instcombine']: Compilation error: 'CompilerConfig' object has no attribute 'compiler'
+2026-06-17 14:23:34,467 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: simplifycfg
+2026-06-17 14:23:34,999 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:23:35,000 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:23:35,125 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:24:29,302 - src.mcts_orchestrator - INFO -   Iter 8: Measured 25 passes -> 17112.64ms
+2026-06-17 14:24:38,322 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:24:38,323 - src.mcts_orchestrator - INFO -   Backtracking to best node: 1.148x
+2026-06-17 14:24:38,323 - src.mcts_orchestrator - INFO -   Iteration 10/30 - Budget remaining: 50, LLM calls: 10/10, Best improved: 1.148x
+2026-06-17 14:24:38,871 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:24:38,872 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:24:38,999 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:25:35,951 - src.mcts_orchestrator - INFO -   Iter 10: Measured 24 passes -> 19242.64ms
+2026-06-17 14:25:36,490 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:25:36,491 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:25:36,596 - src.runtime_measurement - ERROR - Compilation failed: /usr/bin/opt: unknown function pass 'loop-unroll'
+
+2026-06-17 14:25:36,596 - src.mcts_orchestrator - WARNING -   Iter 11: Measurement failed: Compilation failed
+2026-06-17 14:25:37,147 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:25:37,148 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:25:37,249 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:26:34,370 - src.mcts_orchestrator - INFO -   Iter 12: Measured 23 passes -> 18937.38ms
+2026-06-17 14:26:34,850 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:26:34,851 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 14:26:34,851 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:26:34,966 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:27:30,691 - src.mcts_orchestrator - INFO -   Iter 13: Measured 24 passes -> 18223.63ms
+2026-06-17 14:27:31,259 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:27:31,260 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:27:31,399 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:28:29,309 - src.mcts_orchestrator - INFO -   Iter 14: Measured 23 passes -> 18704.81ms
+2026-06-17 14:28:29,309 - src.mcts_orchestrator - INFO -   Iteration 15/30 - Budget remaining: 50, LLM calls: 10/10, Best improved: 1.148x
+2026-06-17 14:28:29,849 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:28:29,849 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 14:28:29,850 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:28:29,979 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:28:47,927 - src.runtime_measurement - WARNING - Run 2 failed: Program execution failed: [Errno 2] No such file or directory: '/tmp/comet_prog_104173'
+2026-06-17 14:28:47,928 - src.runtime_measurement - WARNING - Run 3 failed: Program execution failed: [Errno 2] No such file or directory: '/tmp/comet_prog_104173'
+2026-06-17 14:28:47,928 - src.mcts_orchestrator - INFO -   Iter 15: Measured 25 passes -> 17821.27ms
+2026-06-17 14:28:47,929 - src.mcts_orchestrator - INFO -   Iteration 20/30 - Budget remaining: 50, LLM calls: 10/10, Best improved: 1.148x
+2026-06-17 14:28:47,930 - src.mcts_orchestrator - INFO -   Iteration 25/30 - Budget remaining: 50, LLM calls: 10/10, Best improved: 1.148x
+2026-06-17 14:28:47,931 - src.mcts_orchestrator - INFO - MCTS search completed.
+2026-06-17 14:28:47,931 - src.mcts_orchestrator - INFO - Search stats: {
+  "total_iterations": 30,
+  "nodes_created": 60,
+  "llm_calls_used": 1,
+  "measurements_used": 16,
+  "stagnation_detections": 0,
+  "best_speedup": 1.1477728088429011
+}
+2026-06-17 14:28:47,931 - src.mcts_orchestrator - INFO - Best improved sequence found: ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize'] (speedup=1.148x)
+2026-06-17 14:28:47,931 - __main__ - INFO - 
+======================================================================
+2026-06-17 14:28:47,932 - __main__ - INFO - Final Verification
+2026-06-17 14:28:47,932 - __main__ - INFO - ======================================================================
+2026-06-17 14:28:47,932 - __main__ - INFO - Best sequence: ['mem2reg', 'sroa', 'instcombine', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']
+2026-06-17 14:28:47,932 - __main__ - INFO - Sequence length: 20 passes
+2026-06-17 14:28:47,932 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:28:48,064 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:30:01,917 - __main__ - INFO - Best runtime: 26793.06ms
+2026-06-17 14:30:01,917 - __main__ - INFO - Speedup: 0.685x
+2026-06-17 14:30:01,917 - __main__ - INFO - 
+======================================================================
+2026-06-17 14:30:01,917 - __main__ - INFO - Saving Results
+2026-06-17 14:30:01,917 - __main__ - INFO - ======================================================================
+2026-06-17 14:30:01,918 - __main__ - INFO - Results saved to results/3mm-final-v5.json
+2026-06-17 14:30:01,918 - __main__ - INFO - 
+======================================================================
+2026-06-17 14:30:01,918 - __main__ - INFO - COMET Summary
+2026-06-17 14:30:01,918 - __main__ - INFO - ======================================================================
+2026-06-17 14:30:01,918 - __main__ - INFO - ✓ Baseline: 18347.62ms
+2026-06-17 14:30:01,918 - __main__ - INFO - ✓ Best: 26793.06ms
+2026-06-17 14:30:01,918 - __main__ - INFO - ✓ Speedup: 0.685x
+2026-06-17 14:30:01,918 - __main__ - INFO - ✓ Total time: 1023.7s
+2026-06-17 14:30:01,918 - __main__ - INFO - ✓ Measurements: 16/50
+2026-06-17 14:30:02,060 - __main__ - INFO - 
+COMET completed successfully!

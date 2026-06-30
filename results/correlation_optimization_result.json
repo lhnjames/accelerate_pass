@@ -1,0 +1,17 @@
+{
+  "program": "/home/hanning/accelerate/PolyBenchC_no_rag/datamining/correlation/correlation.c",
+  "timestamp": "2026-06-17T21:49:14.591189",
+  "summary": {
+    "baseline_ms": 7532.783031463623,
+    "best_runtime_ms": 6915.987014770508,
+    "best_speedup": 1.0891840912043098,
+    "improvement_percent": 8.918409120430981,
+    "best_sequence": [
+      "inline"
+    ],
+    "total_iterations": 15,
+    "compilation_success": 2,
+    "compilation_failure": 0,
+    "target_achieved": false
+  }
+}

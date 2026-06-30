@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "program": "/home/hanning/accelerate/PolyBenchC_no_rag/linear-algebra/kernels/3mm/3mm.c",
+    "start_time": 1781701978.2373626,
+    "end_time": 1781703001.9176455,
+    "total_time": 1023.680282831192,
+    "budget": 50
+  },
+  "baseline": {
+    "runtime_ms": 18347.62191772461,
+    "missed_remarks": 0,
+    "ir_instructions": 0
+  },
+  "result": {
+    "pass_sequence": [
+      "mem2reg",
+      "sroa",
+      "instcombine",
+      "dce",
+      "mem2reg",
+      "sroa",
+      "mem2reg",
+      "sroa",
+      "mem2reg",
+      "sroa",
+      "loop-simplify",
+      "lcssa",
+      "loop-vectorize",
+      "mem2reg",
+      "sroa",
+      "mem2reg",
+      "sroa",
+      "loop-simplify",
+      "lcssa",
+      "loop-vectorize"
+    ],
+    "sequence_length": 20,
+    "speedup": 0.6847899950465506,
+    "final_runtime_ms": 26793.063640594482
+  },
+  "search_stats": {
+    "total_iterations": 30,
+    "llm_calls": 1,
+    "measurements_used": 16,
+    "best_speedup": 1.1477728088429011,
+    "nodes_created": 60
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "timestamp": "2026-06-17T20:11:52.914124",
+  "test_type": "baseline_vs_optimization",
+  "total_programs": 5,
+  "pass_combinations": [
+    "Basic",
+    "Standard",
+    "Aggressive"
+  ],
+  "results": {
+    "3mm": {
+      "status": "SUCCESS",
+      "description": "3MM - \u77e9\u9635\u4e58\u6cd5",
+      "baseline_ms": 14711.52377128601,
+      "optimizations": {
+        "Basic": {
+          "passes": [
+            "loop-simplify",
+            "early-cse",
+            "dce"
+          ],
+          "runtime_ms": 13180.717945098877,
+          "speedup": 1.1161397909099746,
+          "improvement_percent": 11.61397909099746
+        },
+        "Standard": {
+          "passes": [
+            "loop-simplify",
+            "loop-vectorize",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "runtime_ms": 15820.211410522461,
+          "speedup": 0.9299195433950376,
+          "improvement_percent": -7.008045660496243
+        },
+        "Aggressive": {
+          "passes": [
+            "loop-simplify",
+            "loop-unroll",
+            "loop-vectorize",
+            "slp-vectorizer",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "status": "FAILED",
+          "error": "Compilation failed"
+        }
+      }
+    },
+    "jacobi-2d": {
+      "status": "SUCCESS",
+      "description": "Jacobi-2D - \u8fed\u4ee3\u7f51\u683c\u8ba1\u7b97",
+      "baseline_ms": 8956.790685653687,
+      "optimizations": {
+        "Basic": {
+          "passes": [
+            "loop-simplify",
+            "early-cse",
+            "dce"
+          ],
+          "runtime_ms": 7063.860177993774,
+          "speedup": 1.2679739490819775,
+          "improvement_percent": 26.797394908197745
+        },
+        "Standard": {
+          "passes": [
+            "loop-simplify",
+            "loop-vectorize",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "runtime_ms": 11402.602195739746,
+          "speedup": 0.7855040921273333,
+          "improvement_percent": -21.449590787266672
+        },
+        "Aggressive": {
+          "passes": [
+            "loop-simplify",
+            "loop-unroll",
+            "loop-vectorize",
+            "slp-vectorizer",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "status": "FAILED",
+          "error": "Compilation failed"
+        }
+      }
+    },
+    "gemm": {
+      "status": "SUCCESS",
+      "description": "GEMM - \u77e9\u9635\u4e58\u6cd5 BLAS",
+      "baseline_ms": 3680.882215499878,
+      "optimizations": {
+        "Basic": {
+          "passes": [
+            "loop-simplify",
+            "early-cse",
+            "dce"
+          ],
+          "runtime_ms": 3463.514804840088,
+          "speedup": 1.062759197782562,
+          "improvement_percent": 6.275919778256189
+        },
+        "Standard": {
+          "passes": [
+            "loop-simplify",
+            "loop-vectorize",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "runtime_ms": 4314.82195854187,
+          "speedup": 0.8530785860614692,
+          "improvement_percent": -14.692141393853076
+        },
+        "Aggressive": {
+          "passes": [
+            "loop-simplify",
+            "loop-unroll",
+            "loop-vectorize",
+            "slp-vectorizer",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "status": "FAILED",
+          "error": "Compilation failed"
+        }
+      }
+    },
+    "correlation": {
+      "status": "SUCCESS",
+      "description": "Correlation - \u6570\u636e\u76f8\u5173\u6027",
+      "baseline_ms": 7949.987173080444,
+      "optimizations": {
+        "Basic": {
+          "passes": [
+            "loop-simplify",
+            "early-cse",
+            "dce"
+          ],
+          "runtime_ms": 7318.716049194336,
+          "speedup": 1.0862543538569993,
+          "improvement_percent": 8.62543538569993
+        },
+        "Standard": {
+          "passes": [
+            "loop-simplify",
+            "loop-vectorize",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "runtime_ms": 7839.3714427948,
+          "speedup": 1.0141102805362427,
+          "improvement_percent": 1.4110280536242747
+        },
+        "Aggressive": {
+          "passes": [
+            "loop-simplify",
+            "loop-unroll",
+            "loop-vectorize",
+            "slp-vectorizer",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "status": "FAILED",
+          "error": "Compilation failed"
+        }
+      }
+    },
+    "heat-3d": {
+      "status": "SUCCESS",
+      "description": "Heat-3D - \u70ed\u6269\u6563\u65b9\u7a0b",
+      "baseline_ms": 19189.94140625,
+      "optimizations": {
+        "Basic": {
+          "passes": [
+            "loop-simplify",
+            "early-cse",
+            "dce"
+          ],
+          "runtime_ms": 11062.911748886108,
+          "speedup": 1.7346194059789166,
+          "improvement_percent": 73.46194059789167
+        },
+        "Standard": {
+          "passes": [
+            "loop-simplify",
+            "loop-vectorize",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "runtime_ms": 21083.677530288696,
+          "speedup": 0.9101799901218293,
+          "improvement_percent": -8.982000987817074
+        },
+        "Aggressive": {
+          "passes": [
+            "loop-simplify",
+            "loop-unroll",
+            "loop-vectorize",
+            "slp-vectorizer",
+            "instcombine",
+            "gvn",
+            "dce"
+          ],
+          "status": "FAILED",
+          "error": "Compilation failed"
+        }
+      }
+    }
+  }
+}

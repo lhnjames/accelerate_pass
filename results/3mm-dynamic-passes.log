@@ -1,0 +1,122 @@
+2026-06-17 13:58:42,749 - __main__ - INFO - ======================================================================
+2026-06-17 13:58:42,749 - __main__ - INFO - COMET: Compiler Observable-Guided Monte Carlo Exploration
+2026-06-17 13:58:42,749 - __main__ - INFO - ======================================================================
+2026-06-17 13:58:42,749 - __main__ - INFO - Program: /home/hanning/accelerate/PolyBenchC_no_rag/linear-algebra/kernels/3mm/3mm.c
+2026-06-17 13:58:42,749 - __main__ - INFO - Input: stdin
+2026-06-17 13:58:42,749 - __main__ - INFO - Budget: 100 measurements
+2026-06-17 13:58:42,749 - __main__ - INFO - Config: configs
+2026-06-17 13:58:42,753 - src.config - INFO - Loaded YAML config from configs/config.yaml
+2026-06-17 13:58:42,753 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 13:58:42,764 - src.config - INFO - Loaded pass database from configs/pass_database.yaml
+2026-06-17 13:58:42,770 - src.config - INFO - Loaded bottleneck mapping from configs/bottleneck_mapping.yaml
+2026-06-17 13:58:42,771 - __main__ - INFO - 
+======================================================================
+2026-06-17 13:58:42,771 - __main__ - INFO - Phase 0: Compiler Observable Extraction
+2026-06-17 13:58:42,771 - __main__ - INFO - ======================================================================
+2026-06-17 13:58:42,771 - __main__ - INFO - Measuring baseline runtime...
+2026-06-17 13:58:43,285 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 13:58:43,287 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 13:58:43,338 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 13:59:32,200 - src.runtime_measurement - DEBUG - Measurement complete: 3 runs, times=['14915.40', '20579.20', '13191.07'], median=14915.40ms
+2026-06-17 13:59:32,201 - __main__ - INFO - Baseline runtime: 14915.40ms
+2026-06-17 13:59:32,201 - __main__ - INFO - Extracting baseline remarks...
+2026-06-17 13:59:32,261 - src.static_analyzer - DEBUG - Running remarks extraction: /usr/bin/opt-11 -O3 -pass-remarks-output=/tmp/tmpk0sjwa5n.yaml
+2026-06-17 13:59:32,312 - src.static_analyzer - ERROR - Error parsing remarks file: could not determine a constructor for the tag '!Missed'
+  in "<unicode string>", line 1, column 5:
+    --- !Missed
+        ^
+2026-06-17 13:59:32,313 - __main__ - INFO - Baseline remarks: 0 missed, 0 applied
+2026-06-17 13:59:32,313 - __main__ - INFO - Extracting dynamic profile...
+2026-06-17 13:59:35,451 - src.dynamic_profiler - ERROR - Failed to parse VTune CSV: [Errno 2] No such file or directory: '/tmp/vtune_result/hotspots_tma.csv'
+2026-06-17 13:59:35,452 - __main__ - WARNING - Dynamic profiling not available, using fallback
+2026-06-17 13:59:35,452 - __main__ - INFO - Building structured context C₀...
+2026-06-17 13:59:35,452 - __main__ - INFO - Context built for 3mm
+2026-06-17 13:59:35,452 - __main__ - INFO - 
+======================================================================
+2026-06-17 13:59:35,452 - __main__ - INFO - Phase 1 & 2: LLM Diagnosis + MCTS Search
+2026-06-17 13:59:35,452 - __main__ - INFO - ======================================================================
+2026-06-17 13:59:35,455 - src.mcts_orchestrator - INFO - ============================================================
+2026-06-17 13:59:35,455 - src.mcts_orchestrator - INFO - COMET MCTS Phase 2: Remarks-Guided Search
+2026-06-17 13:59:35,455 - src.mcts_orchestrator - INFO - ============================================================
+2026-06-17 13:59:35,455 - src.mcts_orchestrator - INFO - Baseline (-O3): runtime=14915.4ms, missed_count=0
+2026-06-17 13:59:35,455 - src.mcts_orchestrator - INFO - Calling LLM for initial diagnosis...
+2026-06-17 13:59:35,455 - src.mcts_orchestrator - ERROR - LLM diagnosis failed: 'LLMClient' object has no attribute 'call_deepseek'
+2026-06-17 13:59:35,455 - src.mcts_orchestrator - ERROR - LLM diagnosis failed. Using fallback.
+2026-06-17 13:59:35,455 - src.mcts_orchestrator - INFO - Diagnosis: Unable to diagnose; using uniform strategy.
+2026-06-17 13:59:35,456 - src.mcts_orchestrator - INFO - Constructing 4 seed branches...
+2026-06-17 13:59:35,456 - src.mcts_orchestrator - INFO -   seed_fixed: 9 passes, missed=0
+2026-06-17 13:59:35,456 - src.mcts_orchestrator - INFO -   seed_remarks: 10 passes, missed=0
+2026-06-17 13:59:35,456 - src.mcts_orchestrator - INFO -   seed_empty: 4 passes, missed=0
+2026-06-17 13:59:35,456 - src.reward_functions - DEBUG - Prior calibration: {'seed_fixed': 0.25, 'seed_remarks': 0.25, 'seed_empty': 0.1} → {'seed_fixed': 0.4166666666666667, 'seed_remarks': 0.4166666666666667, 'seed_empty': 0.16666666666666669}
+2026-06-17 13:59:35,456 - src.mcts_orchestrator - INFO - Starting MCTS search (300 iterations)...
+2026-06-17 13:59:35,456 - src.mcts_orchestrator - INFO -   Iteration 0/300 - Budget remaining: 100, LLM calls: 1/20, Best improved: 1.000x
+2026-06-17 13:59:35,457 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'loop-simplify', 'lcssa', 'loop-vectorize']: Invalid pass: mem2reg
+2026-06-17 13:59:35,457 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa']: Invalid pass: mem2reg
+2026-06-17 13:59:35,457 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'loop-simplify', 'loop-unroll']: Invalid pass: mem2reg
+2026-06-17 13:59:35,457 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 13:59:35,457 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'simplifycfg', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 13:59:35,457 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 13:59:35,457 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: mem2reg
+2026-06-17 13:59:35,960 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 13:59:35,960 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 13:59:35,960 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 13:59:35,961 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 13:59:36,085 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:00:21,984 - src.runtime_measurement - DEBUG - Measurement complete: 3 runs, times=['15613.36', '14826.01', '15282.20'], median=15282.20ms
+2026-06-17 14:00:21,985 - src.mcts_orchestrator - INFO -   Iter 0: Measured 12 passes -> 15282.20ms
+2026-06-17 14:00:21,985 - src.reward_functions - DEBUG - Reward: -0.0800 (remarks=0.000, runtime=0.000, saturation=1.00, alpha=1.00)
+2026-06-17 14:00:21,985 - src.llm_client - DEBUG - Calling Deepseek API (model=ep-20260617184819-9ftrx, tokens=50)
+2026-06-17 14:00:21,989 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): ark.cn-beijing.volces.com:443
+2026-06-17 14:00:37,485 - urllib3.connectionpool - DEBUG - https://ark.cn-beijing.volces.com:443 "POST /api/v3/chat/completions HTTP/11" 200 1218
+2026-06-17 14:00:37,486 - src.llm_client - DEBUG - API call #1 succeeded
+2026-06-17 14:00:37,486 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:00:37,486 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']: Invalid pass: mem2reg
+2026-06-17 14:00:37,486 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa']: Invalid pass: mem2reg
+2026-06-17 14:00:37,486 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'loop-simplify', 'loop-unroll']: Invalid pass: mem2reg
+2026-06-17 14:00:37,486 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 14:00:37,486 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'simplifycfg', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 14:00:37,486 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 14:00:37,487 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: mem2reg
+2026-06-17 14:00:38,002 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:00:38,002 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 14:00:38,002 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 14:00:38,002 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:00:38,111 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:01:53,064 - src.runtime_measurement - DEBUG - Measurement complete: 3 runs, times=['15452.45', '29982.97', '29348.26'], median=29348.26ms
+2026-06-17 14:01:53,065 - src.mcts_orchestrator - INFO -   Iter 1: Measured 14 passes -> 29348.26ms
+2026-06-17 14:01:53,065 - src.reward_functions - DEBUG - Reward: -0.1000 (remarks=0.000, runtime=0.000, saturation=1.00, alpha=1.00)
+2026-06-17 14:01:53,065 - src.llm_client - DEBUG - Calling Deepseek API (model=ep-20260617184819-9ftrx, tokens=50)
+2026-06-17 14:01:59,556 - urllib3.connectionpool - DEBUG - https://ark.cn-beijing.volces.com:443 "POST /api/v3/chat/completions HTTP/11" 200 770
+2026-06-17 14:01:59,557 - src.llm_client - DEBUG - API call #2 succeeded
+2026-06-17 14:01:59,557 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:01:59,557 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']: Invalid pass: mem2reg
+2026-06-17 14:01:59,558 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa']: Invalid pass: mem2reg
+2026-06-17 14:01:59,558 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'loop-unroll']: Invalid pass: mem2reg
+2026-06-17 14:01:59,558 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 14:01:59,558 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'simplifycfg', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 14:01:59,558 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 14:01:59,558 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: mem2reg
+2026-06-17 14:02:00,093 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:02:00,094 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 14:02:00,094 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 14:02:00,094 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:02:00,204 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 14:03:11,883 - src.runtime_measurement - DEBUG - Measurement complete: 3 runs, times=['33175.98', '24857.44', '13486.01'], median=24857.44ms
+2026-06-17 14:03:11,883 - src.mcts_orchestrator - INFO -   Iter 2: Measured 16 passes -> 24857.44ms
+2026-06-17 14:03:11,883 - src.reward_functions - DEBUG - Reward: -0.1200 (remarks=0.000, runtime=0.000, saturation=1.00, alpha=1.00)
+2026-06-17 14:03:11,883 - src.llm_client - DEBUG - Calling Deepseek API (model=ep-20260617184819-9ftrx, tokens=50)
+2026-06-17 14:03:17,525 - urllib3.connectionpool - DEBUG - https://ark.cn-beijing.volces.com:443 "POST /api/v3/chat/completions HTTP/11" 200 751
+2026-06-17 14:03:17,526 - src.llm_client - DEBUG - API call #3 succeeded
+2026-06-17 14:03:17,526 - src.mcts_orchestrator - INFO -   LLM decision: backtrack
+2026-06-17 14:03:17,526 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'lcssa', 'loop-vectorize']: Invalid pass: mem2reg
+2026-06-17 14:03:17,526 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa']: Invalid pass: mem2reg
+2026-06-17 14:03:17,527 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'loop-simplify', 'loop-unroll']: Invalid pass: mem2reg
+2026-06-17 14:03:17,527 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 14:03:17,527 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'simplifycfg', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 14:03:17,527 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine']: Invalid pass: mem2reg
+2026-06-17 14:03:17,527 - src.mcts_orchestrator - WARNING - Compilation failed for ['mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'loop-simplify', 'lcssa', 'instcombine', 'simplifycfg', 'dce', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'mem2reg', 'sroa', 'instcombine', 'simplifycfg', 'dce']: Invalid pass: mem2reg
+2026-06-17 14:03:18,032 - src.dynamic_pass_extractor - INFO - Found 755 available passes
+2026-06-17 14:03:18,032 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 14:03:18,032 - src.dynamic_pass_extractor - WARNING - Pass 'simplifycfg' not available, skipping
+2026-06-17 14:03:18,033 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 14:03:18,157 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c

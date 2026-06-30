@@ -1,0 +1,7 @@
+Program: correlation
+Baseline: 6532.51 ms
+Best:     6530.01 ms
+Speedup:  1.000x
+Improvement: 0.0%
+Target Reached: False
+Iterations: 100

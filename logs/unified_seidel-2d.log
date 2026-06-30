@@ -1,0 +1,14 @@
+============================================================
+COMET unified: seidel-2d  rounds=5
+============================================================
+
+[Evidence collection — one-time analysis]
+  Pass graph → outputs/kernel_seidel_2d_pass_graph.dot
+  Pass graph PNG → outputs/kernel_seidel_2d_pass_graph.png
+Traceback (most recent call last):
+  File "/home/hanning/accelerate/comet/optimize.py", line 1640, in <module>
+    main()
+  File "/home/hanning/accelerate/comet/optimize.py", line 1368, in main
+    print(f"  {ev['stats']['unique_passes'] if 'stats' in ev.get('pass_graph', {}) else '?'}"
+               ~~^^^^^^^^^
+KeyError: 'stats'

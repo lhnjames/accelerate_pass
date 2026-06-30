@@ -1,0 +1,300 @@
+content empty, falling back to reasoning_content on attempt 1
+============================================================
+COMET: syr2k  rounds=9
+============================================================
+Collecting vectorization remarks for source rounds...
+  23 remarks collected
+
+[Param round]
+  Kernel 'kernel_syr2k': lines 72–99
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_syr2k
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: SLP vectorization is blocked by threshold cost 0 >= 0, so negative slp-threshold values can enable beneficial vectorization. LICM fails to move loads possibly due to limited use traversal, so increasing licm-max-num-uses-traversed may allow more invariant loads to be hoisted. GVN fails to eliminate loads, likely due to insufficient load PRE dependence analysis, so increasing gvn-max-num-deps can enable more eliminations.
+    -slp-threshold: [-4, -2, -1, 0]
+    -licm-max-num-uses-traversed: [8, 32, 128]
+    -gvn-max-num-deps: [100, 200, 500, 1000]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 10
+  Baseline -O3: 4718.99 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 4783.8 ms (0.986x)
+    -slp-threshold=-2 → 5000.9 ms (0.944x)
+    -slp-threshold=-1 → 4678.0 ms (1.009x) ← best
+    -slp-threshold=0 → 4724.1 ms (0.999x)
+    -licm-max-num-uses-traversed=8 → 4775.6 ms (0.988x)
+    -licm-max-num-uses-traversed=32 → 4675.4 ms (1.009x) ← best
+    -licm-max-num-uses-traversed=128 → 4711.8 ms (1.002x)
+    -gvn-max-num-deps=100 → 4475.0 ms (1.055x) ← best
+    -gvn-max-num-deps=200 → 4717.8 ms (1.000x)
+    -gvn-max-num-deps=500 → 4716.9 ms (1.000x)
+    -gvn-max-num-deps=1000 → 4695.9 ms (1.005x)
+    -slp-look-ahead-users-budget=4 → 4655.6 ms (1.014x) ← best
+    -slp-look-ahead-users-budget=8 → 4550.4 ms (1.037x) ← best
+    -slp-look-ahead-users-budget=16 → 4744.4 ms (0.995x)
+    -gvn-hoist-max-bbs=5 → 4578.6 ms (1.031x) ← best
+    -gvn-hoist-max-bbs=10 → 4747.3 ms (0.994x)
+    -gvn-hoist-max-bbs=20 → 4727.6 ms (0.998x)
+    -pragma-vectorize-scev-check-threshold=32 → 4519.1 ms (1.044x) ← best
+    -pragma-vectorize-scev-check-threshold=64 → 4483.3 ms (1.053x) ← best
+    -pragma-vectorize-scev-check-threshold=128 → 4705.2 ms (1.003x)
+    -amdgpu-unroll-threshold-if=150 → 4616.3 ms (1.022x) ← best
+    -amdgpu-unroll-threshold-if=300 → 4558.7 ms (1.035x) ← best
+    -amdgpu-unroll-threshold-if=600 → 4559.0 ms (1.035x)
+    -loop-load-elimination-scev-check-threshold=1 → 4688.3 ms (1.007x) ← best
+    -loop-load-elimination-scev-check-threshold=2 → 4648.3 ms (1.015x) ← best
+    -loop-load-elimination-scev-check-threshold=4 → 4523.3 ms (1.043x) ← best
+    -loop-distribute-scev-check-threshold=16 → 4595.9 ms (1.027x) ← best
+    -loop-distribute-scev-check-threshold=32 → 4763.3 ms (0.991x)
+    -loop-distribute-scev-check-threshold=64 → 4869.1 ms (0.969x)
+    -instcombine-max-iterations=1 → 4798.1 ms (0.984x)
+    -instcombine-max-iterations=3 → 4808.8 ms (0.981x)
+    -instcombine-max-iterations=6 → 4758.8 ms (0.992x)
+  LLM refinement (Phase A → refined candidates)...
+  Refinement JSON parse failed, using original params
+  Phase B — joint search (best pairs):
+    -gvn-max-num-deps=100, -pragma-vectorize-scev-check-threshold=32 → 4920.3 ms (0.959x)
+    -gvn-max-num-deps=100, -pragma-vectorize-scev-check-threshold=64 → 4593.0 ms (1.027x)
+    -gvn-max-num-deps=100, -pragma-vectorize-scev-check-threshold=128 → 4781.5 ms (0.987x)
+    -gvn-max-num-deps=200, -pragma-vectorize-scev-check-threshold=32 → 4491.6 ms (1.051x)
+    -gvn-max-num-deps=200, -pragma-vectorize-scev-check-threshold=64 → 4437.6 ms (1.063x) ← BEST
+    -gvn-max-num-deps=200, -pragma-vectorize-scev-check-threshold=128 → 4596.5 ms (1.027x)
+    -gvn-max-num-deps=500, -pragma-vectorize-scev-check-threshold=32 → 4632.8 ms (1.019x)
+    -gvn-max-num-deps=500, -pragma-vectorize-scev-check-threshold=64 → 4568.5 ms (1.033x)
+    -gvn-max-num-deps=500, -pragma-vectorize-scev-check-threshold=128 → 4817.2 ms (0.980x)
+    -gvn-max-num-deps=1000, -pragma-vectorize-scev-check-threshold=32 → 4581.0 ms (1.030x)
+    -gvn-max-num-deps=1000, -pragma-vectorize-scev-check-threshold=64 → 4510.1 ms (1.046x)
+    -gvn-max-num-deps=1000, -pragma-vectorize-scev-check-threshold=128 → 4507.1 ms (1.047x)
+  Best: -mllvm -gvn-max-num-deps=200 -mllvm -pragma-vectorize-scev-check-threshold=64  → 4437.63 ms (1.063x)
+  Param flags for source rounds: -mllvm -gvn-max-num-deps=200 -mllvm -pragma-vectorize-scev-check-threshold=64
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The innermost loop over j accesses A[j][k] and B[j][k] with a large stride M, causing cache misses, and the loop order prevents efficient vectorization of the reduction over k....
+
+[Source round 1/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 145/6400 elements differ > epsilon=0.0001. First error at index 0: ref=0.14, opt=0.13, abs=1.
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  Round 1 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, abs=1.00e-02, rel=2.19e-04. Max abs_diff=1.00e-02 at index 2090. Max rel_diff=5.15
+
+[Source round 2/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 22/6400 elements differ > epsilon=0.0001. First error at index 1292: ref=46.22, opt=46.23, ab
+  Round 2 failed (precision_error): PRECISION ERROR: Mismatch: 22/6400 elements differ > epsilon=0.0001. First error at index 1292: ref=46.22, opt=46.23, abs=1.00e-02, rel=2.16e-04. Max abs_diff=1.00e-02 at index 2825. Max rel_diff=5.15
+
+[Source round 3/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 22/6400 elements differ > epsilon=0.0001. First error at index 1292: ref=46.22, opt=46.23, ab
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 152/6400 elements differ > epsilon=0.0001. First error at index 968: ref=43.95, opt=43.96, ab
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  Round 3 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, abs=1.00e-02, rel=2.19e-04. Max abs_diff=1.00e-02 at index 2090. Max rel_diff=5.15
+
+[Source round 4/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 152/6400 elements differ > epsilon=0.0001. First error at index 968: ref=43.95, opt=43.96, ab
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 143/6400 elements differ > epsilon=0.0001. First error at index 320: ref=2.08, opt=2.09, abs=
+  Round 4 failed (precision_error): PRECISION ERROR: Mismatch: 143/6400 elements differ > epsilon=0.0001. First error at index 320: ref=2.08, opt=2.09, abs=1.00e-02, rel=4.78e-03. Max abs_diff=1.00e-02 at index 1211. Max rel_diff=5.59e-content empty, falling back to reasoning_content on attempt 1
+
+
+[Source round 5/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  Round 5 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, abs=1.00e-02, rel=2.19e-04. Max abs_diff=1.00e-02 at index 2090. Max rel_diff=5.15
+
+[Source round 6/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 143/6400 elements differ > epsilon=0.0001. First error at index 320: ref=2.08, opt=2.09, abs=
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 3/3]
+  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 145/6400 elements differ > epsilon=0.0001. First error at index 0: ref=0.14, opt=0.13, abs=1.
+  Round 6 failed (precision_error): PRECISION ERROR: Mismatch: 145/6400 elements differ > epsilon=0.0001. First error at index 0: ref=0.14, opt=0.13, abs=1.00e-02, rel=7.14e-02. Max abs_diff=1.00e-02 at index 648. Max rel_diff=7.14e-02.
+
+[Source round 7/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 2/3]
+  Speedup: 5.354x (+435.4%)  840.48 ms
+  → New best (5.354x)!
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: Excessive arithmetic operations inside the innermost loop (four multiplications per iteration instead of two due to repeated multiplication by alpha)....
+  Kernel 'kernel_syr2k': lines 72–101
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_syr2k
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: SLP vectorization is not applied because the cost threshold (0) considers it not beneficial despite potential gains. Loop vectorization is disabled for the main loop, likely due to a too high min trip count threshold. Lowering these thresholds may enable vectorization and improve performance.
+    -slp-threshold: [-4, -2, -1, 0]
+    -vectorizer-min-trip-count: [0, 1, 2, 3]
+    -slp-min-tree-size: [1, 2, 3, 4]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 868.35 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 879.2 ms (0.988x)
+    -slp-threshold=-2 → 829.7 ms (1.047x) ← best
+    -slp-threshold=-1 → 824.7 ms (1.053x) ← best
+    -slp-threshold=0 → 865.2 ms (1.004x)
+    -vectorizer-min-trip-count=0 → 827.9 ms (1.049x) ← best
+    -vectorizer-min-trip-count=1 → 857.0 ms (1.013x)
+    -vectorizer-min-trip-count=2 → 831.8 ms (1.044x)
+    -vectorizer-min-trip-count=3 → 868.9 ms (0.999x)
+    -slp-min-tree-size=1 → 828.5 ms (1.048x) ← best
+    -slp-min-tree-size=2 → 844.5 ms (1.028x)
+    -slp-min-tree-size=3 → 820.7 ms (1.058x) ← best
+    -slp-min-tree-size=4 → 830.9 ms (1.045x)
+    -slp-look-ahead-users-budget=4 → 827.6 ms (1.049x) ← best
+    -slp-look-ahead-users-budget=8 → 827.3 ms (1.050x) ← best
+    -slp-look-ahead-users-budget=16 → 824.6 ms (1.053x) ← best
+    -gvn-hoist-max-bbs=5 → 818.9 ms (1.060x) ← best
+    -gvn-hoist-max-bbs=10 → 825.3 ms (1.052x)
+    -gvn-hoist-max-bbs=20 → 825.6 ms (1.052x)
+    -pragma-vectorize-scev-check-threshold=32 → 827.2 ms (1.050x) ← best
+    -pragma-vectorize-scev-check-threshold=64 → 865.1 ms (1.004x)
+    -pragma-vectorize-scev-check-threshold=128 → 826.4 ms (1.051x) ← best
+    -amdgpu-unroll-threshold-if=150 → 838.0 ms (1.036x) ← best
+    -amdgpu-unroll-threshold-if=300 → 852.2 ms (1.019x)
+    -amdgpu-unroll-threshold-if=600 → 900.1 ms (0.965x)
+    -loop-load-elimination-scev-check-threshold=1 → 844.6 ms (1.028x) ← best
+    -loop-load-elimination-scev-check-threshold=2 → 847.5 ms (1.025x)
+    -loop-load-elimination-scev-check-threshold=4 → 828.7 ms (1.048x) ← best
+    -loop-distribute-scev-check-threshold=16 → 860.8 ms (1.009x) ← best
+    -loop-distribute-scev-check-threshold=32 → 822.5 ms (1.056x) ← best
+    -loop-distribute-scev-check-threshold=64 → 819.3 ms (1.060x) ← best
+    -licm-max-num-uses-traversed=16 → 826.8 ms (1.050x) ← best
+    -licm-max-num-uses-traversed=32 → 875.0 ms (0.992x)
+    -licm-max-num-uses-traversed=64 → 841.1 ms (1.032x)
+    -instcombine-max-iterations=1 → 834.7 ms (1.040x) ← best
+    -instcombine-max-iterations=3 → 892.5 ms (0.973x)
+    -instcombine-max-iterations=6 → 901.3 ms (0.963x)
+  LLM refinement (Phase A → refined candidates)...
+  Refinement JSON parse failed, using original params
+  Phase B — joint search (best pairs):
+    -gvn-hoist-max-bbs=5, -loop-distribute-scev-check-threshold=16 → 845.8 ms (1.027x)
+    -gvn-hoist-max-bbs=5, -loop-distribute-scev-check-threshold=32 → 832.2 ms (1.043x)
+    -gvn-hoist-max-bbs=5, -loop-distribute-scev-check-threshold=64 → 867.3 ms (1.001x)
+    -gvn-hoist-max-bbs=10, -loop-distribute-scev-check-threshold=16 → 827.6 ms (1.049x)
+    -gvn-hoist-max-bbs=10, -loop-distribute-scev-check-threshold=32 → 875.9 ms (0.991x)
+    -gvn-hoist-max-bbs=10, -loop-distribute-scev-check-threshold=64 → 853.8 ms (1.017x)
+    -gvn-hoist-max-bbs=20, -loop-distribute-scev-check-threshold=16 → 850.6 ms (1.021x)
+    -gvn-hoist-max-bbs=20, -loop-distribute-scev-check-threshold=32 → 858.5 ms (1.011x)
+    -gvn-hoist-max-bbs=20, -loop-distribute-scev-check-threshold=64 → 861.0 ms (1.009x)
+  Best: -mllvm -gvn-hoist-max-bbs=5  → 818.93 ms (1.060x)
+  Re-tuned flags: -mllvm -gvn-hoist-max-bbs=5
+
+[Source round 8/8]  (building on round 7 best)
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 2/3]
+  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 19/6400 elements differ > epsilon=0.0001. First error at index 1687: ref=45.72, opt=45.73, ab
+  [Retry 3/3]
+  Speedup: 5.537x (+453.7%)  821.87 ms
+  → New best (5.537x)!
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The inner summation loop over `k` (line ~61) is not vectorized because the compiler cannot guarantee floating-point associativity, leaving the compute-bound kernel far below peak throughpu...
+  Kernel 'kernel_syr2k': lines 72–103
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_syr2k
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: SLP cost threshold prevents vectorization of inner loop despite being beneficial; GVN load elimination is limited by dependence count; loop vectorization is blocked by trip count threshold. Adjusting these thresholds enables more aggressive optimization.
+    -slp-threshold: [-4, -2, -1, 0]
+    -gvn-max-num-deps: [100, 200, 500]
+    -vectorizer-min-trip-count: [2, 4, 8, 16]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 847.68 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 848.4 ms (0.999x)
+    -slp-threshold=-2 → 822.0 ms (1.031x) ← best
+    -slp-threshold=-1 → 837.5 ms (1.012x)
+    -slp-threshold=0 → 827.3 ms (1.025x)
+    -gvn-max-num-deps=100 → 830.4 ms (1.021x) ← best
+    -gvn-max-num-deps=200 → 823.4 ms (1.029x) ← best
+    -gvn-max-num-deps=500 → 828.0 ms (1.024x)
+    -vectorizer-min-trip-count=2 → 849.8 ms (0.998x)
+    -vectorizer-min-trip-count=4 → 831.4 ms (1.020x) ← best
+    -vectorizer-min-trip-count=8 → 842.3 ms (1.006x)
+    -vectorizer-min-trip-count=16 → 831.6 ms (1.019x)
+    -slp-look-ahead-users-budget=4 → 836.1 ms (1.014x) ← best
+    -slp-look-ahead-users-budget=8 → 844.5 ms (1.004x)
+    -slp-look-ahead-users-budget=16 → 864.4 ms (0.981x)
+    -gvn-hoist-max-bbs=5 → 853.1 ms (0.994x)
+    -gvn-hoist-max-bbs=10 → 865.6 ms (0.979x)
+    -gvn-hoist-max-bbs=20 → 835.8 ms (1.014x) ← best
+    -pragma-vectorize-scev-check-threshold=32 → 907.2 ms (0.934x)
+    -pragma-vectorize-scev-check-threshold=64 → 833.7 ms (1.017x) ← best
+    -pragma-vectorize-scev-check-threshold=128 → 827.9 ms (1.024x) ← best
+    -amdgpu-unroll-threshold-if=150 → 824.7 ms (1.028x) ← best
+    -amdgpu-unroll-threshold-if=300 → 827.4 ms (1.025x)
+    -amdgpu-unroll-threshold-if=600 → 827.5 ms (1.024x)
+    -loop-load-elimination-scev-check-threshold=1 → 823.8 ms (1.029x) ← best
+    -loop-load-elimination-scev-check-threshold=2 → 824.1 ms (1.029x)
+    -loop-load-elimination-scev-check-threshold=4 → 831.5 ms (1.019x)
+    -loop-distribute-scev-check-threshold=16 → 841.0 ms (1.008x) ← best
+    -loop-distribute-scev-check-threshold=32 → 829.1 ms (1.022x) ← best
+    -loop-distribute-scev-check-threshold=64 → 834.7 ms (1.016x)
+    -licm-max-num-uses-traversed=16 → 834.2 ms (1.016x) ← best
+    -licm-max-num-uses-traversed=32 → 832.9 ms (1.018x) ← best
+    -licm-max-num-uses-traversed=64 → 830.0 ms (1.021x) ← best
+    -instcombine-max-iterations=1 → 822.9 ms (1.030x) ← best
+    -instcombine-max-iterations=3 → 820.2 ms (1.034x) ← best
+    -instcombine-max-iterations=6 → 826.7 ms (1.025x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-instcombine-max-iterations', [1, 3, 6]), ('-slp-threshold', [-2, -1, 0]), ('-gvn-max-num-deps', [100, 200, 500])]
+  Phase B — joint search (best pairs):
+    -instcombine-max-iterations=1, -slp-threshold=-2 → 844.5 ms (1.004x)
+    -instcombine-max-iterations=1, -slp-threshold=-1 → 822.2 ms (1.031x)
+    -instcombine-max-iterations=1, -slp-threshold=0 → 831.6 ms (1.019x)
+    -instcombine-max-iterations=3, -slp-threshold=-2 → 828.6 ms (1.023x)
+    -instcombine-max-iterations=3, -slp-threshold=-1 → 832.9 ms (1.018x)
+    -instcombine-max-iterations=3, -slp-threshold=0 → 823.2 ms (1.030x)
+    -instcombine-max-iterations=6, -slp-threshold=-2 → 825.2 ms (1.027x)
+    -instcombine-max-iterations=6, -slp-threshold=-1 → 820.5 ms (1.033x)
+    -instcombine-max-iterations=6, -slp-threshold=0 → 830.4 ms (1.021x)
+  Best: -mllvm -instcombine-max-iterations=3  → 820.18 ms (1.034x)
+  Re-tuned flags: -mllvm -instcombine-max-iterations=3
+
+============================================================
+Program:      syr2k
+Baseline -O3: 4718.99 ms
+Param flags:  -mllvm -gvn-max-num-deps=200 -mllvm -pragma-vectorize-scev-check-threshold=64  (1.063x)
+Source best:  5.537x (source + initial param flags)
+Retune flags: -mllvm -instcombine-max-iterations=3 (applied to final best source)
+Saved:        outputs/syr2k_optimized.c
+To compile:   clang -O3 -march=native -mllvm -instcombine-max-iterations=3 outputs/syr2k_optimized.c ...
+============================================================

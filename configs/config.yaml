@@ -1,0 +1,107 @@
+system:
+  name: COMET
+  version: 1.0
+  description: Compiler Observable-Guided Monte Carlo Exploration for LLVM pass parameter tuning
+
+compiler:
+  clang_path: /usr/bin/clang-11
+  clang_cxx_path: /usr/bin/clang-11++
+  opt_path: /usr/bin/opt-11
+  llc_path: /usr/bin/llc-11
+  timeout_seconds: 300
+
+mcts:
+  iterations: 150
+  max_depth: 8        # bounded scaffold depth; main search objective is internal pass parameters
+  min_sequence_length: 1
+  max_sequence_length: 8
+  puct_exploration_constant: 1.5
+  q_value_scale: 10.0          # normalize scaled rewards inside PUCT; 7.8 reward -> Q≈0.78
+  expansion_visit_threshold: 1
+  measure_visit_threshold: 2  # measure sooner — want real signal for beyond-O3 candidates
+  periodic_measure_interval: 15
+  random_seed: 42               # set for reproducibility; remove/null to disable
+  enable_diversity_fallback: true  # force non-LLM seeds to prevent inline monoculture
+  # Reward calibration (see reward_functions.py):
+  #   length_penalty starts at seq_len > max(min_sequence_length, 6), coeff = 0.003
+  #   saturation uses raw resolved_ids (not effective = resolved - new_missed)
+  #   alpha floor = 0.85 when runtime_measured + memory_bound, 0.6 otherwise
+
+llm:
+  model: deepseek-v4-flash
+  base_url: https://api.deepseek.com
+  timeout_seconds: 120
+  max_tokens: 4000
+  temperature: 0.6
+  call_budget: 40
+  reasoning_effort: null
+  thinking_enabled: false
+  stagnation_detection_window: 3
+
+runtime:
+  total_budget: 80                  # ↑ from 50: more measurements = better MCTS signal
+  baseline_measurement_cost: 1
+  seed_measurement_cost: 1
+  mcts_search_budget: 88
+  top_candidates_budget: 30
+  local_refinement_budget: 20
+  measurement_timeout: 600
+  measurement_repeat: 9             # ↑ from 3: more runs → stable median for noisy benchmarks
+  pin_cpu: ~                        # null: controlled via --pin-cpu CLI arg per process
+  flush_cache_before_run: true      # software LLC flush before each run (128 MB sweep)
+  confirm_speedup_threshold: 5.0   # re-measure 3× when speedup ≥ 5% to filter false positives
+  enable_polly_passes: false        # keep Polly out of the default parameter-tuning experiment
+  drift_cap: 0.20                   # cap |drift-1| at 0.20 to prevent noise amplification
+  # Two-level measurement: fast during MCTS tree search, accurate in post-search.
+  mcts_measurement_runs: 3          # 3 runs per measurement during MCTS (median reduces turbo-bias)
+  measurement_cache_path: outputs/measurement_cache.json  # persistent cache across programs
+  max_micro_configs: 20             # cover unroll×vector combinations; 8 missed good small-win combos
+  max_micro_tunable_families: 2
+  micro_search_min_anchor_speedup_pct: 0.5 # avoid parameter search on measurement noise
+  positive_reward_scale: 100.0      # 2.2% measured speedup => reward floor 2.2
+  backoff_slowdown_tolerance_pct: 3.0  # ignore tiny/noisy slowdowns; compose small wins
+  seed_backoff_patience: 4             # penalize only after repeated bad evidence
+  seed_backoff_penalty: 2.0            # on the same scale as positive_reward_scale
+  catastrophic_slowdown_threshold: 20.0 # immediate backoff only for clearly bad branches
+  catastrophic_backoff_penalty: 8.0
+  llm_backtrack_penalty_step: 1.0
+  llm_backtrack_penalty_max: 4.0
+
+knowledge_base:
+  confidence_threshold: 0.3
+  support_threshold: 3
+  success_rate_threshold: 0.3
+
+rollout:
+  max_depth: 3
+  tier1_kb_use: true
+  tier2_keyword_use: true
+  tier3_random_use: true
+
+output:
+  directory: ./outputs
+  verbose: false
+  log_level: INFO
+  save_search_tree: true
+  save_measurements: true
+  save_final_sequence: true
+
+profiling:
+  vtune_enabled: true           # 启用时调用 vtune -collect hotspots -knob sampling-mode=hw
+  perf_enabled: true            # 始终启用 perf stat（vtune 为补充）
+  trace_functions: 5
+  cpu_time_threshold: 0.85
+  # vtune_result_base_dir: null   # 默认用 outputs/<kernel>_vtune/；可指定固定目录
+  # vtune_timeout: 300            # VTune 采集超时（秒），默认 300
+
+optimization:
+  max_iterations: 150
+  min_no_improvement_rounds: 20
+  max_candidates: 10
+  max_sequence_length: 15
+  early_stage_llm_frequency: 8
+  late_stage_llm_frequency: 15
+  late_stage_threshold: 50
+  program_path: null
+  config_dir: ./configs
+  output_dir: ./results

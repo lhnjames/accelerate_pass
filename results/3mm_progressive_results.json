@@ -1,0 +1,12 @@
+{
+  "baseline_ms": 14601.402759552002,
+  "best_runtime_ms": 14482.199430465698,
+  "final_speedup": 1.008231023861993,
+  "improvement_percent": 0.8231023861992925,
+  "best_sequence": [
+    "loop-simplify"
+  ],
+  "total_iterations": 51,
+  "visited_sequences": 7,
+  "milestones": []
+}

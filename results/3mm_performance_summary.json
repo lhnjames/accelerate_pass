@@ -1,0 +1,140 @@
+{
+  "test_metadata": {
+    "date": "2026-06-17",
+    "benchmark": "3mm (LARGE_DATASET)",
+    "framework": "COMET with Graph-Aware LLM Optimizer",
+    "compiler": "clang-11",
+    "llvm_opt": "/usr/bin/opt-11"
+  },
+  "baseline": {
+    "configuration": "-O3 (default)",
+    "runtime_ms": 20447.39,
+    "passes": [],
+    "speedup": 1.0
+  },
+  "best_result": {
+    "iteration": 3,
+    "runtime_ms": 17874.25,
+    "speedup": 1.144,
+    "improvement_percent": 14.4,
+    "time_saved_ms": 2573.14,
+    "passes": [
+      "mem2reg",
+      "instcombine",
+      "dce",
+      "loop-simplify",
+      "lcssa",
+      "loop-vectorize"
+    ],
+    "pass_count": 6
+  },
+  "all_iterations": [
+    {
+      "iteration": 1,
+      "passes": [
+        "mem2reg",
+        "sroa",
+        "instcombine",
+        "dce",
+        "loop-simplify",
+        "lcssa",
+        "loop-vectorize"
+      ],
+      "runtime_ms": 18854.40,
+      "speedup": 1.084,
+      "status": "success"
+    },
+    {
+      "iteration": 2,
+      "passes": [
+        "mem2reg",
+        "sroa",
+        "instcombine",
+        "dce",
+        "loop-simplify",
+        "lcssa",
+        "loop-vectorize",
+        "loop-unroll"
+      ],
+      "runtime_ms": null,
+      "speedup": null,
+      "status": "failed",
+      "error": "loop-unroll not available in LLVM 11"
+    },
+    {
+      "iteration": 3,
+      "passes": [
+        "mem2reg",
+        "instcombine",
+        "dce",
+        "loop-simplify",
+        "lcssa",
+        "loop-vectorize"
+      ],
+      "runtime_ms": 17874.25,
+      "speedup": 1.144,
+      "status": "success"
+    },
+    {
+      "iteration": 4,
+      "passes": [
+        "mem2reg",
+        "sroa",
+        "dce",
+        "loop-simplify",
+        "lcssa",
+        "loop-vectorize",
+        "instcombine"
+      ],
+      "runtime_ms": 19986.14,
+      "speedup": 1.023,
+      "status": "success"
+    }
+  ],
+  "system_analysis": {
+    "total_available_passes": 755,
+    "passes_with_dependency_info": 20,
+    "key_dependencies": {
+      "loop-vectorize": ["lcssa", "loop-simplify"],
+      "lcssa": ["loop-simplify"],
+      "sroa": ["domtree"]
+    },
+    "critical_path": [
+      "-aarch64-expand-pseudo",
+      "-edge-bundles",
+      "-internalize-public-api-file",
+      "-machine-loops",
+      "-polly-dump-before-file"
+    ]
+  },
+  "performance_improvement_analysis": {
+    "best_vs_baseline": {
+      "runtime_reduction_ms": 2573.14,
+      "runtime_reduction_percent": 12.59,
+      "speedup_ratio": 1.144,
+      "speedup_percent": 14.4
+    },
+    "best_vs_iteration_1": {
+      "runtime_reduction_ms": 980.15,
+      "speedup_improvement": 0.06,
+      "optimization": "Removed sroa pass"
+    }
+  },
+  "optimization_insights": {
+    "most_effective_passes": [
+      "loop-vectorize",
+      "lcssa",
+      "loop-simplify",
+      "instcombine"
+    ],
+    "redundant_passes": [
+      "sroa"
+    ],
+    "sequence_characteristics": {
+      "length": 6,
+      "contains_memory_optimization": true,
+      "contains_loop_optimization": true,
+      "contains_code_cleanup": true
+    }
+  }
+}

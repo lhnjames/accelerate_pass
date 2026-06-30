@@ -1,0 +1,32 @@
+# COMET pass database
+# Pass names are NOT pre-configured here.
+# All valid pass names are discovered at runtime via DynamicPassExtractor
+# by probing the actual opt binary (opt --help + per-pass verification).
+#
+# This file only contains strategy metadata for LLM guidance.
+
+strategies:
+  V:
+    name: Vectorize
+    description: Loop and SLP vectorization passes
+  M:
+    name: Memory
+    description: Memory disambiguation, alias analysis, LICM, GVN-based memory opt
+  L:
+    name: Loop Transform
+    description: Loop unrolling, rotation, distribution, interchange
+  G:
+    name: Global Value
+    description: GVN, CSE, constant propagation, reassociation
+  C:
+    name: Control Flow
+    description: CFG simplification, jump threading, branch folding
+  I:
+    name: Inline/IPO
+    description: Inlining, IPO, argument promotion, IPSCCP
+  P:
+    name: Cleanup
+    description: Instruction combining, DCE, canonicalization
+  X:
+    name: Experimental
+    description: Exploratory passes beyond standard pipeline

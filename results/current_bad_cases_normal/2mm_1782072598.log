@@ -1,0 +1,15 @@
+2026-06-21 21:09:58,651 INFO [comet.run] Log file: results/current_bad_cases_normal/2mm_1782072598.log
+2026-06-21 21:09:58,651 INFO [comet.run] ======================================================================
+2026-06-21 21:09:58,651 INFO [comet.run] COMET - Compiler Observable-Guided Monte Carlo Exploration
+2026-06-21 21:09:58,651 INFO [comet.run] Program : 2mm
+2026-06-21 21:09:58,651 INFO [comet.run] Source  : PolyBenchC_no_rag/linear-algebra/kernels/2mm/2mm.c
+2026-06-21 21:09:58,651 INFO [comet.run] Config  : configs
+2026-06-21 21:09:58,651 INFO [comet.run] Output  : results/current_bad_cases_normal
+2026-06-21 21:09:58,651 INFO [comet.run] LLM     : deepseek-v4-flash
+2026-06-21 21:09:58,651 INFO [comet.run] MCTS    : 150 iterations, budget=50
+2026-06-21 21:09:58,651 INFO [comet.run] ======================================================================
+2026-06-21 21:09:58,709 INFO [comet.run] LLM check: model=deepseek-v4-flash base_url=https://api.deepseek.com endpoint=https://api.deepseek.com/chat/completions api_key=present no_llm=False
+2026-06-21 21:09:58,879 INFO [openai._base_client] Retrying request to /chat/completions in 0.392833 seconds
+2026-06-21 21:09:59,274 INFO [openai._base_client] Retrying request to /chat/completions in 0.863595 seconds
+2026-06-21 21:10:00,140 INFO [openai._base_client] Retrying request to /chat/completions in 1.753822 seconds
+2026-06-21 21:10:01,896 ERROR [comet.run] LLM check failed: OpenAI SDK error: Connection error.

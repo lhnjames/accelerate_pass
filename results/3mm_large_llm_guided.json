@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "program": "PolyBenchC_no_rag/linear-algebra/kernels/3mm/3mm.c",
+    "start_time": 1781697353.834127,
+    "end_time": 1781697890.119612,
+    "total_time": 536.2854850292206,
+    "budget": 50
+  },
+  "baseline": {
+    "runtime_ms": 13643.270015716553,
+    "missed_remarks": 0,
+    "ir_instructions": 0
+  },
+  "result": {
+    "pass_sequence": [
+      "simplifycfg",
+      "instcombine",
+      "mem2reg",
+      "sroa"
+    ],
+    "sequence_length": 4,
+    "speedup": -1,
+    "final_runtime_ms": -1
+  },
+  "search_stats": {
+    "total_iterations": 300,
+    "llm_calls": 1,
+    "measurements_used": 50,
+    "best_speedup": 1.0,
+    "nodes_created": 0
+  }
+}

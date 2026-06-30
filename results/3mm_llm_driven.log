@@ -1,0 +1,38 @@
+2026-06-17 19:15:32,501 - __main__ - INFO - 初始化系统...
+2026-06-17 19:15:32,506 - src.config - INFO - Loaded YAML config from configs_quick/config.yaml
+2026-06-17 19:15:32,506 - src.config - INFO - Loaded ENV config from .env
+2026-06-17 19:15:32,518 - src.config - INFO - Loaded pass database from configs_quick/pass_database.yaml
+2026-06-17 19:15:32,530 - src.config - INFO - Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+2026-06-17 19:15:33,004 - src.dynamic_pass_extractor - INFO - Found 737 available passes
+2026-06-17 19:15:33,004 - __main__ - INFO - 动态发现可用Pass: 737
+2026-06-17 19:15:33,004 - __main__ - INFO - 测量baseline...
+2026-06-17 19:15:33,531 - src.dynamic_pass_extractor - INFO - Found 737 available passes
+2026-06-17 19:15:33,532 - src.runtime_measurement - INFO - Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+2026-06-17 19:15:33,593 - src.runtime_measurement - INFO - Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+2026-06-17 19:16:17,188 - __main__ - INFO - Baseline: 14626.02ms
+2026-06-17 19:16:17,188 - __main__ - INFO - ================================================================================
+2026-06-17 19:16:17,188 - __main__ - INFO - 启动LLM驱动的动态Pass筛选
+2026-06-17 19:16:17,188 - __main__ - INFO - ================================================================================
+2026-06-17 19:16:17,188 - __main__ - INFO - 总可用Pass数: 737
+2026-06-17 19:16:17,189 - __main__ - INFO - 搜索策略: LLM动态筛选，完全无硬编码
+2026-06-17 19:16:17,189 - __main__ - INFO - 最大迭代: 150轮
+2026-06-17 19:16:17,189 - __main__ - INFO - 
+================================================================================
+3MM OPTIMIZATION - LLM-DRIVEN DYNAMIC PASS SELECTION
+================================================================================
+
+
+Traceback (most recent call last):
+  File "/home/hanning/accelerate/comet/test_3mm_llm_driven.py", line 331, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/hanning/accelerate/comet/test_3mm_llm_driven.py", line 242, in main
+    best_seq, best_runtime, best_speedup = optimizer.run(all_passes)
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/test_3mm_llm_driven.py", line 190, in run
+    if not self.search_iteration(all_passes):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanning/accelerate/comet/test_3mm_llm_driven.py", line 95, in search_iteration
+    suggested_passes = self.pass_selector.select_passes_with_llm(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: LLMPassSelector.select_passes_with_llm() got an unexpected keyword argument 'all_passes'

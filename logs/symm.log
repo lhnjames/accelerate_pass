@@ -1,0 +1,314 @@
+============================================================
+COMET: symm  rounds=9
+============================================================
+Collecting vectorization remarks for source rounds...
+  22 remarks collected
+
+[Param round]
+  Kernel 'kernel_symm': lines 74–105
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_symm
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: The inner loop in symm has many redundant loads that GVN fails to eliminate (42 misses) and LICM fails to hoist (18 misses), while SLP vectorization is blocked by a cost threshold of 0. Lowering -slp-threshold will enable vectorization of the reduction, increasing -licm-max-num-uses-traversed helps identify more loop-invariant loads, and raising -gvn-max-num-deps expands load PRE opportunities to eliminate redundant memory accesses.
+    -slp-threshold: [-4, -2, -1, 0]
+    -licm-max-num-uses-traversed: [8, 32, 128]
+    -gvn-max-num-deps: [100, 500, 1000]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 10
+  Baseline -O3: 2971.36 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 2895.9 ms (1.026x) ← best
+    -slp-threshold=-2 → 2740.8 ms (1.084x) ← best
+    -slp-threshold=-1 → 2920.4 ms (1.017x)
+    -slp-threshold=0 → 2753.6 ms (1.079x)
+    -licm-max-num-uses-traversed=8 → 2894.8 ms (1.026x) ← best
+    -licm-max-num-uses-traversed=32 → 2757.1 ms (1.078x) ← best
+    -licm-max-num-uses-traversed=128 → 2662.1 ms (1.116x) ← best
+    -gvn-max-num-deps=100 → 2765.6 ms (1.074x) ← best
+    -gvn-max-num-deps=500 → 2729.3 ms (1.089x) ← best
+    -gvn-max-num-deps=1000 → 2844.4 ms (1.045x)
+    -gvn-hoist-max-bbs=5 → 2802.4 ms (1.060x) ← best
+    -gvn-hoist-max-bbs=10 → 2791.9 ms (1.064x) ← best
+    -gvn-hoist-max-bbs=20 → 2758.0 ms (1.077x) ← best
+    -slp-look-ahead-users-budget=4 → 2700.5 ms (1.100x) ← best
+    -slp-look-ahead-users-budget=8 → 2754.0 ms (1.079x)
+    -slp-look-ahead-users-budget=16 → 2878.1 ms (1.032x)
+    -pragma-vectorize-scev-check-threshold=32 → 3023.4 ms (0.983x)
+    -pragma-vectorize-scev-check-threshold=64 → 2978.5 ms (0.998x)
+    -pragma-vectorize-scev-check-threshold=128 → 2783.8 ms (1.067x) ← best
+    -amdgpu-unroll-threshold-if=150 → 2758.8 ms (1.077x) ← best
+    -amdgpu-unroll-threshold-if=300 → 2969.7 ms (1.001x)
+    -amdgpu-unroll-threshold-if=600 → 2778.5 ms (1.069x)
+    -loop-load-elimination-scev-check-threshold=1 → 2857.4 ms (1.040x) ← best
+    -loop-load-elimination-scev-check-threshold=2 → 2908.8 ms (1.021x)
+    -loop-load-elimination-scev-check-threshold=4 → 2674.1 ms (1.111x) ← best
+    -loop-distribute-scev-check-threshold=16 → 2877.4 ms (1.033x) ← best
+    -loop-distribute-scev-check-threshold=32 → 2748.6 ms (1.081x) ← best
+    -loop-distribute-scev-check-threshold=64 → 2837.1 ms (1.047x)
+    -instcombine-max-iterations=1 → 2791.2 ms (1.065x) ← best
+    -instcombine-max-iterations=3 → 2804.7 ms (1.059x)
+    -instcombine-max-iterations=6 → 2930.3 ms (1.014x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-slp-threshold', [-4, -2, -1]), ('-licm-max-num-uses-traversed', [32, 128]), ('-gvn-max-num-deps', [100, 500, 1000]), ('-gvn-hoist-max-bbs', [10, 20]), ('-slp-look-ahead-users-budget', [4, 8]), ('-pragma-vectorize-scev-check-threshold', [128]), ('-amdgpu-unroll-threshold-if', [150, 600]), ('-loop-load-elimination-scev-check-threshold', [2, 4]), ('-loop-distribute-scev-check-threshold', [16, 32, 64]), ('-instcombine-max-iterations', [1, 3])]
+  Phase B — joint search (best pairs):
+    -licm-max-num-uses-traversed=32, -loop-load-elimination-scev-check-threshold=2 → 3014.0 ms (0.986x)
+    -licm-max-num-uses-traversed=32, -loop-load-elimination-scev-check-threshold=4 → 3025.8 ms (0.982x)
+    -licm-max-num-uses-traversed=128, -loop-load-elimination-scev-check-threshold=2 → 2799.2 ms (1.062x)
+    -licm-max-num-uses-traversed=128, -loop-load-elimination-scev-check-threshold=4 → 3115.6 ms (0.954x)
+  Best: -mllvm -licm-max-num-uses-traversed=128  → 2662.10 ms (1.116x)
+  Param flags for source rounds: -mllvm -licm-max-num-uses-traversed=128
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The innermost k-loop accesses C[k][j] and B[k][j] with stride‑N (non‑unit stride), causing severe cache misses that dominate execution time....
+
+[Source round 1/8]
+  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 12/4800 elements differ > epsilon=0.0001. First error at index 165: ref=25.76, opt=25.77, abs
+  [Retry 2/3]
+  Speedup: 4.587x (+358.7%)  591.40 ms
+  → New best (4.587x)!
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The kernel is memory‑bound because each tile of columns iterates over all `k` rows of `B` and `C` without tiling the `k` dimension, causing repeated cache misses for large `m`, and the use...
+  Kernel 'kernel_symm': lines 73–131
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_symm
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: SLP vectorizer failures due to cost threshold >=0 prevent beneficial vectorization; lowering threshold may enable vectorization. GVN load elimination failures can be mitigated by increasing hoist range to remove redundant loads. LICM may improve invariance detection with larger use traversal.
+    -slp-threshold: [-4, -2, -1, 0]
+    -gvn-hoist-max-bbs: [4, 8, 16, 32]
+    -licm-max-num-uses-traversed: [8, 32, 64, 128]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 9
+  Baseline -O3: 514.04 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 516.1 ms (0.996x)
+    -slp-threshold=-2 → 540.1 ms (0.952x)
+    -slp-threshold=-1 → 539.3 ms (0.953x)
+    -slp-threshold=0 → 521.5 ms (0.986x)
+    -gvn-hoist-max-bbs=4 → 542.8 ms (0.947x)
+    -gvn-hoist-max-bbs=8 → 534.8 ms (0.961x)
+    -gvn-hoist-max-bbs=16 → 579.7 ms (0.887x)
+    -gvn-hoist-max-bbs=32 → 559.4 ms (0.919x)
+    -licm-max-num-uses-traversed=8 → 633.7 ms (0.811x)
+    -licm-max-num-uses-traversed=32 → 530.7 ms (0.969x)
+    -licm-max-num-uses-traversed=64 → 554.2 ms (0.928x)
+    -licm-max-num-uses-traversed=128 → 540.4 ms (0.951x)
+    -slp-look-ahead-users-budget=4 → 525.7 ms (0.978x)
+    -slp-look-ahead-users-budget=8 → 518.7 ms (0.991x)
+    -slp-look-ahead-users-budget=16 → 540.9 ms (0.950x)
+    -pragma-vectorize-scev-check-threshold=32 → 502.3 ms (1.023x) ← best
+    -pragma-vectorize-scev-check-threshold=64 → 507.6 ms (1.013x)
+    -pragma-vectorize-scev-check-threshold=128 → 553.1 ms (0.929x)
+    -amdgpu-unroll-threshold-if=150 → 572.6 ms (0.898x)
+    -amdgpu-unroll-threshold-if=300 → 556.9 ms (0.923x)
+    -amdgpu-unroll-threshold-if=600 → 565.6 ms (0.909x)
+    -loop-load-elimination-scev-check-threshold=1 → 522.0 ms (0.985x)
+    -loop-load-elimination-scev-check-threshold=2 → 534.3 ms (0.962x)
+    -loop-load-elimination-scev-check-threshold=4 → 589.2 ms (0.872x)
+    -loop-distribute-scev-check-threshold=16 → 541.9 ms (0.949x)
+    -loop-distribute-scev-check-threshold=32 → 530.7 ms (0.969x)
+    -loop-distribute-scev-check-threshold=64 → 558.0 ms (0.921x)
+    -instcombine-max-iterations=1 → 524.1 ms (0.981x)
+    -instcombine-max-iterations=3 → 551.1 ms (0.933x)
+    -instcombine-max-iterations=6 → 621.8 ms (0.827x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-pragma-vectorize-scev-check-threshold', [16, 32, 64])]
+  Phase B — joint search (best pairs):
+  Best: -mllvm -pragma-vectorize-scev-check-threshold=32  → 502.30 ms (1.023x)
+  Re-tuned flags: -mllvm -pragma-vectorize-scev-check-threshold=32
+
+[Source round 2/8]  (building on round 1 best)
+  Speedup: 3.049x (+204.9%)  948.63 ms
+  No improvement over best (4.587x) — next round still builds on current best
+
+[Source round 3/8]  (building on round 2 best)
+  Speedup: 3.012x (+201.2%)  974.95 ms
+  No improvement over best (4.587x) — next round still builds on current best
+
+[Source round 4/8]  (building on round 3 best)
+  Speedup: 3.372x (+237.2%)  863.55 ms
+  No improvement over best (4.587x) — next round still builds on current best
+
+[Source round 5/8]  (building on round 4 best)
+  Speedup: 2.886x (+188.6%)  1020.51 ms
+  No improvement over best (4.587x) — next round still builds on current best
+
+[Source round 6/8]  (building on round 5 best)
+  Speedup: 5.260x (+426.0%)  555.57 ms
+  → New best (5.260x)!
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The kernel is memory-bound because the inner `k` loop repeatedly loads entire rows of `B[k]` and `C[k]` for each `jj` tile, causing low cache reuse across consecutive tiles and excessive m...
+  Kernel 'kernel_symm': lines 73–123
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_symm
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: SLP vectorizer missed opportunities due to cost threshold (cost 0 >= 0) and loop vectorization blocked by trip count; GVN load elimination fails on double loads. Lowering slp-threshold, vectorizer-min-trip-count, and raising gvn-max-num-deps should enable more vectorization and load PRE to exploit AVX-512.
+    -slp-threshold: [-4, -2, -1, 0]
+    -vectorizer-min-trip-count: [0, 1, 2]
+    -gvn-max-num-deps: [100, 200, 400]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 556.36 ms
+  Phase A — independent flag search:
+    -slp-threshold=-4 → 523.8 ms (1.062x) ← best
+    -slp-threshold=-2 → 557.9 ms (0.997x)
+    -slp-threshold=-1 → 532.6 ms (1.045x)
+    -slp-threshold=0 → 563.8 ms (0.987x)
+    -vectorizer-min-trip-count=0 → 564.7 ms (0.985x)
+    -vectorizer-min-trip-count=1 → 556.4 ms (1.000x)
+    -vectorizer-min-trip-count=2 → 558.7 ms (0.996x)
+    -gvn-max-num-deps=100 → 540.9 ms (1.029x) ← best
+    -gvn-max-num-deps=200 → 550.5 ms (1.011x)
+    -gvn-max-num-deps=400 → 541.4 ms (1.028x)
+    -slp-look-ahead-users-budget=4 → 541.4 ms (1.028x) ← best
+    -slp-look-ahead-users-budget=8 → 525.5 ms (1.059x) ← best
+    -slp-look-ahead-users-budget=16 → 542.2 ms (1.026x)
+    -pragma-vectorize-scev-check-threshold=32 → 531.4 ms (1.047x) ← best
+    -pragma-vectorize-scev-check-threshold=64 → 514.1 ms (1.082x) ← best
+    -pragma-vectorize-scev-check-threshold=128 → 525.3 ms (1.059x)
+    -gvn-hoist-max-bbs=5 → 522.7 ms (1.064x) ← best
+    -gvn-hoist-max-bbs=10 → 548.4 ms (1.015x)
+    -gvn-hoist-max-bbs=20 → 547.8 ms (1.016x)
+    -amdgpu-unroll-threshold-if=150 → 583.3 ms (0.954x)
+    -amdgpu-unroll-threshold-if=300 → 539.7 ms (1.031x) ← best
+    -amdgpu-unroll-threshold-if=600 → 531.5 ms (1.047x) ← best
+    -loop-load-elimination-scev-check-threshold=1 → 536.4 ms (1.037x) ← best
+    -loop-load-elimination-scev-check-threshold=2 → 517.6 ms (1.075x) ← best
+    -loop-load-elimination-scev-check-threshold=4 → 542.7 ms (1.025x)
+    -licm-max-num-uses-traversed=16 → 536.6 ms (1.037x) ← best
+    -licm-max-num-uses-traversed=32 → 530.1 ms (1.049x) ← best
+    -licm-max-num-uses-traversed=64 → 531.1 ms (1.048x)
+    -loop-distribute-scev-check-threshold=16 → 532.1 ms (1.046x) ← best
+    -loop-distribute-scev-check-threshold=32 → 542.1 ms (1.026x)
+    -loop-distribute-scev-check-threshold=64 → 526.9 ms (1.056x) ← best
+    -instcombine-max-iterations=1 → 658.4 ms (0.845x)
+    -instcombine-max-iterations=3 → 508.1 ms (1.095x) ← best
+    -instcombine-max-iterations=6 → 519.0 ms (1.072x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-slp-threshold', [-4, -1]), ('-gvn-max-num-deps', [100, 200]), ('-slp-look-ahead-users-budget', [4, 8, 16]), ('-pragma-vectorize-scev-check-threshold', [32, 64, 128]), ('-gvn-hoist-max-bbs', [5, 10, 20]), ('-amdgpu-unroll-threshold-if', [300, 600]), ('-loop-load-elimination-scev-check-threshold', [1, 2, 4]), ('-licm-max-num-uses-traversed', [16, 32, 64]), ('-loop-distribute-scev-check-threshold', [16, 32, 64]), ('-instcombine-max-iterations', [3, 6])]
+  Phase B — joint search (best pairs):
+    -instcombine-max-iterations=3, -pragma-vectorize-scev-check-threshold=32 → 531.5 ms (1.047x)
+    -instcombine-max-iterations=3, -pragma-vectorize-scev-check-threshold=64 → 529.7 ms (1.050x)
+    -instcombine-max-iterations=3, -pragma-vectorize-scev-check-threshold=128 → 625.7 ms (0.889x)
+    -instcombine-max-iterations=6, -pragma-vectorize-scev-check-threshold=32 → 538.2 ms (1.034x)
+    -instcombine-max-iterations=6, -pragma-vectorize-scev-check-threshold=64 → 513.2 ms (1.084x)
+    -instcombine-max-iterations=6, -pragma-vectorize-scev-check-threshold=128 → 551.7 ms (1.008x)
+  Best: -mllvm -instcombine-max-iterations=3  → 508.06 ms (1.095x)
+  Re-tuned flags: -mllvm -instcombine-max-iterations=3
+
+[Source round 7/8]  (building on round 6 best)
+  Attempt 1 failed (compile_error): COMPILE ERROR:
+/home/hanning/accelerate/comet/tmp/tmpvoan5ped/symm_opt.c:113:72: error: invalid argument; expected 'enab
+  [Retry 2/3]
+  Speedup: 4.819x (+381.9%)  598.98 ms
+  No improvement over best (5.260x) — next round still builds on current best
+
+[Source round 8/8]  (building on round 7 best)
+  Speedup: 6.093x (+509.3%)  479.85 ms
+  → New best (6.093x)!
+  Analyzing kernel optimization patterns...
+  Analysis preview: BOTTLENECK: The kernel is memory bandwidth bound because each row of B and C is read repeatedly for every iteration of the outer `i` loop with no temporal blocking, causing high traffic and cache miss...
+  Kernel 'kernel_symm': lines 73–129
+  Collecting optimization remarks (filtered to kernel lines)...
+  Extracting O3 passes via -debug-pass-manager...
+  41 unique passes ran on kernel_symm
+  Discovering tunable options from opt --help-hidden...
+  Measuring IR stats before/after probe values...
+  Querying LLM for flag selection...
+  Analysis: SLP vectorization is blocked by cost threshold (cost 0 >= 0), requiring negative -slp-threshold. Loop vectorization misses due to small trip counts; lowering -vectorizer-min-trip-count enables vectorization. GVN load elimination fails; increasing -gvn-max-num-deps may enable more PRE.
+    -slp-threshold: [-2, -1, 0]
+    -vectorizer-min-trip-count: [0, 2, 4]
+    -gvn-max-num-deps: [100, 200, 500]
+    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
+    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
+    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
+    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
+    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
+    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
+    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
+    [auto] -instcombine-max-iterations: [1, 3, 6]
+  Total flags to search: 11
+  Baseline -O3: 466.33 ms
+  Phase A — independent flag search:
+    -slp-threshold=-2 → 481.5 ms (0.969x)
+    -slp-threshold=-1 → 473.7 ms (0.984x)
+    -slp-threshold=0 → 473.6 ms (0.985x)
+    -vectorizer-min-trip-count=0 → 479.3 ms (0.973x)
+    -vectorizer-min-trip-count=2 → 474.4 ms (0.983x)
+    -vectorizer-min-trip-count=4 → 488.8 ms (0.954x)
+    -gvn-max-num-deps=100 → 479.6 ms (0.972x)
+    -gvn-max-num-deps=200 → 504.8 ms (0.924x)
+    -gvn-max-num-deps=500 → 505.0 ms (0.923x)
+    -slp-look-ahead-users-budget=4 → 498.3 ms (0.936x)
+    -slp-look-ahead-users-budget=8 → 482.7 ms (0.966x)
+    -slp-look-ahead-users-budget=16 → 487.0 ms (0.958x)
+    -pragma-vectorize-scev-check-threshold=32 → 483.7 ms (0.964x)
+    -pragma-vectorize-scev-check-threshold=64 → 482.0 ms (0.967x)
+    -pragma-vectorize-scev-check-threshold=128 → 499.2 ms (0.934x)
+    -gvn-hoist-max-bbs=5 → 478.5 ms (0.975x)
+    -gvn-hoist-max-bbs=10 → 479.0 ms (0.974x)
+    -gvn-hoist-max-bbs=20 → 470.6 ms (0.991x)
+    -amdgpu-unroll-threshold-if=150 → 486.4 ms (0.959x)
+    -amdgpu-unroll-threshold-if=300 → 492.3 ms (0.947x)
+    -amdgpu-unroll-threshold-if=600 → 469.4 ms (0.993x)
+    -loop-load-elimination-scev-check-threshold=1 → 467.0 ms (0.999x)
+    -loop-load-elimination-scev-check-threshold=2 → 469.0 ms (0.994x)
+    -loop-load-elimination-scev-check-threshold=4 → 483.2 ms (0.965x)
+    -licm-max-num-uses-traversed=16 → 485.7 ms (0.960x)
+    -licm-max-num-uses-traversed=32 → 486.2 ms (0.959x)
+    -licm-max-num-uses-traversed=64 → 454.3 ms (1.026x) ← best
+    -loop-distribute-scev-check-threshold=16 → 472.6 ms (0.987x)
+    -loop-distribute-scev-check-threshold=32 → 554.1 ms (0.842x)
+    -loop-distribute-scev-check-threshold=64 → 453.0 ms (1.029x) ← best
+    -instcombine-max-iterations=1 → 450.1 ms (1.036x) ← best
+    -instcombine-max-iterations=3 → 452.4 ms (1.031x)
+    -instcombine-max-iterations=6 → 460.5 ms (1.013x)
+  LLM refinement (Phase A → refined candidates)...
+  Refined: [('-licm-max-num-uses-traversed', [48, 64, 80]), ('-loop-distribute-scev-check-threshold', [48, 64, 80]), ('-instcombine-max-iterations', [1, 2, 3])]
+  Phase B — joint search (best pairs):
+    -instcombine-max-iterations=1, -loop-distribute-scev-check-threshold=48 → 468.9 ms (0.994x)
+    -instcombine-max-iterations=1, -loop-distribute-scev-check-threshold=64 → 464.3 ms (1.004x)
+    -instcombine-max-iterations=1, -loop-distribute-scev-check-threshold=80 → 480.4 ms (0.971x)
+    -instcombine-max-iterations=2, -loop-distribute-scev-check-threshold=48 → 479.0 ms (0.974x)
+    -instcombine-max-iterations=2, -loop-distribute-scev-check-threshold=64 → 457.3 ms (1.020x)
+    -instcombine-max-iterations=2, -loop-distribute-scev-check-threshold=80 → 459.3 ms (1.015x)
+    -instcombine-max-iterations=3, -loop-distribute-scev-check-threshold=48 → 462.1 ms (1.009x)
+    -instcombine-max-iterations=3, -loop-distribute-scev-check-threshold=64 → 464.6 ms (1.004x)
+    -instcombine-max-iterations=3, -loop-distribute-scev-check-threshold=80 → 445.1 ms (1.048x) ← BEST
+  Best: -mllvm -instcombine-max-iterations=3 -mllvm -loop-distribute-scev-check-threshold=80  → 445.06 ms (1.048x)
+  Re-tuned flags: -mllvm -instcombine-max-iterations=3 -mllvm -loop-distribute-scev-check-threshold=80
+
+============================================================
+Program:      symm
+Baseline -O3: 2971.36 ms
+Param flags:  -mllvm -licm-max-num-uses-traversed=128  (1.116x)
+Source best:  6.093x (source + initial param flags)
+Retune flags: -mllvm -instcombine-max-iterations=3 -mllvm -loop-distribute-scev-check-threshold=80 (applied to final best source)
+Saved:        outputs/symm_optimized.c
+To compile:   clang -O3 -march=native -mllvm -instcombine-max-iterations=3 -mllvm -loop-distribute-scev-check-threshold=80 outputs/symm_optimized.c ...
+============================================================

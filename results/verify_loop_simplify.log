@@ -1,0 +1,26 @@
+INFO:src.config:Loaded YAML config from configs_quick/config.yaml
+INFO:src.config:Loaded ENV config from .env
+INFO:src.config:Loaded pass database from configs_quick/pass_database.yaml
+INFO:src.config:Loaded bottleneck mapping from configs_quick/bottleneck_mapping.yaml
+INFO:src.dynamic_pass_extractor:Found 755 available passes
+INFO:src.runtime_measurement:Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+INFO:src.runtime_measurement:Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+INFO:src.runtime_measurement:Added PolyBench utilities path: /home/hanning/accelerate/PolyBenchC_no_rag/utilities
+INFO:src.runtime_measurement:Linked PolyBench utilities: /home/hanning/accelerate/PolyBenchC_no_rag/utilities/polybench.c
+================================================================================
+VERIFY loop-simplify OPTIMIZATION
+================================================================================
+
+Test 1: Baseline (-O3, no custom passes)
+  Result: 17529.12ms
+  Success: True
+
+Test 2: loop-simplify only
+  Result: 27285.55ms
+  Success: True
+
+Speedup: 0.642x
+Improvement: -35.8%
+✗ Goal not met
+
+================================================================================
