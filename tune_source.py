@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from src.config import ConfigLoader
 from src.llm_client import LLMClient
 from src.remarks import extract_rich_remarks_yaml, format_rich_remarks_for_source_prompt
+from src.diagnostics import clean_clang_diagnostics
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -890,8 +891,8 @@ def main():
                 clang, [str(opt_src_path), str(polybench_c)], include_dirs,
                 ["-DPOLYBENCH_DUMP_ARRAYS", "-DSMALL_DATASET"], opt_dump_bin)
             if not ok:
-                prev_error = f"COMPILE ERROR:\n{compile_err[:600]}"
-                print(f"  Compile FAILED:\n{compile_err[:400]}")
+                prev_error = f"COMPILE ERROR:\n{clean_clang_diagnostics(compile_err)}"
+                print(f"  Compile FAILED:\n{clean_clang_diagnostics(compile_err, max_diagnostics=3)}")
                 continue
 
             try:
@@ -979,7 +980,7 @@ def main():
                         except subprocess.TimeoutExpired:
                             print("  [Precision Fix] Timeout during dump.")
                     else:
-                        print(f"  [Precision Fix] Compile FAILED:\n{err2[:200]}")
+                        print(f"  [Precision Fix] Compile FAILED:\n{clean_clang_diagnostics(err2, max_diagnostics=3)}")
 
                 if not precision_fixed:
                     prev_error = (
@@ -1001,7 +1002,7 @@ def main():
                 ["-DPOLYBENCH_TIME", "-DLARGE_DATASET"], opt_time_bin,
                 extra_flags=param_extra_flags)
             if not ok:
-                print(f"  Time-compile FAILED:\n{err[:400]}")
+                print(f"  Time-compile FAILED:\n{clean_clang_diagnostics(err, max_diagnostics=3)}")
                 continue
 
             opt_time = run_timing(str(opt_time_bin), runs=args.runs, pin_cpu=pin_cpu)

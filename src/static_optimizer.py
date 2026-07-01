@@ -187,7 +187,8 @@ def infer_bottleneck_without_data(patterns: dict,
         ))
 
     # Rule 3: deep matmul-style reduction, row-major → vectorization_gap
-    if matmul and not stencil and stride == "row_major":
+    # (skip if the IR already shows vector types — it's already vectorized)
+    if matmul and not stencil and stride == "row_major" and not has_vec:
         inferred.append((
             "vectorization_gap", 0.82,
             f"Matrix-multiply pattern (depth={depth}, row-major access, reduction) — "
@@ -196,7 +197,8 @@ def infer_bottleneck_without_data(patterns: dict,
         ))
 
     # Rule 4: plain reduction without stencil → vectorization_gap
-    if reduct and not stencil and not matmul:
+    # (skip if the IR already shows vector types — it's already vectorized)
+    if reduct and not stencil and not matmul and not has_vec:
         inferred.append((
             "vectorization_gap", 0.70,
             "Reduction loop without stencil — inner loop should vectorize. "

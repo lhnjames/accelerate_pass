@@ -74,6 +74,7 @@ from src.remarks import (
     extract_rich_remarks_yaml as _extract_rich_remarks_src,
     format_rich_remarks_for_source_prompt,
 )
+from src.diagnostics import clean_clang_diagnostics
 
 
 # ── Optimization history & agent memory ──────────────────────────────────────
@@ -91,6 +92,7 @@ class StepRecord:
     has_source: bool  = False
     perf_stats: dict  = dataclasses.field(default_factory=dict)  # perf 硬件计数器
     snapshot_path: str = ""  # 快照文件路径
+    improvement_analysis: str = ""  # 规划 LLM 对"为何改进不够大/为何未改进"的分析
 
     def summary_line(self) -> str:
         tag = f"步骤{self.step_num}[{self.action}]"
@@ -110,6 +112,8 @@ class StepRecord:
         lines = [self.summary_line()]
         if self.reasoning:
             lines.append(f"  推理: {self.reasoning[:200]}")
+        if self.improvement_analysis:
+            lines.append(f"  改进分析: {self.improvement_analysis}")
         if self.flags:
             lines.append(f"  Flags: {' '.join(str(f) for f in self.flags[:8])}")
         if self.perf_stats and not self.perf_stats.get("error"):
@@ -162,12 +166,14 @@ class OptimizationHistory:
         has_src       = result.get("source") is not None
         perf_stats    = result.get("perf_stats",    {})
         snapshot_path = result.get("snapshot_path", "")
+        improvement_analysis = result.get("improvement_analysis", "")
 
         rec = StepRecord(
             step_num=step_num, action=action, reasoning=reasoning,
             speedup=speedup, strategy=strategy, error=error,
             flags=flags, has_source=has_src,
             perf_stats=perf_stats, snapshot_path=snapshot_path,
+            improvement_analysis=improvement_analysis,
         )
         self.steps.append(rec)
 
@@ -1286,6 +1292,126 @@ def analyze_rewrite_bottleneck(llm, kernel_name: str, ev: dict,
     return ""
 
 
+# ── Meta-planner: action sequence planning ───────────────────────────────────
+
+def plan_action_sequence(llm, kernel_name: str,
+                         history: "OptimizationHistory",
+                         step_num: int, max_steps: int,
+                         max_tokens: int = 512) -> List[str]:
+    """
+    元规划 LLM：根据当前历史决定接下来最多 3 步应该用哪些工具，
+    保证多个工具交替出现，避免同一工具连续重复。
+
+    返回行动序列列表（如 ["try_pragma", "try_flags", "rewrite_source"]），
+    每个元素都是合法 action 名称。失败时返回空列表。
+    """
+    remaining = max_steps - step_num + 1
+    plan_count = min(3, remaining)
+    if plan_count <= 0:
+        return []
+
+    action_counts: Dict[str, int] = {}
+    for s in history.steps:
+        if s.action not in ("done", "error"):
+            action_counts[s.action] = action_counts.get(s.action, 0) + 1
+
+    recent_actions = [s.action for s in history.steps[-5:]
+                      if s.action not in ("done", "error")]
+    recent_speedups = [f"{s.speedup:.3f}x" for s in history.steps[-4:] if not s.error]
+
+    consecutive_same = 0
+    if history.steps:
+        last = history.steps[-1].action
+        for s in reversed(history.steps):
+            if s.action == last:
+                consecutive_same += 1
+            else:
+                break
+
+    done_flags   = any(s.action == "try_flags"      and not s.error for s in history.steps)
+    done_rewrite = any(s.action == "rewrite_source" and not s.error and s.speedup >= 1.0
+                       for s in history.steps)
+    done_pragma  = any(s.action == "try_pragma"     and not s.error for s in history.steps)
+
+    prompt = f"""You are a meta-planner for a compiler optimization agent targeting `{kernel_name}`.
+
+Current status:
+  steps done: {len(history.steps)}, remaining: {remaining}, best speedup: {history.best_speedup:.3f}x
+  action counts: try_flags={action_counts.get('try_flags',0)}, rewrite_source={action_counts.get('rewrite_source',0)}, try_pragma={action_counts.get('try_pragma',0)}
+  recent actions (oldest→newest): {recent_actions}
+  consecutive same action: {consecutive_same}
+  recent speedups: {recent_speedups}
+  coverage: flags_tried={done_flags}, rewrite_succeeded={done_rewrite}, pragma_tried={done_pragma}
+
+Planning rules (STRICT):
+1. NEVER repeat the same action more than once in your plan.
+2. Include try_pragma if it has not yet been tried ({not done_pragma}).
+3. After a rewrite_source success, next should be try_flags (re-tune params on new source).
+4. After try_flags, prefer rewrite_source or try_pragma to explore orthogonal dimensions.
+5. Spread across all three tools: try_flags, rewrite_source, try_pragma.
+
+Output ONLY strict JSON, no prose:
+{{"analysis": "<1 sentence why>", "plan": ["<action1>", "<action2>", "<action3>"]}}
+Valid action names: try_flags, rewrite_source, try_pragma"""
+
+    try:
+        resp = llm.call(
+            [{"role": "system",
+              "content": "Compiler optimization meta-planner. Output strict JSON only."},
+             {"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=0,
+            timeout=60,
+        )
+        if not resp:
+            return []
+        clean = resp.strip()
+        for fence in ("```json", "```"):
+            if clean.startswith(fence):
+                clean = clean[len(fence):]
+        if clean.endswith("```"):
+            clean = clean[:-3]
+        parsed = json.loads(clean.strip())
+        raw_plan = parsed.get("plan", [])
+        valid = [a if isinstance(a, str) else a.get("action", "")
+                 for a in raw_plan]
+        valid = [a for a in valid if a in ("try_flags", "rewrite_source", "try_pragma")]
+        if valid:
+            print(f"  [Planner] {parsed.get('analysis', '')}")
+            print(f"  [Planner] 规划序列: {valid}")
+            return valid[:plan_count]
+    except Exception as _e:
+        print(f"  [Planner] 规划失败（非致命）: {_e}")
+    return []
+
+
+def _anti_repeat_forced(history: "OptimizationHistory") -> "str | None":
+    """
+    若同一 action 连续出现 ≥2 次，强制轮换到下一个工具。
+    轮换顺序：try_flags → rewrite_source → try_pragma → try_flags → …
+    """
+    if len(history.steps) < 2:
+        return None
+    last_action = history.steps[-1].action
+    if last_action in ("done", "error"):
+        return None
+    consecutive = 0
+    for s in reversed(history.steps):
+        if s.action == last_action:
+            consecutive += 1
+        else:
+            break
+    if consecutive < 2:
+        return None
+    rotation = ["try_flags", "rewrite_source", "try_pragma"]
+    if last_action in rotation:
+        next_action = rotation[(rotation.index(last_action) + 1) % len(rotation)]
+    else:
+        next_action = "try_flags"
+    print(f"  [反重复] '{last_action}' 已连续 {consecutive} 次，强制切换到 '{next_action}'")
+    return next_action
+
+
 def _build_rewrite_impl_prompt(kernel_name: str, ev: dict,
                                history: "OptimizationHistory",
                                base_src_text: str,
@@ -1449,7 +1575,7 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
                     clang, src_path, ref_src, "MINI_DATASET",
                     tmpdir, tag + "_mini", utils, source_dir,
                     epsilon, timeout=30, mode=mode)
-            return False, f"ref 编译失败 ({dataset_flag}): {err[:150]}"
+            return False, f"ref 编译失败 ({dataset_flag}): {clean_clang_diagnostics(err, max_diagnostics=3)}"
         try:
             ref_out = subprocess.run([str(ref_bin)], capture_output=True,
                                      text=True, timeout=timeout)
@@ -1475,7 +1601,7 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
         ok, cerr = compile_c(clang, [src_path, str(polybench_c)], include_dirs,
                              ["-DPOLYBENCH_DUMP_ARRAYS", f"-D{dataset_flag}"], opt_bin)
         if not ok:
-            return False, f"优化版编译失败 ({dataset_flag}): {cerr[:200]}"
+            return False, f"优化版编译失败 ({dataset_flag}): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
         try:
             opt_out = subprocess.run([str(opt_bin)], capture_output=True,
                                      text=True, timeout=timeout)
@@ -1495,11 +1621,11 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
         ref_bin = tmpdir / f"{tag}_ref_stdout"
         ok, err = compile_c(clang, [ref_src], include_dirs, [], ref_bin)
         if not ok:
-            return False, f"ref 编译失败 (stdout): {err[:150]}"
+            return False, f"ref 编译失败 (stdout): {clean_clang_diagnostics(err, max_diagnostics=3)}"
         opt_bin = tmpdir / f"{tag}_opt_stdout"
         ok, cerr = compile_c(clang, [src_path], include_dirs, [], opt_bin)
         if not ok:
-            return False, f"优化版编译失败 (stdout): {cerr[:150]}"
+            return False, f"优化版编译失败 (stdout): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
         try:
             ref_out = subprocess.run([str(ref_bin)], capture_output=True,
                                      text=True, timeout=timeout)
@@ -1521,7 +1647,7 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
         opt_bin = tmpdir / f"{tag}_opt_exit"
         ok, cerr = compile_c(clang, [src_path], include_dirs, [], opt_bin)
         if not ok:
-            return False, f"编译失败 (exit_only): {cerr[:150]}"
+            return False, f"编译失败 (exit_only): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
         try:
             r = subprocess.run([str(opt_bin)], capture_output=True, timeout=timeout)
             if r.returncode != 0:
@@ -1828,7 +1954,8 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
 
             if not flag_specs:
                 return {"action": action, "speedup": 1.0, "error": "no flags specified",
-                        "reasoning": reasoning, "strategy": "", "flags": [], "source": None}
+                        "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                        "strategy": "", "flags": [], "source": None}
 
             # Write base source to a temp file
             base_file = tmpdir / f"{name}_base.c"
@@ -1932,7 +2059,8 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             strat = f"flags: {' '.join(best_flags)}" if best_flags else "无改善"
             print(f"  try_flags 最优: {sp:.3f}x  [{strat}]")
             return {"action": action, "speedup": sp, "strategy": strat, "error": "",
-                    "reasoning": reasoning, "flags": best_flags, "source": None,
+                    "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                    "flags": best_flags, "source": None,
                     "perf_stats": best_perf}
 
         # ── try_pragma ────────────────────────────────────────────────────────
@@ -1941,14 +2069,16 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             also_flags = plan.get("also_flags", [])
             if not hints:
                 return {"action": action, "speedup": 1.0, "error": "pragma_hints 为空",
-                        "reasoning": reasoning, "strategy": "", "flags": [], "source": None,
+                        "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                        "strategy": "", "flags": [], "source": None,
                         "perf_stats": {}}
 
             pragma_src = _apply_pragma_hints(base_src_text, hints)
             if pragma_src == base_src_text:
                 return {"action": action, "speedup": 1.0,
                         "error": "未找到匹配的 for 循环前缀",
-                        "reasoning": reasoning, "strategy": "", "flags": [], "source": None,
+                        "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                        "strategy": "", "flags": [], "source": None,
                         "perf_stats": {}}
 
             _psrc = tmpdir / f"{name}_pragma.c"
@@ -1965,7 +2095,8 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             )
             if not res["ok"]:
                 return {"action": action, "speedup": 1.0, "error": res["error"][:200],
-                        "reasoning": reasoning, "strategy": "", "flags": [], "source": None,
+                        "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                        "strategy": "", "flags": [], "source": None,
                         "perf_stats": {}}
 
             sp     = res["speedup"]
@@ -1976,7 +2107,8 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             snap   = res.get("snapshot_path", "")
             print(f"  try_pragma: {sp:.3f}x  [{strat}]")
             return {"action": action, "speedup": sp, "strategy": strat, "error": "",
-                    "reasoning": reasoning, "flags": flags, "source": source,
+                    "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                    "flags": flags, "source": source,
                     "perf_stats": res.get("perf_stats", {}), "snapshot_path": snap}
 
         # ── rewrite_source ────────────────────────────────────────────────────
@@ -2022,14 +2154,16 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
 
             if not raw_kernel:
                 return {"action": action, "speedup": 1.0, "error": "实现 LLM 未返回 kernel_code",
-                        "reasoning": reasoning, "strategy": strategy,
+                        "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                        "strategy": strategy,
                         "flags": [], "source": None, "perf_stats": {}}
 
             _, start_idx, end_idx = extract_kernel_function(base_src_text, kernel_name)
             if start_idx is None:
                 return {"action": action, "speedup": 1.0,
                         "error": f"无法从 base source 提取 {kernel_name}",
-                        "reasoning": reasoning, "strategy": strategy,
+                        "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                        "strategy": strategy,
                         "flags": [], "source": None, "perf_stats": {}}
 
             rewritten_text = base_src_text[:start_idx] + raw_kernel + base_src_text[end_idx:]
@@ -2092,7 +2226,8 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                                            f"{err_msg[:200]}\nROOT CAUSE: {diagnosis[:150]}")
                 if not res["ok"]:
                     return {"action": action, "speedup": 1.0, "error": err_msg[:400],
-                            "reasoning": reasoning, "strategy": strategy,
+                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                            "strategy": strategy,
                             "flags": [], "source": None, "perf_stats": {}}
 
             sp_src_only = res["speedup"]
@@ -2130,14 +2265,16 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
 
             strat = f"rewrite: {strategy}"
             return {"action": action, "speedup": sp, "strategy": strat, "error": "",
-                    "reasoning": reasoning, "flags": flags, "source": source,
+                    "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                    "flags": flags, "source": source,
                     "perf_stats": perf, "snapshot_path": snap,
                     "speedup_src_only": sp_src_only,
                     "speedup_with_flags": sp_with_flags}
 
         else:
             return {"action": action, "speedup": 1.0, "error": f"未知 action: {action}",
-                    "reasoning": reasoning, "strategy": "", "flags": [], "source": None,
+                    "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                    "strategy": "", "flags": [], "source": None,
                     "perf_stats": {}}
 
 
@@ -2358,7 +2495,7 @@ Output strict JSON (no markdown):
         baseline_bin = tmpdir / "baseline"
         ok, err = compile_binary(clang, src, polybench_c, utils, source_dir, baseline_bin)
         if not ok:
-            print(f"  Baseline compile failed: {err[:200]}"); return {}
+            print(f"  Baseline compile failed: {clean_clang_diagnostics(err, max_diagnostics=3)}"); return {}
         baseline_time = tp_run_timing(str(baseline_bin), runs=runs, pin_cpu=pin_cpu)
         if baseline_time <= 0:
             print("  Baseline timing failed"); return {}
@@ -2616,7 +2753,7 @@ def run_source_round(rewrite_src: str, ref_src: str, config, llm: LLMClient,
                             ["-DPOLYBENCH_DUMP_ARRAYS", "-DSMALL_DATASET"], orig_dump_bin)
         if not ok:
             return {"status": "compile_error",
-                    "error": f"Ref compile: {err[:200]}", "speedup": 1.0}
+                    "error": f"Ref compile: {clean_clang_diagnostics(err, max_diagnostics=3)}", "speedup": 1.0}
         res_ref  = subprocess.run([str(orig_dump_bin)], capture_output=True, text=True, timeout=30)
         ref_nums = extract_numbers_from_dump((res_ref.stdout or "") + (res_ref.stderr or ""))
 
@@ -2626,7 +2763,7 @@ def run_source_round(rewrite_src: str, ref_src: str, config, llm: LLMClient,
                              ["-DPOLYBENCH_DUMP_ARRAYS", "-DSMALL_DATASET"], opt_dump_bin)
         if not ok:
             return {"status": "compile_error",
-                    "error": f"COMPILE ERROR:\n{cerr[:600]}", "speedup": 1.0}
+                    "error": f"COMPILE ERROR:\n{clean_clang_diagnostics(cerr)}", "speedup": 1.0}
         try:
             res_opt = subprocess.run([str(opt_dump_bin)], capture_output=True,
                                      text=True, timeout=30)
@@ -2715,7 +2852,7 @@ def run_source_round(rewrite_src: str, ref_src: str, config, llm: LLMClient,
                             extra_flags=(param_extra_flags or []))
         if not ok:
             return {"status": "timing_error",
-                    "error": f"Time compile failed: {err[:200]}", "speedup": 1.0}
+                    "error": f"Time compile failed: {clean_clang_diagnostics(err, max_diagnostics=3)}", "speedup": 1.0}
         opt_time = ts_run_timing(str(opt_time_bin), runs=runs, pin_cpu=pin_cpu)
         if opt_time <= 0:
             return {"status": "timing_error", "error": "No timing output", "speedup": 1.0}
@@ -2860,20 +2997,46 @@ def main():
         catastrophic_threshold = getattr(
             config.runtime, "catastrophic_slowdown_threshold", 20.0)
 
+        # ── 元规划：行动序列缓冲区 ────────────────────────────────────────────
+        # plan_action_sequence() 每 3 步（或缓冲区耗尽时）调用一次，返回接下来
+        # 最多 3 步的工具序列，保证多工具交替。_anti_repeat_forced() 作为兜底，
+        # 防止同一工具连续 ≥2 次。两者合力实现"多次 LLM 参与 + 工具轮换"。
+        _planned_seq: list = []   # List[str]  — 来自元规划 LLM 的行动序列缓冲
+
         for step in range(1, max_steps + 1):
             if _run_logger:
                 _current_step[0] = step
             print(f"\n{'─'*60}")
             print(f"[Agent 步骤 {step}/{max_steps}]")
 
-            # ── 强制前两步：step1=try_flags, step2=rewrite_source ────────────────
-            # 目的：确保每轮都同时覆盖 pass 参数调整和源码结构变换两个维度。
-            # step3+ 由 LLM 自主决策，但 prompt 中会提醒未完成的阶段。
+            # ── 决定本步骤的 forced_action ────────────────────────────────────
             _forced: "str | None" = None
+
             if step == 1:
+                # 第1步：强制调参，建立 flags 基线
                 _forced = "try_flags"
             elif step == 2:
+                # 第2步：强制源码重写，覆盖另一个优化维度
                 _forced = "rewrite_source"
+            else:
+                # 第3步起：先检查反重复（最高优先级），再用计划序列
+                _anti = _anti_repeat_forced(history)
+                if _anti:
+                    # 同一工具已连续 ≥2 次，强制轮换，并让规划器重新规划
+                    _forced = _anti
+                    _planned_seq.clear()
+                else:
+                    # 从缓冲区取下一个计划动作；缓冲区空时先调用元规划 LLM
+                    if not _planned_seq:
+                        _planned_seq = plan_action_sequence(
+                            llm, kernel_name, history,
+                            step_num=step, max_steps=max_steps,
+                            max_tokens=512,
+                        )
+                    if _planned_seq:
+                        _forced = _planned_seq.pop(0)
+                        print(f"  [计划序列] 执行规划动作: {_forced}")
+                    # 若规划失败（返回空列表），_forced 保持 None，由执行 LLM 自由决策
 
             # 保存当前最优状态（用于灾难性退化时回退）
             rollback_stack.append((best_source, list(best_flags), best_speedup))
@@ -3150,7 +3313,7 @@ def main():
     precision_failures: list = []
     attempt_history:   list = []
 
-    source_rounds = args.rounds - (0 if args.source_only else 1)
+    source_rounds = max_steps - (0 if args.source_only else 1)
     try:
         for idx in range(1, source_rounds + 1):
             print(f"\n[Source round {idx}/{source_rounds}]"
