@@ -77,6 +77,65 @@ from src.remarks import (
 from src.diagnostics import clean_clang_diagnostics
 
 
+# ── Single-shot timing (for interleaved confirmation runs) ───────────────────
+
+def _single_shot_ms(bin_path: str, pin_cpu: "int | None" = None) -> float:
+    """One execution, no internal warmup/median — caller controls repetition
+    and interleaving. Returns -1.0 on failure."""
+    cmd = (["taskset", "-c", str(pin_cpu)] if pin_cpu is not None else []) + [str(bin_path)]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if res.returncode != 0:
+            return -1.0
+        out = res.stdout.strip() or res.stderr.strip()
+        return float(out.split()[-1]) * 1000.0
+    except Exception:
+        return -1.0
+
+
+def confirm_result(base_bin: str, best_bin: str, runs: int,
+                    pin_cpu: "int | None" = None) -> dict:
+    """Re-measure baseline and best candidate interleaved (base, best, base,
+    best, ...) to cancel slow system-load drift that a single measurement
+    taken at the start of a multi-minute agent run cannot control for.
+
+    Reports the confirmed speedup as the median of per-pair ratios (paired
+    measurement), plus IQR as a cheap non-parametric uncertainty estimate —
+    a single noisy step-level measurement is not sufficient evidence for a
+    paper-reportable number.
+    """
+    # one throwaway warmup per binary (cache/branch predictor/turbo ramp-up)
+    _single_shot_ms(base_bin, pin_cpu)
+    _single_shot_ms(best_bin, pin_cpu)
+
+    ratios, base_ms, best_ms = [], [], []
+    for _ in range(max(1, runs)):
+        b = _single_shot_ms(base_bin, pin_cpu)
+        o = _single_shot_ms(best_bin, pin_cpu)
+        if b > 0 and o > 0:
+            base_ms.append(b)
+            best_ms.append(o)
+            ratios.append(b / o)
+
+    if not ratios:
+        return {"ok": False}
+
+    ratios_sorted = sorted(ratios)
+    n = len(ratios_sorted)
+    q1 = ratios_sorted[n // 4]
+    q3 = ratios_sorted[(3 * n) // 4] if n > 1 else ratios_sorted[0]
+    return {
+        "ok": True,
+        "n": n,
+        "confirmed_speedup": statistics.median(ratios),
+        "speedup_iqr": [q1, q3],
+        "base_median_ms": statistics.median(base_ms),
+        "best_median_ms": statistics.median(best_ms),
+        "base_stdev_pct": (statistics.stdev(base_ms) / statistics.mean(base_ms) * 100.0) if n > 1 else 0.0,
+        "best_stdev_pct": (statistics.stdev(best_ms) / statistics.mean(best_ms) * 100.0) if n > 1 else 0.0,
+    }
+
+
 # ── Optimization history & agent memory ──────────────────────────────────────
 
 @dataclasses.dataclass
@@ -1548,7 +1607,8 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
                        dataset_flag: str, tmpdir: Path, tag: str,
                        utils: Path, source_dir: Path,
                        epsilon: float, timeout: int = 60,
-                       mode: str = "polybench_dump") -> Tuple[bool, str]:
+                       mode: str = "polybench_dump",
+                       extra_flags: "list | None" = None) -> Tuple[bool, str]:
     """
     多模式正确性检查，适配不同 benchmark 框架。
 
@@ -1574,7 +1634,7 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
                 return _correctness_check(
                     clang, src_path, ref_src, "MINI_DATASET",
                     tmpdir, tag + "_mini", utils, source_dir,
-                    epsilon, timeout=30, mode=mode)
+                    epsilon, timeout=30, mode=mode, extra_flags=extra_flags)
             return False, f"ref 编译失败 ({dataset_flag}): {clean_clang_diagnostics(err, max_diagnostics=3)}"
         try:
             ref_out = subprocess.run([str(ref_bin)], capture_output=True,
@@ -1585,7 +1645,7 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
                 return _correctness_check(
                     clang, src_path, ref_src, "MINI_DATASET",
                     tmpdir, tag + "_mini", utils, source_dir,
-                    epsilon, timeout=30, mode=mode)
+                    epsilon, timeout=30, mode=mode, extra_flags=extra_flags)
             return False, f"ref 运行超时 ({dataset_flag})"
         ref_nums = extract_numbers_from_dump(
             (ref_out.stdout or "") + (ref_out.stderr or ""))
@@ -1594,12 +1654,13 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
             return _correctness_check(
                 clang, src_path, ref_src, dataset_flag,
                 tmpdir, tag, utils, source_dir, epsilon, timeout,
-                mode="exit_only")
+                mode="exit_only", extra_flags=extra_flags)
 
-        # 编译 opt
+        # 编译 opt（携带候选 -mllvm flags，确保验证的是实际会被计时的同一组 flags）
         opt_bin = tmpdir / f"{tag}_opt_{dataset_flag}"
         ok, cerr = compile_c(clang, [src_path, str(polybench_c)], include_dirs,
-                             ["-DPOLYBENCH_DUMP_ARRAYS", f"-D{dataset_flag}"], opt_bin)
+                             ["-DPOLYBENCH_DUMP_ARRAYS", f"-D{dataset_flag}"], opt_bin,
+                             extra_flags=extra_flags)
         if not ok:
             return False, f"优化版编译失败 ({dataset_flag}): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
         try:
@@ -1623,7 +1684,8 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
         if not ok:
             return False, f"ref 编译失败 (stdout): {clean_clang_diagnostics(err, max_diagnostics=3)}"
         opt_bin = tmpdir / f"{tag}_opt_stdout"
-        ok, cerr = compile_c(clang, [src_path], include_dirs, [], opt_bin)
+        ok, cerr = compile_c(clang, [src_path], include_dirs, [], opt_bin,
+                             extra_flags=extra_flags)
         if not ok:
             return False, f"优化版编译失败 (stdout): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
         try:
@@ -1645,7 +1707,8 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
 
     else:  # exit_only
         opt_bin = tmpdir / f"{tag}_opt_exit"
-        ok, cerr = compile_c(clang, [src_path], include_dirs, [], opt_bin)
+        ok, cerr = compile_c(clang, [src_path], include_dirs, [], opt_bin,
+                             extra_flags=extra_flags)
         if not ok:
             return False, f"编译失败 (exit_only): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
         try:
@@ -1720,7 +1783,7 @@ def _eval_build_and_time(clang: str, src_path: str, ref_src: str,
     ok1, err1 = _correctness_check(
         clang, src_path, ref_src, ds1,
         tmpdir, tag + "_c1", utils, source_dir,
-        epsilon, timeout=45, mode=correctness_mode)
+        epsilon, timeout=45, mode=correctness_mode, extra_flags=extra_flags)
     if not ok1:
         if snapshot_dir:
             _save_snapshot(src_text, snapshot_dir, step_num, action, "FAIL_lvl1")
@@ -1732,7 +1795,7 @@ def _eval_build_and_time(clang: str, src_path: str, ref_src: str,
     ok2, err2 = _correctness_check(
         clang, src_path, ref_src, ds2,
         tmpdir, tag + "_c2", utils, source_dir,
-        epsilon * 2.0, timeout=120, mode=correctness_mode)
+        epsilon * 2.0, timeout=120, mode=correctness_mode, extra_flags=extra_flags)
     if not ok2:
         if snapshot_dir:
             _save_snapshot(src_text, snapshot_dir, step_num, action, "FAIL_lvl2")
@@ -2057,6 +2120,32 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
 
             sp    = baseline_time / best_t if best_t < baseline_time else 1.0
             strat = f"flags: {' '.join(best_flags)}" if best_flags else "无改善"
+
+            # ── 正确性验证：-mllvm cost-model flags 会改变 vectorizer/unroller
+            # 的实际决策（例如 SLP 向量化会重排浮点加法），并非纯粹"无副作用"的
+            # 调参 —— 之前 try_flags 分支完全没有调用 _correctness_check，一个
+            # 使程序算错但恰好更快的 flag 组合会被无声地当作"改进"接受。
+            # 用与 try_pragma/rewrite_source 相同的两层 SMALL+STANDARD 数值验证。
+            if best_flags and sp > 1.0:
+                ok1, err1 = _correctness_check(
+                    clang, str(base_file), str(base_file), "SMALL_DATASET",
+                    tmpdir, "tf_correct1", utils, source_dir,
+                    epsilon, timeout=45, mode="polybench_dump", extra_flags=best_flags)
+                ok2 = True
+                err2 = ""
+                if ok1:
+                    ok2, err2 = _correctness_check(
+                        clang, str(base_file), str(base_file), "STANDARD_DATASET",
+                        tmpdir, "tf_correct2", utils, source_dir,
+                        epsilon * 2.0, timeout=120, mode="polybench_dump", extra_flags=best_flags)
+                if not (ok1 and ok2):
+                    print(f"  ⚠ try_flags 候选 {strat} 数值验证失败，拒绝该 flags 组合: "
+                          f"{(err1 or err2)[:200]}")
+                    return {"action": action, "speedup": 1.0, "strategy": "",
+                            "error": f"flags 数值验证失败: {(err1 or err2)[:300]}",
+                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                            "flags": [], "source": None, "perf_stats": {}}
+
             print(f"  try_flags 最优: {sp:.3f}x  [{strat}]")
             return {"action": action, "speedup": sp, "strategy": strat, "error": "",
                     "reasoning": reasoning, "improvement_analysis": improvement_analysis,
@@ -3146,6 +3235,39 @@ def main():
                 except Exception:
                     pass
 
+        # ── 最终确认测量：交替测 baseline/best，配对比值中位数，抑制单次噪声测量
+        #    和跨步骤系统负载漂移导致的"挑选偏差"（cherry-picked single sample）──
+        confirmation: dict = {"ok": False}
+        if ev.get("utils") and (best_source or best_flags) and baseline_time > 0:
+            print(f"\n[最终确认] 交替测量 baseline/best 各 {args.runs} 次以降低噪声偏差...")
+            polybench_c = ev["utils"] / "polybench.c"
+            with tempfile.TemporaryDirectory() as _vt:
+                _vt = Path(_vt)
+                _vbase_bin = _vt / "confirm_base"
+                _ok_b, _ = compile_binary(clang, src, polybench_c, ev["utils"],
+                                          ev["source_dir"], _vbase_bin)
+                _vbest_src = _vt / f"{name}_confirm.c"
+                _vbest_src.write_text(best_source if best_source else _orig_text)
+                _vbest_bin = _vt / "confirm_best"
+                _ok_c, _cerr = compile_c(
+                    clang, [str(_vbest_src), str(polybench_c)],
+                    [ev["utils"], ev["source_dir"]],
+                    ["-DPOLYBENCH_TIME", "-DLARGE_DATASET"], _vbest_bin,
+                    extra_flags=best_flags)
+                if _ok_b and _ok_c:
+                    confirmation = confirm_result(str(_vbase_bin), str(_vbest_bin),
+                                                  args.runs, pin_cpu)
+                    if confirmation.get("ok"):
+                        print(f"  确认加速比: {confirmation['confirmed_speedup']:.4f}x "
+                              f"(IQR [{confirmation['speedup_iqr'][0]:.4f}, "
+                              f"{confirmation['speedup_iqr'][1]:.4f}], n={confirmation['n']}, "
+                              f"base_cv={confirmation['base_stdev_pct']:.1f}%, "
+                              f"best_cv={confirmation['best_stdev_pct']:.1f}%)")
+                    else:
+                        print("  [warn] 最终确认测量失败（binary 执行异常），沿用单次测量的 best_speedup")
+                else:
+                    print(f"  [warn] 最终确认编译失败，沿用单次测量的 best_speedup: {_cerr[:200] if _cerr else ''}")
+
         # ── 最终报告 ──────────────────────────────────────────────────────────
         print("\n" + "=" * 60)
         print(f"程序:            {name}")
@@ -3196,6 +3318,8 @@ def main():
                 "steps_taken":        len(history.steps),
                 "best_speedup":       best_speedup,
                 "compound_speedup":   compound_speedup,
+                "confirmed_speedup":  confirmation.get("confirmed_speedup") if confirmation.get("ok") else None,
+                "confirmation":       confirmation if confirmation.get("ok") else None,
                 "best_flags":         best_flags,
                 "has_source_rewrite": best_source is not None,
                 "flags_timeline":     history.flags_timeline,
@@ -3217,7 +3341,9 @@ def main():
                     "program":          name,
                     "dataset":          dataset_type,
                     "baseline_ms":      baseline_time,
-                    "best_speedup":     max(compound_speedup, best_speedup) if compound_verified else best_speedup,
+                    "best_speedup":     (confirmation.get("confirmed_speedup")
+                                          if confirmation.get("ok")
+                                          else (max(compound_speedup, best_speedup) if compound_verified else best_speedup)),
                     "best_flags":       best_flags,
                     "steps_taken":      len(history.steps),
                     "flags_timeline":   history.flags_timeline,
