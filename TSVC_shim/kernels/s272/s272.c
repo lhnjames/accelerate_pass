@@ -5,12 +5,10 @@
 #include <sys/time.h>
 #include <malloc.h>
 
-#include <polybench.h>
 #include "common.h"
 #include "array_defs.h"
 
-int kernel_s272(real_t t)
-real_t s272(struct args_t * func_args)
+real_t kernel_s272(struct args_t * func_args)
 {
 
 //    control flow
@@ -35,15 +33,6 @@ real_t s272(struct args_t * func_args)
     return calc_checksum("s272");
 }
 
-static void print_checksum(real_t chk)
-{
-  POLYBENCH_DUMP_START;
-  POLYBENCH_DUMP_BEGIN("checksum");
-  fprintf(POLYBENCH_DUMP_TARGET, "%.6f", chk);
-  POLYBENCH_DUMP_END("checksum");
-  POLYBENCH_DUMP_FINISH;
-}
-
 int main(int argc, char** argv)
 {
   int n1 = 1;
@@ -54,12 +43,8 @@ int main(int argc, char** argv)
 
   struct args_t func_args = {.arg_info = &s1};
 
-  polybench_start_instruments;
   real_t chk = kernel_s272(&func_args);
-  polybench_stop_instruments;
-  polybench_print_instruments;
-
-  polybench_prevent_dce(print_checksum(chk));
+  printf("checksum: %.6f\n", chk);
 
   free(ip);
   return 0;
