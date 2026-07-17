@@ -22,7 +22,7 @@ Usage:
   python optimize.py --program path/to/kernel.c --rounds 5
   python optimize.py --program path/to/kernel.c --graph-only   # pass graph only
 """
-import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses
+import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses, shutil
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -427,6 +427,19 @@ def _diagnose_precision_error(msg: str) -> str:
 
 # ── Evidence collection (shared between unified and legacy rounds) ────────────
 
+def _make_utils_scratch_copy(utils: Path, output_dir: Path) -> Path:
+    """Copy a shim's utilities/ dir into this run's own output dir, so
+    rewrite_source can persist a change to a hot function living in
+    utils/polybench.c (see src/hotspot.py) across the agent's later steps
+    by simply overwriting a file at a stable path -- without ever touching
+    the shared, git-tracked original."""
+    scratch = output_dir / "utils_scratch"
+    if scratch.exists():
+        shutil.rmtree(scratch)
+    shutil.copytree(utils, scratch)
+    return scratch
+
+
 def collect_all_evidence(src: str, config, runner: CompilerRunner,
                          kernel_name: str,
                          output_dir: "str | None" = None) -> dict:
@@ -438,6 +451,16 @@ def collect_all_evidence(src: str, config, runner: CompilerRunner,
     opt   = config.compiler.opt_path
     utils = find_polybench_utilities(src)
     source_dir = Path(src).resolve().parent
+
+    # ── utils 私有可写副本（支持热点函数在 utils/polybench.c 里的改写持久化）──
+    # `utils` 原本直接指向共享的、git 跟踪的 shim 目录（如
+    # SPEC_shim_root/mcf_r/SPEC_shim/utilities/）。rewrite_source 现在能改写
+    # 热点函数落在 utils/polybench.c 里的情况（见 src/hotspot.py），改动要
+    # 想跨步骤持久化，同时绝不能碰共享的原始文件——把它整个复制到本次 run
+    # 私有的 scratch 目录，后续所有步骤统一用这个路径，"持久化"就只是往这
+    # 一个稳定路径写文件，不需要在主循环里新增字段专门传递 utils 状态。
+    if utils and output_dir:
+        utils = _make_utils_scratch_copy(utils, Path(output_dir))
 
     # ── 静态分析兜底路径（无 PolyBench utilities）────────────────────────────
     if not utils:
@@ -1259,15 +1282,25 @@ def _build_rewrite_analysis_prompt(kernel_name: str, ev: dict,
     except Exception:
         kernel_txt = base_src_text
 
+    # ── remarks/IR 是不是真的在描述这次要改的函数？──────────────────────────
+    # ev["kernel_remarks"]/ev["rich_remarks"]/ev["kernel_ir"] 都是 evidence
+    # collection 阶段一次性针对入口函数（ev["kernel_name"]）算出来的。
+    # src/hotspot.py 接进来之后，这次要改的 kernel_name 参数有时候是入口函数
+    # 调用链更深处的一个函数（比如 mcf_r 的 price_out_impl，不是 kernel_mcf_r
+    # 本身）——这种情况下继续把入口函数的 remarks/IR 当成"这个函数的证据"塞进
+    # prompt 里，是在喂错误的上下文：LLM 会以为这些 missed remarks 是它正在
+    # 改的函数产生的，实际上跟目标函数毫无关系。
+    _target_is_entry = (kernel_name == ev.get("kernel_name"))
+
     # Rich remarks
     rich_remarks = ev.get("rich_remarks", {})
     remarks_str = ""
-    if rich_remarks:
+    if _target_is_entry and rich_remarks:
         try:
             remarks_str = _fmt_rich(rich_remarks, max_missed=15)
         except Exception:
             pass
-    if not remarks_str:
+    if _target_is_entry and not remarks_str:
         # Fallback to regular remarks
         rl = []
         for pname, entries in ev.get("kernel_remarks", {}).items():
@@ -1277,6 +1310,10 @@ def _build_rewrite_analysis_prompt(kernel_name: str, ev: dict,
                 for e in misses[:3]:
                     rl.append(f"    line {e['line']}: {e['msg'][:100]}")
         remarks_str = "\n".join(rl) if rl else "  (none)"
+    if not _target_is_entry:
+        remarks_str = (f"  (not available -- these compiler remarks were collected for the entry "
+                       f"function {ev.get('kernel_name')!r}, not for {kernel_name!r}, which is the "
+                       f"actual target here. Reason it was selected: {ev.get('hotspot_reason', '')})")
 
     # Perf counters
     baseline_perf = ev.get("baseline_perf", {})
@@ -1295,11 +1332,17 @@ def _build_rewrite_analysis_prompt(kernel_name: str, ev: dict,
         perf_lines.append(f"  Bottleneck hints: {', '.join(bot_hints)}")
     perf_str = "\n".join(perf_lines) if perf_lines else "  (not available)"
 
-    # IR excerpt (brief — full IR too long)
-    ir_text = (ev.get("kernel_ir", "") or "")[:2500]
+    # IR excerpt (brief — full IR too long). Same entry-vs-target caveat as
+    # the remarks above -- ev["kernel_ir"] is the entry function's IR only.
     ir_section = ""
-    if ir_text:
-        ir_section = f"\n## LLVM IR excerpt (first ~2500 chars of -O3 IR)\n```llvm\n{ir_text}\n```\n"
+    if not _target_is_entry:
+        ir_section = (f"\n## LLVM IR excerpt\n(not available -- this is the entry function "
+                      f"{ev.get('kernel_name')!r}'s IR, not {kernel_name!r}'s; skipped rather "
+                      f"than shown as if it described the actual target)\n")
+    else:
+        ir_text = (ev.get("kernel_ir", "") or "")[:2500]
+        if ir_text:
+            ir_section = f"\n## LLVM IR excerpt (first ~2500 chars of -O3 IR)\n```llvm\n{ir_text}\n```\n"
 
     # Failed rewrite history
     failed_rewrites = [s for s in history.steps
@@ -1550,14 +1593,24 @@ def _build_rewrite_impl_prompt(kernel_name: str, ev: dict,
     forbidden_macros = ev.get("forbidden_macros", [])
     forbidden_str = ", ".join(f"`{m}`" for m in forbidden_macros[:30]) if forbidden_macros else "none"
 
-    # Rich remarks summary (brief)
+    # Rich remarks summary (brief) -- only meaningful if `kernel_name` here
+    # is the same function evidence collection ran against; src/hotspot.py
+    # can pick a deeper target (e.g. mcf_r's price_out_impl, not
+    # kernel_mcf_r), and these remarks describe the entry function's O3
+    # pass behavior, not the actual target's -- see the matching comment
+    # in _build_rewrite_analysis_prompt for why showing them anyway would
+    # mislead the LLM into treating unrelated evidence as if it were about
+    # the function it's writing.
     rich_remarks = ev.get("rich_remarks", {})
     remarks_str = ""
-    if rich_remarks:
+    if kernel_name == ev.get("kernel_name") and rich_remarks:
         try:
             remarks_str = _fmt_rich(rich_remarks, max_missed=6)
         except Exception:
             pass
+    elif kernel_name != ev.get("kernel_name"):
+        remarks_str = (f"  (not available -- collected for entry function "
+                       f"{ev.get('kernel_name')!r}, not for the actual target {kernel_name!r})")
 
     # CPU / SIMD context
     cpu_info = ev.get("cpu_info", "")
@@ -1747,6 +1800,77 @@ def _save_snapshot(src_text: str, snapshot_dir: Path, step_num: int,
     fpath = snapshot_dir / fname
     fpath.write_text(src_text)
     return fpath
+
+
+def _eval_utils_rewrite(clang: str, driver_path: str, orig_utils_dir: Path,
+                        rewritten_polybench_c: str, tmpdir: Path, tag: str,
+                        source_dir: Path, runs: int, pin_cpu,
+                        epsilon: float, correctness_mode: str) -> dict:
+    """
+    Evaluate a rewrite_source candidate that targets a function living in
+    utils/polybench.c (see src/hotspot.py) rather than the driver file.
+
+    _eval_build_and_time can't be reused here: it always builds the
+    reference and the candidate against the *same* utils Path, which is
+    correct when only the driver file changes (the normal case) but wrong
+    here, where the driver is identical on both sides and it's the utils
+    content that differs -- the reference build must use the ORIGINAL
+    utils/polybench.c and the candidate build a modified copy in a shadow
+    directory, never touching the original.
+
+    Deliberately simpler than _eval_build_and_time's full pipeline: no
+    MINI_DATASET timeout downgrade, no perf_stats collection, no
+    precision-fix/compile-fix LLM retries (those stay exclusive to the
+    driver-file rewrite path for now) -- a real, working first cut, not
+    full feature parity.
+
+    Returns {"ok", "speedup", "error"}.
+    """
+    orig_pc = orig_utils_dir / "polybench.c"
+    shadow_dir = tmpdir / f"{tag}_utils_shadow"
+    shadow_dir.mkdir(exist_ok=True)
+    (shadow_dir / "polybench.c").write_text(rewritten_polybench_c)
+    for f in orig_utils_dir.iterdir():
+        if f.name != "polybench.c" and f.is_file():
+            shutil.copy(f, shadow_dir / f.name)
+
+    mode = _MODE_ALIASES.get(correctness_mode, "numeric")
+    for ds, eps, tmo in (("SMALL_DATASET", epsilon, 45),
+                         ("STANDARD_DATASET", epsilon * 2.0, 120)):
+        ref_bin = tmpdir / f"{tag}_ref_{ds}"
+        ok, err = compile_c(clang, [driver_path, str(orig_pc)],
+                            [orig_utils_dir, source_dir],
+                            [f"-D{ds}", "-DPOLYBENCH_DUMP_ARRAYS"], ref_bin)
+        if not ok:
+            return {"ok": False, "error": f"ref 编译失败 ({ds}): {clean_clang_diagnostics(err, max_diagnostics=3)}"}
+
+        opt_bin = tmpdir / f"{tag}_opt_{ds}"
+        ok2, err2 = compile_c(clang, [driver_path, str(shadow_dir / "polybench.c")],
+                              [shadow_dir, source_dir],
+                              [f"-D{ds}", "-DPOLYBENCH_DUMP_ARRAYS"], opt_bin)
+        if not ok2:
+            return {"ok": False, "error": f"候选编译失败 ({ds}): {clean_clang_diagnostics(err2, max_diagnostics=3)}"}
+
+        passed, msg = check_correctness(str(ref_bin), str(opt_bin), mode,
+                                        epsilon=eps, timeout=tmo)
+        if not passed:
+            return {"ok": False, "error": f"[{ds}] {msg}"}
+
+    ref_time_bin = tmpdir / f"{tag}_ref_time"
+    ok, _ = compile_c(clang, [driver_path, str(orig_pc)],
+                      [orig_utils_dir, source_dir], ["-DLARGE_DATASET"], ref_time_bin)
+    ref_t = ts_run_timing(str(ref_time_bin), runs=runs, pin_cpu=pin_cpu) if ok else -1.0
+
+    opt_time_bin = tmpdir / f"{tag}_opt_time"
+    ok2, err2 = compile_c(clang, [driver_path, str(shadow_dir / "polybench.c")],
+                          [shadow_dir, source_dir], ["-DLARGE_DATASET"], opt_time_bin)
+    if not ok2:
+        return {"ok": False, "error": f"计时编译失败: {clean_clang_diagnostics(err2, max_diagnostics=3)}"}
+    opt_t = ts_run_timing(str(opt_time_bin), runs=runs, pin_cpu=pin_cpu)
+
+    if ref_t <= 0 or opt_t <= 0:
+        return {"ok": False, "error": "计时失败（ref 或候选运行未产生有效耗时）"}
+    return {"ok": True, "speedup": ref_t / opt_t, "error": ""}
 
 
 def _eval_build_and_time(clang: str, src_path: str, ref_src: str,
@@ -2252,21 +2376,19 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                         pass
             _hotspot = select_hotspot_target(kernel_name, base_src_text, _utils_text)
             target_name = kernel_name
-            if _hotspot["name"] != kernel_name and not _hotspot["in_utils"]:
+            context_text = base_src_text
+            if _hotspot["name"] != kernel_name:
                 target_name = _hotspot["name"]
-                print(f"  [热点筛选] 改写目标 = {target_name}（而非 {kernel_name}）：{_hotspot['reason']}")
-            elif _hotspot["name"] != kernel_name and _hotspot["in_utils"]:
-                # 真正的热点在 utils/polybench.c 里，但让改写结果跨步骤持久化
-                # 需要把 utils 路径也变成本次 run 可写的私有副本——这部分还没做，
-                # 先只把发现结果打进日志，仍然退回改 kernel_name 本身。
-                print(f"  [热点筛选] 检测到更深的热点 {_hotspot['name']}（在 utils/polybench.c 里）："
-                      f"{_hotspot['reason']}；暂不支持改写 utils 里的函数，仍改写 {kernel_name}")
+                context_text = _utils_text if _hotspot["in_utils"] else base_src_text
+                where = "utils/polybench.c（本次 run 私有可写副本）" if _hotspot["in_utils"] else "driver 文件"
+                print(f"  [热点筛选] 改写目标 = {target_name}（{where}，而非 {kernel_name}）：{_hotspot['reason']}")
+                ev["hotspot_reason"] = _hotspot["reason"]
 
             # ── Phase 1: Analysis LLM — diagnose bottleneck before writing code ──
             print(f"  [重写分析] 运行瓶颈诊断 LLM...")
             analysis_diagnosis = analyze_rewrite_bottleneck(
                 llm, target_name, ev, history,
-                base_src_text=base_src_text,
+                base_src_text=context_text,
                 strategy=strategy,
                 max_tokens=max_tokens,
             )
@@ -2280,7 +2402,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             print(f"  [重写实现] 根据分析生成优化代码...")
             impl_prompt = _build_rewrite_impl_prompt(
                 target_name, ev, history,
-                base_src_text=base_src_text,
+                base_src_text=context_text,
                 strategy=strategy,
                 analysis_diagnosis=analysis_diagnosis,
             )
@@ -2302,6 +2424,40 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                         "reasoning": reasoning, "improvement_analysis": improvement_analysis,
                         "strategy": strategy,
                         "flags": [], "source": None, "perf_stats": {}}
+
+            # ── 热点在 utils/polybench.c 里：driver 文件本身不变，ref 用原始
+            # utils，候选用改写后的影子 utils（见 _eval_utils_rewrite）。通过就
+            # 直接写回本次 run 的私有 utils 路径持久化，后续步骤自动生效——
+            # 不需要在 main() 主循环里为"utils 状态"单独加一个字段来传递。
+            if _hotspot["in_utils"]:
+                _, u_start, u_end = extract_kernel_function(context_text, target_name)
+                if u_start is None:
+                    return {"action": action, "speedup": 1.0,
+                            "error": f"无法从 utils/polybench.c 提取 {target_name}",
+                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                            "strategy": strategy,
+                            "flags": [], "source": None, "perf_stats": {}}
+                rewritten_utils_text = context_text[:u_start] + raw_kernel + context_text[u_end:]
+                _driver_unchanged = tmpdir / f"{name}_driver_unchanged.c"
+                _driver_unchanged.write_text(base_src_text)
+                res = _eval_utils_rewrite(
+                    clang, str(_driver_unchanged), Path(utils), rewritten_utils_text,
+                    tmpdir, "rw_utils", source_dir, runs, pin_cpu, epsilon,
+                    ev.get("correctness_mode", "auto"),
+                )
+                if not res["ok"]:
+                    return {"action": action, "speedup": 1.0, "error": res["error"][:400],
+                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                            "strategy": strategy,
+                            "flags": [], "source": None, "perf_stats": {}}
+                sp = res["speedup"]
+                if sp > 1.0:
+                    (Path(utils) / "polybench.c").write_text(rewritten_utils_text)
+                    print(f"  [utils 持久化] {target_name} 的改写已写回 {utils}/polybench.c，后续步骤生效")
+                return {"action": action, "speedup": sp, "strategy": f"rewrite(utils/{target_name}): {strategy}",
+                        "error": "", "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                        "flags": [], "source": None,  # driver 文件没变，不更新 current_best_source
+                        "perf_stats": {}, "snapshot_path": ""}
 
             _, start_idx, end_idx = extract_kernel_function(base_src_text, target_name)
             if start_idx is None:
@@ -3174,9 +3330,16 @@ def main():
         history        = OptimizationHistory()
 
         # ── 回退栈：每步前保存状态，灾难性退化时自动恢复 ─────────────────────
-        rollback_stack: list = []   # List[Tuple[str|None, list, float]]
+        # 第4个元素是 utils/polybench.c 的内容快照——rewrite_source 现在能持久化
+        # 改写落在 utils 里的热点函数（见 src/hotspot.py + _eval_utils_rewrite），
+        # 那次改动是直接写回本次 run 私有的 utils 路径的，不经过 best_source，
+        # 所以回退栈要是不快照 utils 内容，灾难性退化回退时驱动文件/flags 复原了，
+        # utils 里的坏改动却会一直留着，后续步骤仍然在一个已知变差的 utils 副本上继续。
+        rollback_stack: list = []   # List[Tuple[str|None, list, float, str|None]]
         catastrophic_threshold = getattr(
             config.runtime, "catastrophic_slowdown_threshold", 20.0)
+        _utils_polybench_c = (Path(ev["utils"]) / "polybench.c"
+                              if ev.get("utils") else None)
 
         # ── 元规划：行动序列缓冲区 ────────────────────────────────────────────
         # plan_action_sequence() 每 3 步（或缓冲区耗尽时）调用一次，返回接下来
@@ -3219,8 +3382,10 @@ def main():
                         print(f"  [计划序列] 执行规划动作: {_forced}")
                     # 若规划失败（返回空列表），_forced 保持 None，由执行 LLM 自由决策
 
-            # 保存当前最优状态（用于灾难性退化时回退）
-            rollback_stack.append((best_source, list(best_flags), best_speedup))
+            # 保存当前最优状态（用于灾难性退化时回退），含 utils/polybench.c 快照
+            _utils_snap = (_utils_polybench_c.read_text()
+                          if _utils_polybench_c and _utils_polybench_c.exists() else None)
+            rollback_stack.append((best_source, list(best_flags), best_speedup, _utils_snap))
 
             result = run_agent_step(
                 src_original=src, config=config, llm=llm,
@@ -3246,12 +3411,15 @@ def main():
             if (not result.get("error") and action not in ("done", "error") and
                     best_speedup > 1.0 and rollback_stack and
                     sp_raw < best_speedup * (1.0 - catastrophic_threshold / 100.0)):
-                prev_src, prev_flags, prev_sp = rollback_stack[-1]
+                prev_src, prev_flags, prev_sp, prev_utils_snap = rollback_stack[-1]
                 print(f"  ⚠ 灾难性退化: {sp_raw:.3f}x << 当前最优 {best_speedup:.3f}x "
                       f"(阈值 {catastrophic_threshold:.0f}%)，自动回退到 {prev_sp:.3f}x 状态")
                 best_source = prev_src
                 best_flags  = prev_flags
                 # best_speedup 不变（仍保持历史最优）
+                if prev_utils_snap is not None and _utils_polybench_c:
+                    _utils_polybench_c.write_text(prev_utils_snap)
+                    print(f"  [utils 回退] 已恢复 {_utils_polybench_c} 到回退前状态")
 
             sp = sp_raw  # 用于后续 if sp > best_speedup 判断
 
