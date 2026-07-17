@@ -71,9 +71,20 @@ int main(int argc, char** argv)
 
 
 def extract_function(text: str, name: str):
-    """Brace-counting extraction of `<any-type> name(...) { ... }`."""
-    pattern = r"(?:static\s+)?[A-Za-z_][A-Za-z_0-9]*\s*\*?\s*" + re.escape(name) + r"\s*\("
-    m = re.search(pattern, text)
+    """Brace-counting extraction of `<any-type> name(...) { ... }`.
+
+    Anchored to the start of a line (mod leading whitespace) so a
+    commented-out declaration like `//int s162(int k)` above the real
+    `real_t s162(struct args_t * func_args)` definition can't be matched
+    first -- `//` isn't `[ \\t]*`, so the regex skips straight past it to
+    the real signature. Unanchored, re.search matched mid-comment (right
+    after the `//`), which silently dropped the comment marker and spliced
+    the stray commented-out signature onto the real one, producing a
+    kernel file with two colliding signatures (a syntax error) instead of
+    a clean skip.
+    """
+    pattern = r"^[ \t]*(?:static\s+)?[A-Za-z_][A-Za-z_0-9]*\s*\*?\s*" + re.escape(name) + r"\s*\("
+    m = re.search(pattern, text, re.MULTILINE)
     if not m:
         return None
     brace_start = text.find("{", m.end())
@@ -94,6 +105,29 @@ def extract_function(text: str, name: str):
     return text[m.start():end]
 
 
+def find_all_top_level_functions(text: str) -> dict:
+    """Map every top-level function name defined (not just declared) in
+    `text` to its full definition text, via the same anchored, brace-
+    counting extraction as extract_function(). Used to pull in sibling
+    helper functions that a loop calls but doesn't itself define -- e.g.
+    s151 calls s151s(), s31111 calls test() -- which live as independent
+    top-level functions elsewhere in tsvc.c, not inside the loop body."""
+    pattern = re.compile(
+        r"^[ \t]*(?:static\s+)?[A-Za-z_][A-Za-z_0-9]*\s*\*?\s*"
+        r"([A-Za-z_][A-Za-z_0-9]*)\s*\([^;{]*\)\s*\{",
+        re.MULTILINE,
+    )
+    out = {}
+    for m in pattern.finditer(text):
+        name = m.group(1)
+        if name in out:
+            continue
+        body = extract_function(text, name)
+        if body:
+            out[name] = body
+    return out
+
+
 def main():
     text = TSVC_SRC.read_text()
 
@@ -101,6 +135,8 @@ def main():
     assert m, "could not find tsvc.c main()"
     calls = re.findall(r"time_function\(&(\w+),\s*(.*?)\);", m.group(1))
     assert len(calls) >= 100, f"expected ~150 loop calls, got {len(calls)}"
+    loop_names = {c[0] for c in calls}
+    all_funcs = find_all_top_level_functions(text)
 
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
     generated = []
@@ -112,6 +148,17 @@ def main():
             skipped.append(loop)
             continue
 
+        # Sibling helper functions the loop body calls (see
+        # find_all_top_level_functions docstring) -- must be pulled in or
+        # the kernel fails to link with "undefined reference". Exclude
+        # other TSVC loop names so we never accidentally drag in a second,
+        # unrelated ~150-line loop just because its name appears as a
+        # substring match.
+        called = set(re.findall(r"\b([A-Za-z_][A-Za-z_0-9]*)\s*\(", body))
+        helpers = sorted(n for n in called
+                         if n in all_funcs and n != loop and n not in loop_names)
+        helper_text = "\n\n".join(all_funcs[h] for h in helpers)
+
         # Rename the function definition identifier only (first occurrence,
         # which is the signature) and fix __func__ dispatch calls so
         # initialise_arrays()/calc_checksum() still match the *real* loop
@@ -120,13 +167,15 @@ def main():
         sig_pattern = r"([A-Za-z_][A-Za-z_0-9]*\s*\*?\s*)" + re.escape(loop) + r"(\s*\()"
         renamed, n = re.subn(sig_pattern, r"\1kernel_" + loop + r"\2", body, count=1)
         assert n == 1, f"failed to rename {loop}"
-        renamed = renamed.replace("__func__", f'"{loop}"')
+
+        full_body = (helper_text + "\n\n" + renamed) if helper_text else renamed
+        full_body = full_body.replace("__func__", f'"{loop}"')
 
         kernel_dir = OUT_ROOT / loop
         kernel_dir.mkdir(parents=True, exist_ok=True)
         out_file = kernel_dir / f"{loop}.c"
         out_file.write_text(MAIN_TEMPLATE.format(
-            kernel_body=renamed, loop=loop, arg_info=arg_info,
+            kernel_body=full_body, loop=loop, arg_info=arg_info,
         ))
         generated.append(loop)
 

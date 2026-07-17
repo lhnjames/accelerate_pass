@@ -140,18 +140,32 @@ def extract_numbers_from_dump(text: str) -> "list | str":
     """
     Parse numeric values from POLYBENCH_DUMP_ARRAYS output.
     Returns a list of floats, or an error string if parsing fails.
+
+    Markers come from polybench.h:
+      POLYBENCH_DUMP_BEGIN(s) -> "begin dump: %s"        (no trailing newline --
+                                  a single-value dump, e.g. a checksum, can
+                                  trail the marker on the very same line)
+      POLYBENCH_DUMP_END(s)   -> "\\nend   dump: %s\\n"   (note: three spaces,
+                                  not one -- must match with variable whitespace)
     """
     import math
     float_re = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+    begin_re = re.compile(r"begin\s+dump:\s*\S*")
+    end_re   = re.compile(r"end\s+dump:")
     lines = text.splitlines()
-    in_dump, values = False, []
-    has_markers = any("begin dump:" in l or "end dump:" in l for l in lines)
+    has_markers = any(begin_re.search(l) or end_re.search(l) for l in lines)
 
+    in_dump, values = False, []
     for line in lines:
-        if "begin dump:" in line:
-            in_dump = True; continue
-        if "end dump:" in line:
+        if end_re.search(line):
             in_dump = False; continue
+        if begin_re.search(line):
+            in_dump = True
+            # Do NOT skip this line: a single-value dump (e.g. a checksum) has
+            # no separator between the marker's name and the value, so the
+            # value can trail directly on the same line. float_re below only
+            # matches numeric tokens, so the leading marker text is naturally
+            # skipped without needing to strip it explicitly.
         if in_dump or not has_markers:
             for tok in float_re.findall(line):
                 try:
@@ -532,6 +546,51 @@ Fix the precision while keeping as much performance optimization as possible.
    same macro forms (e.g. `DATA_TYPE POLYBENCH_2D(A,N,N,n,n)` not `double A[n][n]`).
 4. **Single accumulator per output element** — one `double acc` only, no acc0+acc1.
 5. Keep all other valid optimizations (row pointers, i/j-tiling, cache-friendly ordering).
+
+Output ONLY the fixed kernel function. No prose, no markdown fences.
+Start immediately with the function definition.
+"""
+
+
+def _build_compile_fix_prompt(kernel_name: str, original_kernel: str,
+                              failed_code: str, error_msg: str) -> str:
+    """
+    Fix prompt for a plain compile/link failure (syntax, type, undefined
+    symbol, etc.) in a rewrite_source candidate -- distinct from
+    _build_precision_fix_prompt, which is for candidates that compiled fine
+    but produced numerically wrong output. Kept deliberately generic: the
+    compiler error message is usually self-explanatory (unlike precision
+    bugs, which need a diagnosis pass to find the root cause).
+    """
+    return f"""Your optimized C kernel failed to compile.
+Fix ONLY the compile error, keeping as much of the intended optimization as possible.
+
+### Original kernel (known to compile and run correctly)
+```c
+{original_kernel}
+```
+
+### Your optimized version (does not compile)
+```c
+{failed_code}
+```
+
+### Compiler/linker error
+```
+{error_msg[:800]}
+```
+
+## Rules
+1. Fix the exact error above -- e.g. if it's "array type ... is not assignable", you
+   assigned directly to an array-typed variable (or dereferenced array-typed pointer);
+   arrays can only be copied element-by-element or manipulated via pointers to their
+   element type, never assigned as a whole.
+2. **Exact function signature** — same name `{kernel_name}`, same parameter names and
+   types as the original.
+3. Do not introduce calls to functions or symbols that aren't already used elsewhere
+   in this file -- undefined-reference errors mean the symbol doesn't exist here.
+4. Keep every other optimization from your previous attempt that isn't implicated by
+   the error.
 
 Output ONLY the fixed kernel function. No prose, no markdown fences.
 Start immediately with the function definition.

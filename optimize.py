@@ -68,6 +68,7 @@ from tune_source import (
     analyze_kernel_patterns,
     analyze_precision_failure,
     _build_precision_fix_prompt,
+    _build_compile_fix_prompt,
 )
 
 from src.remarks import (
@@ -1476,6 +1477,7 @@ Valid action names: try_flags, rewrite_source, try_pragma"""
             timeout=60,
         )
         if not resp:
+            print("  [Planner] 规划失败（非致命）: LLM 无响应")
             return []
         parsed = json.loads(strip_json_fences(resp))
         raw_plan = parsed.get("plan", [])
@@ -1487,7 +1489,9 @@ Valid action names: try_flags, rewrite_source, try_pragma"""
             print(f"  [Planner] 规划序列: {valid}")
             return valid[:plan_count]
     except Exception as _e:
-        print(f"  [Planner] 规划失败（非致命）: {_e}")
+        # 打印原始响应（截断）方便排查是 JSON 格式问题还是 LLM 输出异常
+        _raw = (locals().get("resp") or "")[:200]
+        print(f"  [Planner] 规划失败（非致命）: {_e}  原始响应: {_raw!r}")
     return []
 
 
@@ -1637,9 +1641,13 @@ def _detect_polybench_mode(clang: str, src_path: str, utils: Path,
         if ok:
             return "polybench_dump"
 
-    # 尝试直接编译（可能有 main 函数）
+    # 尝试直接编译（可能有 main 函数）；多文件 benchmark 的实现散落在
+    # utils/polybench.c 里（同上），检测阶段也要带上，否则会把能跑
+    # stdout_compare 的多文件 kernel 误判成 exit_only。
     test_bin2 = tmpdir / "_detect_test2"
-    ok2, _ = compile_c(clang, [src_path], [source_dir], [], test_bin2)
+    _pc2 = utils / "polybench.c" if utils else None
+    _extra_src2 = [str(_pc2)] if _pc2 and _pc2.exists() else []
+    ok2, _ = compile_c(clang, [src_path] + _extra_src2, [source_dir], [], test_bin2)
     if ok2:
         try:
             r = subprocess.run([str(test_bin2)], capture_output=True, timeout=10)
@@ -1726,12 +1734,17 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
 
     elif mode == "stdout_compare":
         # 通用模式：比较 stdout 输出文本
+        # 多文件 benchmark（如 SPEC/CBench shim）的实现分散在 utils/polybench.c
+        # 里（见 gen_spec_kernels.py 的 unity-build 打包），必须和 polybench_dump
+        # 分支一样把它一起编译进来，否则调用了那些函数的 kernel 会链接失败。
+        _pc = utils / "polybench.c" if utils else None
+        _extra_src = [str(_pc)] if _pc and _pc.exists() else []
         ref_bin = tmpdir / f"{tag}_ref_stdout"
-        ok, err = compile_c(clang, [ref_src], include_dirs, [], ref_bin)
+        ok, err = compile_c(clang, [ref_src] + _extra_src, include_dirs, [], ref_bin)
         if not ok:
             return False, f"ref 编译失败 (stdout): {clean_clang_diagnostics(err, max_diagnostics=3)}"
         opt_bin = tmpdir / f"{tag}_opt_stdout"
-        ok, cerr = compile_c(clang, [src_path], include_dirs, [], opt_bin,
+        ok, cerr = compile_c(clang, [src_path] + _extra_src, include_dirs, [], opt_bin,
                              extra_flags=extra_flags)
         if not ok:
             return False, f"优化版编译失败 (stdout): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
@@ -1753,8 +1766,10 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
         return True, ""
 
     else:  # exit_only
+        _pc = utils / "polybench.c" if utils else None
+        _extra_src = [str(_pc)] if _pc and _pc.exists() else []
         opt_bin = tmpdir / f"{tag}_opt_exit"
-        ok, cerr = compile_c(clang, [src_path], include_dirs, [], opt_bin,
+        ok, cerr = compile_c(clang, [src_path] + _extra_src, include_dirs, [], opt_bin,
                              extra_flags=extra_flags)
         if not ok:
             return False, f"编译失败 (exit_only): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
@@ -2354,6 +2369,43 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                                 print(f"  [精度修复] 仍失败: {res_fix['error'][:80]}")
                                 err_msg = (f"precision error (fix also failed): "
                                            f"{err_msg[:200]}\nROOT CAUSE: {diagnosis[:150]}")
+                # ── generic compile-fix sub-attempt (non-precision compile/link errors) ──
+                elif "编译失败" in err_msg or "链接" in err_msg or "undefined reference" in err_msg.lower():
+                    print(f"  编译失败：尝试 compile-fix LLM...")
+                    orig_kernel_txt, _, _ = extract_kernel_function(
+                        base_src_text, kernel_name)
+                    fix_prompt = _build_compile_fix_prompt(
+                        kernel_name, orig_kernel_txt or base_src_text, raw_kernel, err_msg)
+                    fix_resp = llm.call([
+                        {"role": "system",
+                         "content": "You are a C compiler expert. Fix ONLY the compile "
+                                    "error, keep the rest of the code unchanged as much "
+                                    "as possible. Output C code only."},
+                        {"role": "user", "content": fix_prompt},
+                    ], max_tokens=max_tokens)
+                    if fix_resp:
+                        fixed_kernel = _strip_fences(fix_resp)
+                        _, fs_idx, fe_idx = extract_kernel_function(base_src_text, kernel_name)
+                        if fs_idx is not None:
+                            fixed_text = base_src_text[:fs_idx] + fixed_kernel + base_src_text[fe_idx:]
+                            fixed_src = tmpdir / f"{name}_rw_cfix.c"
+                            fixed_src.write_text(fixed_text)
+                            res_fix = _eval_build_and_time(
+                                clang, str(fixed_src), src_original,
+                                extra_flags=[],
+                                tmpdir=tmpdir, tag="rw_cfix",
+                                utils=utils, source_dir=source_dir,
+                                runs=runs, pin_cpu=pin_cpu, epsilon=epsilon,
+                                correctness_mode=ev.get("correctness_mode", "auto"),
+                            )
+                            if res_fix["ok"]:
+                                print(f"  [编译修复] 通过！继续计时...")
+                                res = res_fix
+                                rewritten_text = fixed_text
+                                _rsrc = fixed_src
+                            else:
+                                print(f"  [编译修复] 仍失败: {res_fix['error'][:80]}")
+                                err_msg = f"compile error (fix also failed): {err_msg[:300]}"
                 if not res["ok"]:
                     return {"action": action, "speedup": 1.0, "error": err_msg[:400],
                             "reasoning": reasoning, "improvement_analysis": improvement_analysis,
