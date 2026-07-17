@@ -1,365 +1,417 @@
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg
+  Dataset type: polybench
 ============================================================
-COMET: bicg  rounds=9
+COMET agent: bicg  max_steps=9
 ============================================================
-Collecting vectorization remarks for source rounds...
-  17 remarks collected
 
-[Param round]
-  Kernel 'kernel_bicg': lines 73–96
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_bicg
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: The main bottlenecks are redundant loads not eliminated (20 GVN misses) and loop-invariant loads not hoisted (12 LICM misses), which limit memory-level parallelism and increase instruction count. Tuning GVN's hoisting across basic blocks and LICM's alias analysis depth can reduce these overheads, improving performance.
-    -gvn-hoist-max-bbs: [4, 8, 16, 32]
-    -gvn-max-num-deps: [100, 200, 500, 1000]
-    -licm-n2-threshold: [0, 24, 48, 96]
-    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 10
-  Baseline -O3: 10.64 ms
-  Phase A — independent flag search:
-    -gvn-hoist-max-bbs=4 → 10.5 ms (1.012x) ← best
-    -gvn-hoist-max-bbs=8 → 10.5 ms (1.013x) ← best
-    -gvn-hoist-max-bbs=16 → 10.8 ms (0.985x)
-    -gvn-hoist-max-bbs=32 → 10.6 ms (1.005x)
-    -gvn-max-num-deps=100 → 11.3 ms (0.943x)
-    -gvn-max-num-deps=200 → 10.6 ms (1.000x)
-    -gvn-max-num-deps=500 → 11.6 ms (0.917x)
-    -gvn-max-num-deps=1000 → 10.5 ms (1.017x) ← best
-    -licm-n2-threshold=0 → 10.5 ms (1.012x) ← best
-    -licm-n2-threshold=24 → 10.5 ms (1.013x) ← best
-    -licm-n2-threshold=48 → 10.7 ms (0.994x)
-    -licm-n2-threshold=96 → 15.1 ms (0.703x)
-    -licm-max-num-uses-traversed=16 → 10.6 ms (1.000x)
-    -licm-max-num-uses-traversed=32 → 10.6 ms (1.007x) ← best
-    -licm-max-num-uses-traversed=64 → 10.6 ms (1.006x)
-    -pragma-vectorize-scev-check-threshold=32 → 10.9 ms (0.974x)
-    -pragma-vectorize-scev-check-threshold=64 → 10.6 ms (1.006x) ← best
-    -pragma-vectorize-scev-check-threshold=128 → 10.7 ms (0.998x)
-    -slp-look-ahead-users-budget=4 → 10.7 ms (0.993x)
-    -slp-look-ahead-users-budget=8 → 10.3 ms (1.031x) ← best
-    -slp-look-ahead-users-budget=16 → 11.6 ms (0.920x)
-    -amdgpu-unroll-threshold-if=150 → 10.7 ms (0.991x)
-    -amdgpu-unroll-threshold-if=300 → 10.6 ms (1.001x) ← best
-    -amdgpu-unroll-threshold-if=600 → 10.4 ms (1.024x) ← best
-    -loop-load-elimination-scev-check-threshold=1 → 10.5 ms (1.013x) ← best
-    -loop-load-elimination-scev-check-threshold=2 → 10.5 ms (1.011x)
-    -loop-load-elimination-scev-check-threshold=4 → 11.0 ms (0.968x)
-    -loop-distribute-scev-check-threshold=16 → 10.7 ms (0.991x)
-    -loop-distribute-scev-check-threshold=32 → 10.4 ms (1.020x) ← best
-    -loop-distribute-scev-check-threshold=64 → 10.4 ms (1.024x) ← best
-    -instcombine-max-iterations=1 → 10.7 ms (0.998x)
-    -instcombine-max-iterations=3 → 10.8 ms (0.981x)
-    -instcombine-max-iterations=6 → 10.5 ms (1.017x) ← best
-  LLM refinement (Phase A → refined candidates)...
-  Refined: [('-gvn-hoist-max-bbs', [4, 8]), ('-licm-n2-threshold', [0, 24]), ('-licm-max-num-uses-traversed', [32, 64])]
-  Phase B — joint search (best pairs):
-    -licm-n2-threshold=0, -gvn-hoist-max-bbs=4 → 10.6 ms (1.001x)
-    -licm-n2-threshold=0, -gvn-hoist-max-bbs=8 → 10.8 ms (0.980x)
-    -licm-n2-threshold=24, -gvn-hoist-max-bbs=4 → 10.7 ms (0.995x)
-    -licm-n2-threshold=24, -gvn-hoist-max-bbs=8 → 10.6 ms (1.003x)
-  Best: -mllvm -slp-look-ahead-users-budget=8  → 10.31 ms (1.031x)
-  Param flags for source rounds: -mllvm -slp-look-ahead-users-budget=8
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: The inner loop (j from 0 to _PB_M) fails to auto-vectorize due to compiler-believed unsafe memory dependencies between the two reductions (s[j] += r[i]*A[i][j] and q[i] += A[i][j]*p[j]), l...
+[Evidence collection -- one-time analysis]
+  提取富 YAML remarks（含代码位置、向量化因子等）...
+  富 remarks: 7 passes, 13 missed
+  检查每个 pass 的 IR 修改情况（前20个）...
+  IR diff: 4 passes FIRED, 4 no-op
+  Pass graph → /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/kernel_bicg_pass_graph.dot
+  收集基线硬件计数器（perf stat + VTune）...
+  瓶颈推断: unknown
+  VTune: vtune binary not found or not functional
+  逆向推断: 瓶颈=['unknown'] → 优先pass: LICMPass, SLPVectorizerPass, GVN
+  检测正确性验证模式...
+  正确性验证模式: polybench_dump
+  53 passes in pipeline, 41 ran on kernel_bicg
+  基线 -O3: 10.95 ms
+  快照目录: /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/snapshots/bicg
 
-[Source round 1/8]
-  Speedup: 3.020x (+202.0%)  3.45 ms
-  → New best (3.020x)!
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: The kernel is memory-bandwidth limited because the entire `s` array is streamed in and out for every row of `A`, causing high write traffic and cache pollution....
-  Kernel 'kernel_bicg': lines 73–97
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_bicg
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: 13 LICM misses indicate loads with loop-invariant addresses are not hoisted due to traversal limit; 5 SLP misses show 4-double vectors are unsupported, likely because the vectorizer limits to 256-bit registers; 13 GVN misses stem from redundant loads not eliminated. Increasing licm-max-num-uses-traversed may promote more hoisting, setting slp-max-reg-size to 512 may enable full 512-bit vectorization, and raising gvn-max-num-deps can enhance load PRE.
-    -licm-max-num-uses-traversed: [8, 16, 32, 64]
-    -slp-max-reg-size: [256, 512]
-    -gvn-max-num-deps: [100, 200, 500, 1000]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 10
-  Baseline -O3: 3.34 ms
-  Phase A — independent flag search:
-    -licm-max-num-uses-traversed=8 → 3.4 ms (0.983x)
-    -licm-max-num-uses-traversed=16 → 3.6 ms (0.928x)
-    -licm-max-num-uses-traversed=32 → 3.4 ms (0.970x)
-    -licm-max-num-uses-traversed=64 → 3.4 ms (0.985x)
-    -slp-max-reg-size=256 → 3.4 ms (0.976x)
-    -slp-max-reg-size=512 → 3.4 ms (0.991x)
-    -gvn-max-num-deps=100 → 3.4 ms (0.974x)
-    -gvn-max-num-deps=200 → 3.2 ms (1.032x) ← best
-    -gvn-max-num-deps=500 → 3.3 ms (1.006x)
-    -gvn-max-num-deps=1000 → 3.3 ms (1.002x)
-    -slp-look-ahead-users-budget=4 → 3.4 ms (0.980x)
-    -slp-look-ahead-users-budget=8 → 3.3 ms (1.017x) ← best
-    -slp-look-ahead-users-budget=16 → 3.3 ms (1.005x)
-    -gvn-hoist-max-bbs=5 → 3.3 ms (1.024x) ← best
-    -gvn-hoist-max-bbs=10 → 3.3 ms (1.008x)
-    -gvn-hoist-max-bbs=20 → 3.3 ms (1.027x) ← best
-    -pragma-vectorize-scev-check-threshold=32 → 3.2 ms (1.032x) ← best
-    -pragma-vectorize-scev-check-threshold=64 → 3.3 ms (1.016x)
-    -pragma-vectorize-scev-check-threshold=128 → 3.3 ms (1.005x)
-    -amdgpu-unroll-threshold-if=150 → 3.3 ms (1.018x) ← best
-    -amdgpu-unroll-threshold-if=300 → 3.3 ms (1.008x)
-    -amdgpu-unroll-threshold-if=600 → 3.5 ms (0.968x)
-    -loop-load-elimination-scev-check-threshold=1 → 3.3 ms (1.016x) ← best
-    -loop-load-elimination-scev-check-threshold=2 → 3.3 ms (1.006x)
-    -loop-load-elimination-scev-check-threshold=4 → 3.5 ms (0.954x)
-    -loop-distribute-scev-check-threshold=16 → 3.4 ms (0.995x)
-    -loop-distribute-scev-check-threshold=32 → 3.3 ms (1.025x) ← best
-    -loop-distribute-scev-check-threshold=64 → 3.3 ms (1.013x)
-    -instcombine-max-iterations=1 → 3.3 ms (1.012x) ← best
-    -instcombine-max-iterations=3 → 3.3 ms (1.015x) ← best
-    -instcombine-max-iterations=6 → 3.4 ms (0.989x)
-  LLM refinement (Phase A → refined candidates)...
-  Refined: [('-gvn-max-num-deps', [200, 500]), ('-pragma-vectorize-scev-check-threshold', [32, 64]), ('-gvn-hoist-max-bbs', [5, 10, 20])]
-  Phase B — joint search (best pairs):content empty, falling back to reasoning_content on attempt 1
+────────────────────────────────────────────────────────────
+[Agent 步骤 1/9]
+  Querying LLM (step 1)...
+  Action: try_flags
+  Reasoning: 根据missed remarks，GVN有20次load elimination失败（被store覆盖），增大hoisting范围和依赖分析深度可能帮助提升循环内的load。LoopVectorizePass有1次missed，降低最小循环迭代计数和增大SCEV检查阈值可能使内层循环向量化。
+  ImprovementAnalysis: 当前性能瓶颈可能来自循环内对s[j]和q[i]的反复读写导致的memory依赖，限制了GVN和LICM的优化。GVN的load elimination无法跨越循环内的store，导致冗余load。向量化被阻止可能是因为循环计数过小（_PB_M可能较小）或运行时内存依赖检查不足。通过调整这些参数，期望能减少冗余load并向量化内层循环，从而提升性能。
+    -gvn-hoist-max-bbs=4 -> 11.0 ms (0.995x)
+    -gvn-hoist-max-bbs=8 -> 11.0 ms (0.999x)
+    -gvn-hoist-max-bbs=16 -> 11.0 ms (0.997x)
+    -gvn-hoist-max-bbs=32 -> 11.0 ms (0.999x)
+    -gvn-hoist-max-bbs=64 -> 11.0 ms (0.999x)
+    -gvn-hoist-max-bbs=128 -> 11.0 ms (0.998x)
+    -gvn-hoist-max-chain-length=10 -> 11.0 ms (0.998x)
+    -gvn-hoist-max-chain-length=20 -> 11.0 ms (0.999x)
+    -gvn-hoist-max-chain-length=40 -> 11.0 ms (0.996x)
+    -gvn-hoist-max-chain-length=80 -> 11.0 ms (0.996x)
+    -gvn-hoist-max-chain-length=160 -> 11.0 ms (0.991x)
+    -gvn-max-num-deps=100 -> 11.0 ms (0.998x)
+    -gvn-max-num-deps=200 -> 10.9 ms (1.001x) <--
+    -gvn-max-num-deps=400 -> 11.0 ms (0.997x)
+    -gvn-max-num-deps=800 -> 11.0 ms (0.997x)
+    -gvn-max-num-deps=1600 -> 11.0 ms (0.996x)
+    -vectorizer-min-trip-count=100 -> 11.0 ms (0.999x)
+    -vectorizer-min-trip-count=32 -> 10.9 ms (1.001x) <--
+    -vectorizer-min-trip-count=16 -> 11.0 ms (0.998x)
+    -vectorizer-min-trip-count=8 -> 11.0 ms (0.999x)
+    -vectorizer-min-trip-count=4 -> 11.0 ms (0.999x)
+    -vectorize-scev-check-threshold=8 -> 10.9 ms (1.000x)
+    -vectorize-scev-check-threshold=16 -> 11.0 ms (0.997x)
+    -vectorize-scev-check-threshold=32 -> 11.0 ms (0.997x)
+    -vectorize-scev-check-threshold=64 -> 11.0 ms (0.998x)
+    -vectorize-scev-check-threshold=128 -> 11.0 ms (0.999x)
+    --gvn-hoist-max-depth=200 -> 11.0 ms (0.997x)
+    --gvn-hoist-max-depth=400 -> 11.0 ms (0.996x)
+    --gvn-hoist-max-depth=50 -> 10.9 ms (1.001x) <--
+    --gvn-hoist-max-depth=-1 -> 11.0 ms (0.998x)
+    --gvn-hoist-max-depth=-2 -> 10.9 ms (1.001x)
+    --gvn-max-hoisted=-1 -> 10.9 ms (1.000x)
+    --gvn-max-hoisted=-2 -> 10.9 ms (1.001x) <--
+    --gvn-max-hoisted=-4 -> 11.0 ms (0.999x)
+    --gvn-max-hoisted=0 -> 11.0 ms (0.999x)
+    --gvn-max-hoisted=5 -> 11.0 ms (0.998x)
+    --gvn-max-hoisted=10 -> 11.0 ms (0.998x)
+    --gvn-max-recurse-depth=2000 -> 11.0 ms (0.998x)
+    --gvn-max-recurse-depth=4000 -> 11.0 ms (0.998x)
+    --gvn-max-recurse-depth=8000 -> 11.0 ms (0.992x)
+    --gvn-max-recurse-depth=16000 -> 10.9 ms (1.001x) <--
+    --pragma-vectorize-memory-check-threshold=8 -> 11.0 ms (0.997x)
+    --pragma-vectorize-memory-check-threshold=16 -> 11.0 ms (0.998x)
+    --pragma-vectorize-memory-check-threshold=32 -> 10.9 ms (1.000x)
+    --pragma-vectorize-memory-check-threshold=64 -> 11.0 ms (0.999x)
+    --pragma-vectorize-memory-check-threshold=128 -> 11.0 ms (0.998x)
+    --pragma-vectorize-memory-check-threshold=256 -> 10.9 ms (1.000x) <--
+    --pragma-vectorize-scev-check-threshold=8 -> 11.0 ms (0.999x)
+    --pragma-vectorize-scev-check-threshold=16 -> 11.0 ms (0.999x)
+    --pragma-vectorize-scev-check-threshold=32 -> 11.0 ms (0.999x)
+    --pragma-vectorize-scev-check-threshold=64 -> 11.0 ms (0.998x)
+    --pragma-vectorize-scev-check-threshold=128 -> 10.9 ms (1.001x) <--
+    --pragma-vectorize-scev-check-threshold=256 -> 11.0 ms (0.998x)
+    --vectorize-num-stores-pred=8 -> 11.0 ms (0.998x)
+    --vectorize-num-stores-pred=16 -> 11.0 ms (0.999x)
+    --vectorize-num-stores-pred=32 -> 11.0 ms (0.997x)
+    --vectorize-num-stores-pred=64 -> 11.0 ms (0.999x)
+    --vectorize-num-stores-pred=128 -> 11.0 ms (0.999x)
+    --vectorize-num-stores-pred=256 -> 10.9 ms (1.000x)
+    [joint-2] -mllvm --gvn-hoist-max-depth=50 -mllvm --gvn-max-recurse-depth=16000 -> 0.998x
+    [joint-3] -mllvm --gvn-hoist-max-depth=50 -mllvm --gvn-max-recurse-depth=16000 -mllvm -gvn-max-num-deps=200 -> 0.998x
+  try_flags 最优: 1.001x  [flags: -mllvm --gvn-hoist-max-depth=50]
+  步骤1: 1.001x  [flags: -mllvm --gvn-hoist-max-depth=50]
+  *** 新最优: 1.001x  [flags: -mllvm --gvn-hoist-max-depth=50] ***
 
-    -pragma-vectorize-scev-check-threshold=32, -gvn-max-num-deps=200 → 3.4 ms (0.973x)
-    -pragma-vectorize-scev-check-threshold=32, -gvn-max-num-deps=500 → 3.5 ms (0.952x)
-    -pragma-vectorize-scev-check-threshold=64, -gvn-max-num-deps=200 → 3.4 ms (0.983x)
-    -pragma-vectorize-scev-check-threshold=64, -gvn-max-num-deps=500 → 3.4 ms (0.978x)
-  Best: -mllvm -pragma-vectorize-scev-check-threshold=32  → 3.23 ms (1.032x)
-  Re-tuned flags: -mllvm -pragma-vectorize-scev-check-threshold=32
+────────────────────────────────────────────────────────────
+[Agent 步骤 2/9]
+  Querying LLM (step 2)...
+  Action: rewrite_source
+  Reasoning: 当前最优仅1.001x，参数调优已近极限。missed remarks显示GVN因store clobber导致20次load消除失败，LICM因alias无法提升不变量，LoopVectorizePass拒绝向量化内层循环。通过源码重写添加restrict消除alias、使用pragma强制向量化并将循环不变表达式外提，可突破编译器保守成本模型限制，预期获得显著加速。
+  ImprovementAnalysis: 参数优化效果微弱（1.001x），表明编译器cost-model保守是表面原因，根本瓶颈在于源码结构导致保守的别名分析和reduction识别不足：内层循环包含两个独立归约（对s[j]和q[i]），但GVN因store clobber无法消除冗余load，LICM因潜在别名无法移动不变量，LoopVectorize因未显式标记无法向量化。添加restrict消除别名，pragma强制向量化/交织，
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] **Diagnosis Summary**  
+  [重写实现] 根据分析生成优化代码...
+  rewrite_source（纯源码 -O3）: 0.972x  [在kernel_bicg函数参数中为所有指针添加restrict限定符（DATA_TYPE POLYBENCH_2D(A,N,M,n,m)改为对应arr restrict形式，实际需在函数定义中修改参数类型为double *restrict等）；在内层j循环（for (j = 0; j < _PB_M; j++)）前插入#pragma clang loop vectorize(enable) interleave(enable)；将r[i]和p[j]分别提前加载到局部变量rinv和pj，代替循环内每次通过地址加载，以帮助LICM移动不变量。]
+  rewrite_source + [-mllvm --gvn-hoist-max-depth=50]: 0.973x  ← 组合更优，保留参数
+  步骤2: 0.973x  [rewrite: 在kernel_bicg函数参数中为所有指针添加restrict限定符（DATA_TYPE POLYBENCH_2D(A,N,M,n,m)改为对应arr restrict形式，实际需在函数定义中修改参数类型为double *restrict等）；在内层j循环（for (j = 0; j < _PB_M; j++)）前插入#pragma clang loop vectorize(enable) interleave(enable)；将r[i]和p[j]分别提前加载到局部变量rinv和pj，代替循环内每次通过地址加载，以帮助LICM移动不变量。]
+  快照: /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/snapshots/bicg/step_02_rewrite_source_ok.c
+content empty, falling back to reasoning_content on attempt 1
+content empty, falling back to reasoning_content on attempt 1
 
-[Source round 2/8]  (building on round 1 best)
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpgf3kfywu/bicg_opt.c:81:15: error: expected identifier or '('
-    co
-  [Retry 2/3]
-  Attempt 2 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpcxwd957z/bicg_opt.c:91:23: error: variable-sized object may not be 
-  [Retry 3/3]
-  Attempt 3 failed (precision_error): PRECISION ERROR: Mismatch: 1/240 elements differ > epsilon=0.0001. First error at index 30: ref=23.37, opt=23.38, abs=1.
-  Round 2 failed (precision_error): PRECISION ERROR: Mismatch: 1/240 elements differ > epsilon=0.0001. First error at index 30: ref=23.37, opt=23.38, abs=1.00e-02, rel=4.28e-04. Max abs_diff=1.00e-02 at index 30. Max rel_diff=4.28e-04.
+────────────────────────────────────────────────────────────
+[Agent 步骤 3/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 3)...
+  Action: rewrite_source
+  Reasoning: 参数调整已近极限（最佳1.001x），源码加restrict和pragma反而降速，表明单纯改变别名和强制向量化无效。missed remarks显示内层循环中s[j]和q[i]的存储与加载相互干扰导致GVN和LICM失败，且循环无法向量化。循环分裂可分离两个独立的归约更新，消除store clobber，使编译器分别对每个循环进行向量化和优化，同时保持数值一致。
+  ImprovementAnalysis: 历史改进仅1.001x，微弱的原因是GVN、LICM和向量化均受限于内层循环中s[j]的写和q[i]的读之间的存储器冲突。增加restrict虽消除别名但编译器仍因存储顺序无法充分优化，且强制向量化可能引入运行时检查或对齐开销。根本瓶颈在于循环结构迫使两个归约交错，阻碍了更好的指令级并行和向量化。循环分裂可打破这一依赖，释放优化潜力。
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## Step-by-Step Diagnosis
+  [重写实现] 根据分析生成优化代码...
+  rewrite_source（纯源码 -O3）: 1.640x  [将内层j循环分裂为两个独立的循环：第一个循环更新s[j] (s[j] += r[i] * A[i][j])，第二个循环更新q[i] (q[i] += A[i][j] * p[j])。保留原始i循环结构。这样s[j]和q[i]的更新不再交错，消除store clobber，使每个循环均为单变量归约，编译器可分别进行向量化和LDST优化，同时保证数值顺序不变。]
+  rewrite_source + [-mllvm --gvn-hoist-max-depth=50]: 1.638x  (比纯源码差，此版本不用参数)
+  步骤3: 1.640x  [rewrite: 将内层j循环分裂为两个独立的循环：第一个循环更新s[j] (s[j] += r[i] * A[i][j])，第二个循环更新q[i] (q[i] += A[i][j] * p[j])。保留原始i循环结构。这样s[j]和q[i]的更新不再交错，消除store clobber，使每个循环均为单变量归约，编译器可分别进行向量化和LDST优化，同时保证数值顺序不变。]
+  快照: /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/snapshots/bicg/step_03_rewrite_source_ok.c
+  *** 新最优: 1.640x  [rewrite: 将内层j循环分裂为两个独立的循环：第一个循环更新s[j] (s[j] += r[i] * A[i][j])，第二个循环更新q[i] (q[i] += A[i][j] * p[j])。保留原始i循环结构。这样s[j]和q[i]的更新不再交错，消除store clobber，使每个循环均为单变量归约，编译器可分别进行向量化和LDST优化，同时保证数值顺序不变。] ***
 
+────────────────────────────────────────────────────────────
+[Agent 步骤 4/9]
+  [反重复] 'rewrite_source' 已连续 2 次，强制切换到 'try_pragma'
+  Querying LLM (step 4)...
+  [forced] LLM chose 'try_flags', overriding to 'try_pragma'
+  Action: try_pragma
+  Reasoning: 当前最优1.640x来自循环分裂，消除了原始内层循环中s[j]和q[i]的store clobber，使得每个分裂后的归约循环可以独立向量化。但是从perf统计看，向量化操作数仍为0，说明向量化未触发或收益未体现。增大unroll-threshold-aggressive可以允许循环展开，减少循环开销，并可能促进后续pass进一步优化。同时，GVN和LICM的missed remarks在原始代码
+  ImprovementAnalysis: 当前1.640x主要是通过重写源码实现，编译器参数未重新探索。分裂后的循环体简单（单归约），但向量化可能因循环计数较小或成本模型保守而未被采用。增大unroll-threshold可以提升展开程度，减少循环控制开销并改善指令级并行，同时展开后可能使向量化更有利。此外，gvn-hoist-max-depth参数在原始代码中曾带来微小提升（1.001x），在新的IR中可能进一步消除残余冗余。当前瓶颈可
+  步骤4: 1.000x  []
 
-[Source round 3/8]  (building on round 2 best)
-  Speedup: 2.875x (+187.5%)  3.77 ms
-  No improvement over best (3.020x) — next round still builds on current best
+────────────────────────────────────────────────────────────
+[Agent 步骤 5/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 5)...
+  Action: try_flags
+  Reasoning: 当前最优1.640x来自循环分裂，但向量化仍未触发（vector_ops=0）。分裂后的内层循环为单变量归约，应易向量化，推测因最小迭代计数阈值或成本模型保守阻止。通过降低vectorizer-min-trip-count、增大scev-check-threshold和unroll-threshold-aggressive，可促使循环向量化或展开，进一步释放指令级并行与SIMD能力。
+  ImprovementAnalysis: 1.640x加速主要源于消除store clobber使两个归约独立，但向量化未被利用限制上限。分裂后循环体简单，但每次迭代仍只更新一个数组元素，内存带宽利用率低。若启用向量化，可一次处理多个元素，减少访存次数并利用SIMD吞吐。当前瓶颈是cost model对短循环向量化过于保守，或运行时检查开销过大。调整这些参数有望突破2x。
+    --gvn-hoist-max-bbs=8 -> 6.9 ms (1.584x) <--
+    --gvn-hoist-max-bbs=16 -> 6.9 ms (1.593x) <--
+    --gvn-hoist-max-bbs=2 -> 6.9 ms (1.598x) <--
+    --gvn-hoist-max-bbs=-1 -> 6.8 ms (1.618x) <--
+    --gvn-hoist-max-bbs=-2 -> 6.9 ms (1.597x)
+    --gvn-hoist-max-chain-length=20 -> 6.9 ms (1.597x) <--
+    --gvn-hoist-max-chain-length=40 -> 6.9 ms (1.587x)
+    --gvn-hoist-max-chain-length=5 -> 6.8 ms (1.604x) <--
+    --gvn-hoist-max-chain-length=-1 -> 6.9 ms (1.591x)
+    --gvn-hoist-max-chain-length=-2 -> 6.9 ms (1.598x)
+    --gvn-hoist-max-depth=200 -> 6.9 ms (1.587x) <--
+    --gvn-hoist-max-depth=400 -> 6.9 ms (1.596x) <--
+    --gvn-hoist-max-depth=50 -> 6.9 ms (1.591x)
+    --gvn-hoist-max-depth=-1 -> 7.0 ms (1.572x)
+    --gvn-hoist-max-depth=-2 -> 7.0 ms (1.572x)
+    --gvn-max-hoisted=-1 -> 6.9 ms (1.578x) <--
+    --gvn-max-hoisted=-2 -> 7.0 ms (1.572x)
+    --gvn-max-hoisted=-4 -> 6.9 ms (1.582x) <--
+    --gvn-max-hoisted=0 -> 6.9 ms (1.594x) <--
+    --gvn-max-hoisted=5 -> 6.9 ms (1.595x) <--
+    --gvn-max-hoisted=10 -> 6.9 ms (1.595x)
+    --gvn-max-num-deps=200 -> 7.0 ms (1.574x) <--
+    --gvn-max-num-deps=400 -> 7.0 ms (1.566x)
+    --gvn-max-num-deps=800 -> 6.9 ms (1.580x) <--
+    --gvn-max-num-deps=1600 -> 6.9 ms (1.582x) <--
+    --gvn-max-recurse-depth=2000 -> 6.9 ms (1.585x) <--
+    --gvn-max-recurse-depth=4000 -> 6.9 ms (1.578x)
+    --gvn-max-recurse-depth=8000 -> 6.9 ms (1.588x) <--
+    --gvn-max-recurse-depth=16000 -> 6.9 ms (1.591x) <--
+    --pragma-vectorize-memory-check-threshold=8 -> 6.9 ms (1.593x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 6.8 ms (1.600x) <--
+    --pragma-vectorize-memory-check-threshold=32 -> 6.8 ms (1.603x) <--
+    --pragma-vectorize-memory-check-threshold=64 -> 7.0 ms (1.574x)
+    --pragma-vectorize-memory-check-threshold=128 -> 6.9 ms (1.577x)
+    --pragma-vectorize-memory-check-threshold=256 -> 6.9 ms (1.597x)
+    --pragma-vectorize-scev-check-threshold=8 -> 6.9 ms (1.591x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 6.9 ms (1.598x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 6.9 ms (1.596x)
+    --pragma-vectorize-scev-check-threshold=64 -> 6.8 ms (1.600x) <--
+    --pragma-vectorize-scev-check-threshold=128 -> 6.9 ms (1.596x)
+    --pragma-vectorize-scev-check-threshold=256 -> 6.9 ms (1.596x)
+    --vectorize-num-stores-pred=8 -> 6.9 ms (1.589x) <--
+    --vectorize-num-stores-pred=16 -> 6.9 ms (1.593x) <--
+    --vectorize-num-stores-pred=32 -> 6.8 ms (1.609x) <--
+    --vectorize-num-stores-pred=64 -> 6.8 ms (1.602x)
+    --vectorize-num-stores-pred=128 -> 6.8 ms (1.605x)
+    --vectorize-num-stores-pred=256 -> 6.9 ms (1.594x)
+    --vectorize-scev-check-threshold=8 -> 6.9 ms (1.597x) <--
+    --vectorize-scev-check-threshold=16 -> 6.9 ms (1.592x)
+content empty, falling back to reasoning_content on attempt 1
+content empty, falling back to reasoning_content on attempt 1
+content empty, falling back to reasoning_content on attempt 1
+    --vectorize-scev-check-threshold=32 -> 6.8 ms (1.599x) <--
+    --vectorize-scev-check-threshold=64 -> 6.8 ms (1.610x) <--
+    --vectorize-scev-check-threshold=128 -> 6.8 ms (1.609x)
+    --vectorize-scev-check-threshold=256 -> 6.8 ms (1.607x)
+    --vectorizer-min-trip-count=8 -> 6.8 ms (1.603x) <--
+    --vectorizer-min-trip-count=16 -> 6.9 ms (1.597x)
+    --vectorizer-min-trip-count=32 -> 6.8 ms (1.598x)
+    --vectorizer-min-trip-count=64 -> 6.8 ms (1.613x) <--
+    --vectorizer-min-trip-count=128 -> 6.8 ms (1.606x)
+    --vectorizer-min-trip-count=256 -> 6.9 ms (1.590x)
+    [joint-2] -mllvm --gvn-hoist-max-bbs=-1 -mllvm --vectorizer-min-trip-count=64 -> 1.595x
+    [joint-3] -mllvm --gvn-hoist-max-bbs=-1 -mllvm --vectorizer-min-trip-count=64 -mllvm --vectorize-scev-check-threshold=64 -> 1.582x
+  try_flags 最优: 1.618x  [flags: -mllvm --gvn-hoist-max-bbs=-1]
+  步骤5: 1.618x  [flags: -mllvm --gvn-hoist-max-bbs=-1]
 
-[Source round 4/8]  (building on round 3 best)
-  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 1/240 elements differ > epsilon=0.0001. First error at index 30: ref=23.37, opt=23.38, abs=1.
-  [Retry 2/3]
-  Speedup: 3.060x (+206.0%)  3.46 ms
-  → New best (3.060x)!
-  Analyzing kernel optimization patterns...
-  Analysis preview: **BOTTLENECK:** The kernel is memory-bandwidth bound because every outer iteration `i` streams through the entire `p` array and rewrites the entire `s` array, causing no temporal reuse of `p` and `s` ...
-  Kernel 'kernel_bicg': lines 72–103
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_bicg
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: The kernel has repeated LICM failures due to loop aliasing, SLP vectorizer unable to vectorize at the desired width due to high threshold, and GVN not eliminating loads. Adjusting LICM's max uses traversed may help identify more loop-invariant loads, reducing SLP threshold encourages vectorization, and increasing GVN's max number of dependencies for load PRE can eliminate redundant loads.
-    --licm-max-num-uses-traversed: [8, 16, 32]
-    --slp-threshold: [-4, -2, -1, 0]
-    --gvn-max-num-deps: [100, 200, 500]
-    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 11
-  Baseline -O3: 3.34 ms
-  Phase A — independent flag search:
-    --licm-max-num-uses-traversed=8 → 3.5 ms (0.955x)
-    --licm-max-num-uses-traversed=16 → 3.4 ms (0.986x)
-    --licm-max-num-uses-traversed=32 → 3.3 ms (1.004x) ← best
-    --slp-threshold=-4 → 3.4 ms (0.996x)
-    --slp-threshold=-2 → 3.3 ms (1.017x) ← best
-    --slp-threshold=-1 → 3.2 ms (1.032x) ← best
-    --slp-threshold=0 → 3.3 ms (1.020x)
-    --gvn-max-num-deps=100 → 3.3 ms (1.025x) ← best
-    --gvn-max-num-deps=200 → 3.4 ms (0.995x)
-    --gvn-max-num-deps=500 → 3.3 ms (1.025x)
-    -licm-max-num-uses-traversed=16 → 3.3 ms (1.013x) ← best
-    -licm-max-num-uses-traversed=32 → 3.3 ms (1.021x) ← best
-    -licm-max-num-uses-traversed=64 → 3.3 ms (1.018x)
-    -slp-look-ahead-users-budget=4 → 3.3 ms (1.005x) ← best
-    -slp-look-ahead-users-budget=8 → 3.7 ms (0.911x)
-    -slp-look-ahead-users-budget=16 → 3.2 ms (1.041x) ← best
-    -gvn-hoist-max-bbs=5 → 3.3 ms (1.013x) ← best
-    -gvn-hoist-max-bbs=10 → 3.3 ms (1.009x)
-    -gvn-hoist-max-bbs=20 → 3.3 ms (1.009x)
-    -pragma-vectorize-scev-check-threshold=32 → 3.4 ms (0.991x)
-    -pragma-vectorize-scev-check-threshold=64 → 3.5 ms (0.968x)
-    -pragma-vectorize-scev-check-threshold=128 → 3.4 ms (0.971x)
-    -amdgpu-unroll-threshold-if=150 → 3.3 ms (1.007x) ← best
-    -amdgpu-unroll-threshold-if=300 → 3.2 ms (1.036x) ← best
-    -amdgpu-unroll-threshold-if=600 → 3.3 ms (1.011x)
-    -loop-load-elimination-scev-check-threshold=1 → 3.3 ms (1.011x) ← best
-    -loop-load-elimination-scev-check-threshold=2 → 3.2 ms (1.032x) ← best
-    -loop-load-elimination-scev-check-threshold=4 → 3.2 ms (1.040x) ← best
-    -loop-distribute-scev-check-threshold=16 → 3.3 ms (1.017x) ← best
-    -loop-distribute-scev-check-threshold=32 → 3.3 ms (1.026x) ← best
-    -loop-distribute-scev-check-threshold=64 → 3.4 ms (0.992x)
-    -instcombine-max-iterations=1 → 3.4 ms (0.993x)
-    -instcombine-max-iterations=3 → 3.3 ms (1.015x) ← best
-    -instcombine-max-iterations=6 → 3.4 ms (0.976x)
-  LLM refinement (Phase A → refined candidates)...
-  Refinement JSON parse failed, using original params
-  Phase B — joint search (best pairs):
-    -slp-look-ahead-users-budget=4, -loop-load-elimination-scev-check-threshold=1 → 3.0 ms (1.130x) ← BEST
-    -slp-look-ahead-users-budget=4, -loop-load-elimination-scev-check-threshold=2 → 3.4 ms (0.969x)
-    -slp-look-ahead-users-budget=4, -loop-load-elimination-scev-check-threshold=4 → 3.5 ms (0.968x)
-    -slp-look-ahead-users-budget=8, -loop-load-elimination-scev-check-threshold=1 → 3.4 ms (0.987x)
-    -slp-look-ahead-users-budget=8, -loop-load-elimination-scev-check-threshold=2 → 3.8 ms (0.887x)
-    -slp-look-ahead-users-budget=8, -loop-load-elimination-scev-check-threshold=4 → 3.5 ms (0.964x)
-    -slp-look-ahead-users-budget=16, -loop-load-elimination-scev-check-threshold=1 → 3.4 ms (0.986x)
-    -slp-look-ahead-users-budget=16, -loop-load-elimination-scev-check-threshold=2 → 3.4 ms (0.982x)
-    -slp-look-ahead-users-budget=16, -loop-load-elimination-scev-check-threshold=4 → 3.4 ms (0.987x)
-  Best: -mllvm -slp-look-ahead-users-budget=4 -mllvm -loop-load-elimination-scev-check-threshold=1  → 2.96 ms (1.130x)
-  Re-tuned flags: -mllvm -slp-look-ahead-users-budget=4 -mllvm -loop-load-elimination-scev-check-threshold=1
+────────────────────────────────────────────────────────────
+[Agent 步骤 6/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 6)...
+  Action: rewrite_source
+  Reasoning: 当前最优1.640x来自循环分裂，消除了内层循环中s和q的store clobber，使两个归约独立。但vector_ops仍为0，说明SIMD未被利用。分裂后的循环体简单，适合向量化，只需添加显式pragma即可强制编译器开启，预期大幅提升性能。
+  ImprovementAnalysis: 历史尝试中，在原始代码上添加vectorize pragma曾导致降速（0.973x），主要是因为当时还存在store clobber和别名问题，强制向量化引入多余开开销。现在分裂后的循环已无交错依赖，每个循环均为单变量归约，非常适合simd。当前瓶颈是编译器cost model过于保守，不认为循环值得向量化。通过pragma覆盖cost model，可充分利用SIMD，预计提升至2x以上。
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## 诊断报告
+  [重写实现] 根据分析生成优化代码...
+  rewrite_source（纯源码 -O3）: 1.004x  [在分裂后的两个内层j循环前分别添加#pragma clang loop vectorize(enable) interleave(enable)，并在每个循环前加独特注释（如// s_loop和// q_loop）以确保唯一匹配。同时保留现有循环分裂结构，不做其他修改。]
+  rewrite_source + [-mllvm --gvn-hoist-max-depth=50]: 0.999x  (比纯源码差，此版本不用参数)
+  ⚠ 灾难性退化: 1.004x << 当前最优 1.640x (阈值 20%)，自动回退到 1.640x 状态
+  步骤6: 1.004x  [rewrite: 在分裂后的两个内层j循环前分别添加#pragma clang loop vectorize(enable) interleave(enable)，并在每个循环前加独特注释（如// s_loop和// q_loop）以确保唯一匹配。同时保留现有循环分裂结构，不做其他修改。]
+  快照: /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/snapshots/bicg/step_06_rewrite_source_ok.c
 
-[Source round 5/8]  (building on round 4 best)
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpryyxnag9/bicg_opt.c:75:1: error: cannot combine with previous 'int'
-  [Retry 2/3]
-  Speedup: 3.713x (+271.3%)  2.96 ms
-  → New best (3.713x)!
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: The kernel is severely memory-bound due to repeated read-modify-write of global array `s` for each row `i`, causing low arithmetic intensity and excessive memory traffic....
-  Kernel 'kernel_bicg': lines 75–127
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_bicg
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: SLP and loop vectorization are failing due to cost-model limitations and small trip counts; GVN is missing load eliminations due to dependency limits. Lowering SLP threshold and vectorizer min trip count, and raising GVN max deps, should enable more vectorization and redundancy removal.
-    -slp-threshold: [-4, -2, -1, 0]
-    -vectorizer-min-trip-count: [1, 2, 4, 8]
-    -gvn-max-num-deps: [100, 200, 500, 1000]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -gvn-hoist-max-bbs: [5, 10, 20]content empty, falling back to reasoning_content on attempt 1
+────────────────────────────────────────────────────────────
+[Agent 步骤 7/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 7)...
+  Action: try_flags
+  Reasoning: 当前最优1.640x来自循环分裂，消除了store clobber，但vector_ops仍为0，说明SIMD未利用。历史尝试中，gvn-hoist-max-bbs=-1得到1.618x略低，表明需要结合向量化参数。调整vectorizer-min-trip-count、vectorize-scev-check-threshold、unroll-threshold-aggressive以及gvn-
+  ImprovementAnalysis: 循环分裂已消除原始代码中GVN和LICM的store clobber瓶颈，但编译器cost model仍拒绝向量化内层归约循环。分裂后的循环体简单，单变量归约非常适合SIMD，但可能因最小迭代计数阈值或运行时检查限制而未向量化。当前瓶颈在于向量化未启用，导致内存带宽利用率低。通过降低最小迭代计数阈值、增大运行时SCEV检查上限和展开阈值，可促使向量化，预计可显著提升性能。
+    --gvn-hoist-max-bbs=8 -> 6.8 ms (1.615x) <--
+    --gvn-hoist-max-bbs=16 -> 6.8 ms (1.615x) <--
+    --gvn-hoist-max-bbs=2 -> 6.8 ms (1.613x)
+    --gvn-hoist-max-bbs=-1 -> 6.8 ms (1.614x)
+    --gvn-hoist-max-bbs=-2 -> 6.8 ms (1.617x) <--
+    --gvn-hoist-max-chain-length=20 -> 6.8 ms (1.620x) <--
+    --gvn-hoist-max-chain-length=40 -> 6.7 ms (1.628x) <--
+    --gvn-hoist-max-chain-length=5 -> 6.8 ms (1.619x)
+    --gvn-hoist-max-chain-length=-1 -> 6.7 ms (1.626x)
+    --gvn-hoist-max-chain-length=-2 -> 6.7 ms (1.626x)
+    --gvn-hoist-max-depth=200 -> 6.7 ms (1.628x) <--
+    --gvn-hoist-max-depth=400 -> 6.8 ms (1.615x)
+    --gvn-hoist-max-depth=50 -> 6.8 ms (1.609x)
+    --gvn-hoist-max-depth=-1 -> 6.8 ms (1.614x)
+    --gvn-hoist-max-depth=-2 -> 6.8 ms (1.620x)
+    --gvn-max-hoisted=-1 -> 6.8 ms (1.614x) <--
+    --gvn-max-hoisted=-2 -> 6.8 ms (1.619x) <--
+    --gvn-max-hoisted=-4 -> 6.7 ms (1.624x) <--
+    --gvn-max-hoisted=0 -> 6.7 ms (1.626x) <--
+    --gvn-max-hoisted=5 -> 6.8 ms (1.609x)
+    --gvn-max-hoisted=10 -> 6.8 ms (1.601x)
+    --gvn-max-num-deps=200 -> 6.8 ms (1.611x) <--
+    --gvn-max-num-deps=400 -> 6.8 ms (1.606x)
+    --gvn-max-num-deps=800 -> 6.7 ms (1.623x) <--
+    --gvn-max-num-deps=1600 -> 6.8 ms (1.615x)
+    --gvn-max-recurse-depth=2000 -> 6.8 ms (1.611x) <--
+    --gvn-max-recurse-depth=4000 -> 6.8 ms (1.600x)
+    --gvn-max-recurse-depth=8000 -> 6.8 ms (1.607x)
+    --gvn-max-recurse-depth=16000 -> 6.8 ms (1.614x) <--
+    --pragma-vectorize-memory-check-threshold=8 -> 6.8 ms (1.618x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 6.9 ms (1.584x)
+    --pragma-vectorize-memory-check-threshold=32 -> 6.8 ms (1.619x) <--
+    --pragma-vectorize-memory-check-threshold=64 -> 6.8 ms (1.605x)
+    --pragma-vectorize-memory-check-threshold=128 -> 6.8 ms (1.612x)
+    --pragma-vectorize-memory-check-threshold=256 -> 6.8 ms (1.616x)
+    --pragma-vectorize-scev-check-threshold=8 -> 6.8 ms (1.606x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 6.8 ms (1.614x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 6.8 ms (1.608x)
+    --pragma-vectorize-scev-check-threshold=64 -> 6.8 ms (1.607x)
+    --pragma-vectorize-scev-check-threshold=128 -> 6.8 ms (1.618x) <--
+    --pragma-vectorize-scev-check-threshold=256 -> 6.9 ms (1.593x)
+    --vectorize-num-stores-pred=8 -> 6.8 ms (1.609x) <--
+    --vectorize-num-stores-pred=16 -> 6.8 ms (1.606x)
+    --vectorize-num-stores-pred=32 -> 6.9 ms (1.592x)
+    --vectorize-num-stores-pred=64 -> 6.8 ms (1.609x)
+    --vectorize-num-stores-pred=128 -> 6.8 ms (1.599x)
+    --vectorize-num-stores-pred=256 -> 6.8 ms (1.612x) <--
+    --vectorize-scev-check-threshold=8 -> 6.8 ms (1.609x) <--
+    --vectorize-scev-check-threshold=16 -> 6.8 ms (1.601x)
+    --vectorize-scev-check-threshold=32 -> 6.8 ms (1.603x)
+    --vectorize-scev-check-threshold=64 -> 6.9 ms (1.587x)
+    --vectorize-scev-check-threshold=128 -> 6.9 ms (1.589x)
+    --vectorize-scev-check-threshold=256 -> 6.8 ms (1.614x) <--
+    --vectorizer-min-trip-count=8 -> 6.9 ms (1.598x) <--
+    --vectorizer-min-trip-count=16 -> 6.8 ms (1.604x) <--
+    --vectorizer-min-trip-count=32 -> 6.8 ms (1.607x) <--
+    --vectorizer-min-trip-count=64 -> 6.8 ms (1.598x)
+    --vectorizer-min-trip-count=128 -> 6.9 ms (1.598x)
+    --vectorizer-min-trip-count=256 -> 6.9 ms (1.593x)
+    [joint-2] -mllvm --gvn-hoist-max-depth=200 -mllvm --gvn-hoist-max-chain-length=40 -> 1.597x
+    [joint-3] -mllvm --gvn-hoist-max-depth=200 -mllvm --gvn-hoist-max-chain-length=40 -mllvm --gvn-max-hoisted=0 -> 1.583x
+  try_flags 最优: 1.628x  [flags: -mllvm --gvn-hoist-max-depth=200]
+  步骤7: 1.628x  [flags: -mllvm --gvn-hoist-max-depth=200]
 
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 11
-  Baseline -O3: 3.17 ms
-  Phase A — independent flag search:
-    -slp-threshold=-4 → 3.2 ms (0.985x)
-    -slp-threshold=-2 → 3.2 ms (1.003x) ← best
-    -slp-threshold=-1 → 3.2 ms (0.990x)
-    -slp-threshold=0 → 3.1 ms (1.013x) ← best
-    -vectorizer-min-trip-count=1 → 3.2 ms (0.990x)
-    -vectorizer-min-trip-count=2 → 3.1 ms (1.011x) ← best
-    -vectorizer-min-trip-count=4 → 3.2 ms (0.999x)
-    -vectorizer-min-trip-count=8 → 3.2 ms (0.990x)
-    -gvn-max-num-deps=100 → 3.2 ms (1.003x) ← best
-    -gvn-max-num-deps=200 → 3.2 ms (1.001x)
-    -gvn-max-num-deps=500 → 3.1 ms (1.008x) ← best
-    -gvn-max-num-deps=1000 → 3.4 ms (0.944x)
-    -slp-look-ahead-users-budget=4 → 3.2 ms (0.995x)
-    -slp-look-ahead-users-budget=8 → 3.2 ms (0.996x)
-    -slp-look-ahead-users-budget=16 → 3.2 ms (0.974x)
-    -pragma-vectorize-scev-check-threshold=32 → 3.2 ms (1.003x) ← best
-    -pragma-vectorize-scev-check-threshold=64 → 3.2 ms (0.977x)
-    -pragma-vectorize-scev-check-threshold=128 → 3.2 ms (0.980x)
-    -gvn-hoist-max-bbs=5 → 3.3 ms (0.962x)
-    -gvn-hoist-max-bbs=10 → 3.2 ms (0.989x)
-    -gvn-hoist-max-bbs=20 → 3.1 ms (1.010x) ← best
-    -amdgpu-unroll-threshold-if=150 → 3.2 ms (0.995x)
-    -amdgpu-unroll-threshold-if=300 → 3.2 ms (0.978x)
-    -amdgpu-unroll-threshold-if=600 → 3.1 ms (1.027x) ← best
-    -loop-load-elimination-scev-check-threshold=1 → 3.1 ms (1.031x) ← best
-    -loop-load-elimination-scev-check-threshold=2 → 3.1 ms (1.015x)
-    -loop-load-elimination-scev-check-threshold=4 → 3.1 ms (1.023x)
-    -licm-max-num-uses-traversed=16 → 3.1 ms (1.033x) ← best
-    -licm-max-num-uses-traversed=32 → 3.1 ms (1.015x)
-    -licm-max-num-uses-traversed=64 → 3.1 ms (1.025x)
-    -loop-distribute-scev-check-threshold=16 → 3.0 ms (1.039x) ← best
-    -loop-distribute-scev-check-threshold=32 → 3.1 ms (1.013x)
-    -loop-distribute-scev-check-threshold=64 → 3.1 ms (1.015x)
-    -instcombine-max-iterations=1 → 3.1 ms (1.015x) ← best
-    -instcombine-max-iterations=3 → 3.1 ms (1.016x) ← best
-    -instcombine-max-iterations=6 → 3.1 ms (1.005x)
-  LLM refinement (Phase A → refined candidates)...
-  Refined: [('-loop-distribute-scev-check-threshold', [16, 32]), ('-licm-max-num-uses-traversed', [16, 32]), ('-loop-load-elimination-scev-check-threshold', [1, 2])]
-  Phase B — joint search (best pairs):
-    -loop-distribute-scev-check-threshold=16, -licm-max-num-uses-traversed=16 → 3.2 ms (0.992x)
-    -loop-distribute-scev-check-threshold=16, -licm-max-num-uses-traversed=32 → 3.1 ms (1.026x)
-    -loop-distribute-scev-check-threshold=32, -licm-max-num-uses-traversed=16 → 3.1 ms (1.011x)
-    -loop-distribute-scev-check-threshold=32, -licm-max-num-uses-traversed=32 → 3.1 ms (1.031x)
-  Best: -mllvm -loop-distribute-scev-check-threshold=16  → 3.05 ms (1.039x)
-  Re-tuned flags: -mllvm -loop-distribute-scev-check-threshold=16
+────────────────────────────────────────────────────────────
+[Agent 步骤 8/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 8)...
+  Action: try_flags
+  Reasoning: 当前最优1.640x来自循环分裂，但vector_ops仍为0，说明SIMD未被利用。分裂后的内层循环为单变量归约，非常适合向量化，但被cost model拒绝。调整向量化相关参数（最小迭代计数、SCEV检查阈值、展开阈值）有望突破瓶颈，进一步提升性能。
+  ImprovementAnalysis: 循环分裂消除了store clobber，使每个归约独立，但编译器cost model仍拒绝向量化短循环（PB_M=1900按常理不小，但可能因为运行时别名检查或对齐原因）。当前瓶颈是SIMD未启用，导致内存带宽利用率低。调整vectorizer-min-trip-count降低触发向量化的迭代阈值，增大vectorize-scev-check-threshold避免运行时检查被截断，同时提高un
+    --vectorizer-min-trip-count=2 -> 6.8 ms (1.603x) <--
+    --vectorizer-min-trip-count=4 -> 6.8 ms (1.606x) <--
+    --vectorizer-min-trip-count=8 -> 6.8 ms (1.606x)
+    --vectorizer-min-trip-count=16 -> 6.8 ms (1.614x) <--
+    --vectorizer-min-trip-count=32 -> 6.8 ms (1.612x)
+    --vectorize-scev-check-threshold=4 -> 6.8 ms (1.609x) <--
+    --vectorize-scev-check-threshold=8 -> 6.9 ms (1.586x)
+    --vectorize-scev-check-threshold=16 -> 6.9 ms (1.598x)
+    --vectorize-scev-check-threshold=32 -> 6.8 ms (1.603x)
+    --vectorize-scev-check-threshold=64 -> 6.9 ms (1.595x)
+    --unroll-threshold-aggressive=150 -> 6.9 ms (1.597x) <--
+    --unroll-threshold-aggressive=200 -> 6.8 ms (1.603x) <--
+    --unroll-threshold-aggressive=300 -> 6.9 ms (1.594x)
+    --unroll-threshold-aggressive=400 -> 6.8 ms (1.606x) <--
+    --unroll-threshold=150 -> 6.9 ms (1.593x) <--
+    --unroll-threshold=200 -> 6.8 ms (1.603x) <--
+    --unroll-threshold=300 -> 6.9 ms (1.596x)
+    --slp-threshold=-8 -> 6.8 ms (1.608x) <--
+    --slp-threshold=-4 -> 6.8 ms (1.604x)
+    --slp-threshold=-2 -> 6.8 ms (1.610x) <--
+    --slp-threshold=0 -> 6.8 ms (1.602x)
+    --slp-threshold=5 -> 6.9 ms (1.583x)
+    --gvn-hoist-max-bbs=8 -> 6.8 ms (1.606x) <--
+    --gvn-hoist-max-bbs=16 -> 6.8 ms (1.608x) <--
+    --gvn-hoist-max-bbs=2 -> 6.8 ms (1.602x)
+    --gvn-hoist-max-bbs=-1 -> 6.9 ms (1.581x)
+    --gvn-hoist-max-bbs=-2 -> 6.9 ms (1.588x)
+    --gvn-hoist-max-chain-length=20 -> 6.9 ms (1.584x) <--
+    --gvn-hoist-max-chain-length=40 -> 6.9 ms (1.585x) <--
+    --gvn-hoist-max-chain-length=5 -> 6.8 ms (1.598x) <--
+    --gvn-hoist-max-chain-length=-1 -> 6.9 ms (1.589x)
+    --gvn-hoist-max-chain-length=-2 -> 7.0 ms (1.569x)
+    --gvn-hoist-max-depth=200 -> 6.9 ms (1.593x) <--
+    --gvn-hoist-max-depth=400 -> 6.9 ms (1.594x) <--
+    --gvn-hoist-max-depth=50 -> 6.8 ms (1.603x) <--
+    --gvn-hoist-max-depth=-1 -> 6.9 ms (1.597x)
+    --gvn-hoist-max-depth=-2 -> 7.0 ms (1.572x)
+    --gvn-max-hoisted=-1 -> 6.9 ms (1.594x) <--
+    --gvn-max-hoisted=-2 -> 6.9 ms (1.583x)
+    --gvn-max-hoisted=-4 -> 6.9 ms (1.592x)
+    --gvn-max-hoisted=0 -> 6.9 ms (1.596x) <--
+    --gvn-max-hoisted=5 -> 6.8 ms (1.601x) <--
+    --gvn-max-hoisted=10 -> 6.9 ms (1.593x)
+    --gvn-max-num-deps=200 -> 6.8 ms (1.599x) <--
+    --gvn-max-num-deps=400 -> 6.9 ms (1.588x)
+    --gvn-max-num-deps=800 -> 6.8 ms (1.607x) <--
+    --gvn-max-num-deps=1600 -> 6.7 ms (1.626x) <--
+    --gvn-max-recurse-depth=2000 -> 6.8 ms (1.602x) <--
+    --gvn-max-recurse-depth=4000 -> 6.9 ms (1.596x)
+    --gvn-max-recurse-depth=8000 -> 6.8 ms (1.599x)
+    --gvn-max-recurse-depth=16000 -> 6.8 ms (1.599x)
+    --pragma-vectorize-memory-check-threshold=8 -> 6.9 ms (1.597x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 6.9 ms (1.597x) <--
+    --pragma-vectorize-memory-check-threshold=32 -> 6.9 ms (1.596x)
+    --pragma-vectorize-memory-check-threshold=64 -> 6.8 ms (1.609x) <--
+    --pragma-vectorize-memory-check-threshold=128 -> 6.9 ms (1.588x)
+    --pragma-vectorize-memory-check-threshold=256 -> 6.9 ms (1.597x)
+    --pragma-vectorize-scev-check-threshold=8 -> 6.9 ms (1.586x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 6.9 ms (1.587x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 7.0 ms (1.555x)
+    --pragma-vectorize-scev-check-threshold=64 -> 6.8 ms (1.605x) <--
+    --pragma-vectorize-scev-check-threshold=128 -> 6.9 ms (1.596x)
+    --pragma-vectorize-scev-check-threshold=256 -> 6.8 ms (1.599x)
+    --vectorize-num-stores-pred=8 -> 6.9 ms (1.595x) <--
+    --vectorize-num-stores-pred=16 -> 6.9 ms (1.597x) <--
+    --vectorize-num-stores-pred=32 -> 6.9 ms (1.593x)
+    --vectorize-num-stores-pred=64 -> 6.8 ms (1.601x) <--
+    --vectorize-num-stores-pred=128 -> 6.8 ms (1.604x) <--
+    --vectorize-num-stores-pred=256 -> 6.9 ms (1.588x)
+    [joint-2] -mllvm --gvn-max-num-deps=1600 -mllvm --vectorizer-min-trip-count=16 -> 1.597x
+    [joint-3] -mllvm --gvn-max-num-deps=1600 -mllvm --vectorizer-min-trip-count=16 -mllvm --slp-threshold=-2 -> 1.581x
+  try_flags 最优: 1.626x  [flags: -mllvm --gvn-max-num-deps=1600]
+  步骤8: 1.626x  [flags: -mllvm --gvn-max-num-deps=1600]
 
-[Source round 6/8]  (building on round 5 best)
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpfmp87ciq/bicg_opt.c:95:13: error: expected identifier or '('
-  cons
-  [Retry 2/3]
-  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 1/240 elements differ > epsilon=0.0001. First error at index 30: ref=23.37, opt=23.38, abs=1.
-  [Retry 3/3]
-  Attempt 3 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpxwxc4ycy/bicg_opt.c:75:1: error: unknown type name 'We'
-We need to 
-  Round 6 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpxwxc4ycy/bicg_opt.c:75:1: error: unknown type name 'We'
-We need to optimize the kernel. The previous attempt had a precision error due to splitting
+────────────────────────────────────────────────────────────
+[Agent 步骤 9/9]
+  [反重复] 'try_flags' 已连续 2 次，强制切换到 'rewrite_source'
+  Querying LLM (step 9)...
+  Action: rewrite_source
+  Reasoning: 当前加速1.640x来自循环分裂，但内层两个循环各自遍历M次A行，导致A行被读两次，浪费内存带宽。同时p数组在第二个循环中被反复全读，缓存利用率低。通过合并两个内层循环并添加j维分块（tiling），可让A行只读一次，同时p和s的子块在分块内重用，减少缓存缺失和带宽压力。这是基于访存模式分析的最高成功率变换。
+  ImprovementAnalysis: 现有1.640x的瓶颈在于：1) 两个独立循环各自读取整行A，使内存带宽翻倍；2) p数组每次i循环都被完整遍历，若p不能完全驻留缓存（M=1900约15KB，L1可能部分缓存，但L2可容纳）仍存在大量冲突缺失；3) s数组的写操作跨i循环，不同i写相同位置导致写后写依赖，但分裂后仍存在。合并分块可一次性读A行并同时更新s和累加q，减少内存访问量约50%，并通过分块使p和s的子块在较小块内连续访问
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## Diagnosis of Bottleneck in `kernel_bicg`
+  [重写实现] 根据分析生成优化代码...
+  rewrite_source（纯源码 -O3）: 0.975x  [将内层两个j循环（s更新和q更新）合并为一个分块（tiling）循环：外循环jj以步长TILE（例如64）遍历0到_PB_M，内层循环j从jj到jj+TILE-1（边界处理）。在每个j迭代中，先执行s[j] += r[i] * A[i][j]，再累加局部变量tmp_q += A[i][j] * p[j]。内层循环结束后，将tmp_q赋给q[i]。分块大小通过宏TILE定义，确保对SMALL和STANDARD数据集均适用，且浮点运算顺序按j递增不变，保证数值一致性。此变换减少A行读取次数50%，且分块改善p和s的缓存局部性。]
+  rewrite_source + [-mllvm --gvn-hoist-max-depth=50]: 0.964x  (比纯源码差，此版本不用参数)
+  ⚠ 灾难性退化: 0.975x << 当前最优 1.640x (阈值 20%)，自动回退到 1.640x 状态
+  步骤9: 0.975x  [rewrite: 将内层两个j循环（s更新和q更新）合并为一个分块（tiling）循环：外循环jj以步长TILE（例如64）遍历0到_PB_M，内层循环j从jj到jj+TILE-1（边界处理）。在每个j迭代中，先执行s[j] += r[i] * A[i][j]，再累加局部变量tmp_q += A[i][j] * p[j]。内层循环结束后，将tmp_q赋给q[i]。分块大小通过宏TILE定义，确保对SMALL和STANDARD数据集均适用，且浮点运算顺序按j递增不变，保证数值一致性。此变换减少A行读取次数50%，且分块改善p和s的缓存局部性。]
+  快照: /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/snapshots/bicg/step_09_rewrite_source_ok.c
 
-[Source round 7/8]  (building on round 6 best)
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmph78s259t/bicg_opt.c:87:11: warning: 'TI' macro redefined [-Wmacro-r
-  [Retry 2/3]
-  Attempt 2 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpvaef3w9q/bicg_opt.c:95:13: error: expected identifier or '('
-  cons
-  [Retry 3/3]
-  Attempt 3 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmp6gm9x1bm/bicg_opt.c:118:72: error: invalid argument; expected 'enab
-  Round 7 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmp6gm9x1bm/bicg_opt.c:118:72: error: invalid argument; expected 'enable', 'full' or 'disable'
-        #pragma clang loop vectorize(enable) interleave
-
-[Source round 8/8]  (building on round 7 best)
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmphxna3fsv/bicg_opt.c:95:13: error: expected identifier or '('
-  cons
-  [Retry 2/3]
-  Attempt 2 failed (precision_error): PRECISION ERROR: Mismatch: 1/240 elements differ > epsilon=0.0001. First error at index 30: ref=23.37, opt=23.38, abs=1.
-  [Retry 3/3]
-  Attempt 3 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpgpa5mhj1/bicg_opt.c:83:13: error: expected identifier or '('
-  cons
-  Round 8 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpgpa5mhj1/bicg_opt.c:83:13: error: expected identifier or '('
-  const int TI = 32;
-            ^
-/home/hanning/accelerate/comet/tmp/tmpgpa5mhj1/bicg
+[最终确认] 交替测量 baseline/best 各 3 次以降低噪声偏差...
+  确认加速比: 1.6215x (IQR [1.6111, 1.6325], n=3, base_cv=0.0%, best_cv=0.6%)
 
 ============================================================
-Program:      bicg
-Baseline -O3: 10.64 ms
-Param flags:  -mllvm -slp-look-ahead-users-budget=8  (1.031x)
-Source best:  3.713x (source + initial param flags)
-Retune flags: -mllvm -loop-distribute-scev-check-threshold=16 (applied to final best source)
-Saved:        outputs/bicg_optimized.c
-To compile:   clang -O3 -march=native -mllvm -loop-distribute-scev-check-threshold=16 outputs/bicg_optimized.c ...
+程序:            bicg
+基线 -O3:        10.95 ms
+已完成步骤:      9/9
+
+参数演化轨迹:
+  步骤 1 [try_flags]: 1.0013x  -mllvm --gvn-hoist-max-depth=50
+  步骤 2 [rewrite_source] [+source]: 0.9733x  -mllvm --gvn-hoist-max-depth=50
+  步骤 5 [try_flags]: 1.6178x  -mllvm --gvn-hoist-max-bbs=-1
+  步骤 7 [try_flags]: 1.6284x  -mllvm --gvn-hoist-max-depth=200
+  步骤 8 [try_flags]: 1.6260x  -mllvm --gvn-max-num-deps=1600
+
+最优源码:        /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/bicg_optimized.c
+最优参数组:      -mllvm --gvn-hoist-max-depth=50
+最优加速比:      1.6403x (+64.0%)
+
+编译命令:  clang -O3 -mllvm --gvn-hoist-max-depth=50 /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/bicg_optimized.c ...
+快照目录:        /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/snapshots/bicg
+结果 JSON:       /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/bicg_agent_results.json
+Pass graph:   /home/hanning/comet/runs/2026-07-08_09-58-26_polybench_bicg/outputs/kernel_bicg_pass_graph.dot
 ============================================================

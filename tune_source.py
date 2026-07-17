@@ -10,26 +10,19 @@ Flow:
   5. If correct, compile with -DPOLYBENCH_TIME on LARGE_DATASET and measure speedup
   6. On compile failure or precision failure, retry with error feedback to LLM
 """
-import os, sys, re, argparse, subprocess, tempfile, statistics
+import os, sys, re, argparse, subprocess, tempfile
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from src.config import ConfigLoader
 from src.llm_client import LLMClient
+from src.polybench_paths import find_polybench_utilities
+from src.build_utils import run_timing, compile_c
 from src.remarks import extract_rich_remarks_yaml, format_rich_remarks_for_source_prompt
 from src.diagnostics import clean_clang_diagnostics
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
-
-def find_polybench_utilities(source: str) -> "Path | None":
-    p = Path(source).resolve().parent
-    while p != p.parent:
-        if p.name in ("PolyBenchC", "PolyBenchC_no_rag"):
-            u = p / "utilities"
-            return u if u.exists() else None
-        p = p.parent
-    return None
 
 
 def get_cpu_cache_info() -> str:
@@ -71,7 +64,7 @@ def extract_vectorization_remarks(clang: str, src: str,
     """
     polybench_c = utils / "polybench.c"
     cmd = [
-        clang, "-O3", "-march=native", "-std=c99",
+        clang, "-O3", "-std=c99",
         f"-I{utils}", f"-I{source_dir}",
         "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
         "-Rpass=loop-vectorize|slp-vectorizer|loop-unroll",
@@ -105,7 +98,7 @@ def extract_vectorization_remarks(clang: str, src: str,
 
 def extract_kernel_function(content: str, kernel_name: str):
     """Return (kernel_source, start_idx, end_idx) by brace-counting."""
-    pattern = r"(?:static\s+)?void\s+" + re.escape(kernel_name) + r"\s*\("
+    pattern = r"(?:static\s+)?[A-Za-z_][A-Za-z_0-9]*\s*\*?\s*" + re.escape(kernel_name) + r"\s*\("
     m = re.search(pattern, content)
     if not m:
         return None, None, None
@@ -226,39 +219,6 @@ def compare_outputs(v1: list, v2: list, epsilon: float = 1e-4) -> tuple:
     return False, msg
 
 
-def run_timing(bin_path: str, runs: int = 5, pin_cpu: "int | None" = None) -> float:
-    cmd = (["taskset", "-c", str(pin_cpu)] if pin_cpu is not None else []) + [bin_path]
-    try: subprocess.run(cmd, capture_output=True, timeout=60)
-    except Exception: pass
-    runtimes = []
-    for _ in range(runs):
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            if res.returncode == 0:
-                out = res.stdout.strip() or res.stderr.strip()
-                runtimes.append(float(out.split()[-1]) * 1000.0)
-        except Exception: pass
-    return statistics.median(runtimes) if runtimes else -1.0
-
-
-def compile_c(clang_path, sources, include_dirs, defines, output_bin,
-              extra_flags=None):
-    """
-    Compile a C program with -O3 -march=native.
-    extra_flags: additional flags (e.g. ["-mllvm", "-slp-threshold=-1"]) appended
-                 after optimization flags.  Used by source+param joint compilation.
-    """
-    if isinstance(include_dirs, (str, Path)):
-        include_dirs = [include_dirs]
-    inc_flags = [f"-I{d}" for d in include_dirs]
-    cmd = ([clang_path, "-O3", "-march=native", "-std=c99"]
-           + inc_flags + defines + list(sources) + ["-o", str(output_bin), "-lm"])
-    if extra_flags:
-        cmd.extend(extra_flags)
-    r = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
-    return r.returncode == 0, r.stderr
-
-
 def _strip_fences(text: str) -> str:
     text = text.strip()
     for fence in ("```c", "```"):
@@ -287,7 +247,7 @@ performance problem in THIS specific code and tell the rewrite engineer exactly 
 {kernel}
 ```
 
-### Compiler remarks (-O3 -march=native): what was optimized and what was missed
+### Compiler remarks (-O3): what was optimized and what was missed
 {remarks}
 
 ---
@@ -427,11 +387,11 @@ def _detect_inplace_factorization(kernel_src: str) -> bool:
 _PRECISION_ANALYSIS_SYSTEM = (
     "You are a floating-point numerical analysis expert. "
     "You diagnose exactly why two C kernels produce different numeric outputs "
-    "when compiled with clang -O3 -march=native."
+    "when compiled with clang -O3."
 )
 
 _PRECISION_ANALYSIS_PROMPT = """\
-Two C kernels compiled with `clang -O3 -march=native` should produce identical floating-point \
+Two C kernels compiled with `clang -O3` should produce identical floating-point \
 output, but the optimized version does not match the reference.
 Your job: read BOTH kernels carefully, find every structural difference, \
 and determine which difference causes the numeric divergence.
@@ -673,7 +633,7 @@ def _build_prompt(kernel_name: str, original_kernel: str,
     return f"""You are a performance engineering expert specializing in high-performance C.
 
 Optimize the following PolyBench kernel function for speed when compiled with \
-`clang -O3 -march=native` on a modern x86_64 CPU.
+`clang -O3` on the target CPU (see hardware info below).
 {cache_section}{param_section}{triangular_hint}{inplace_hint}{extra_section}{attempt_history_section}{precision_history_section}{error_section}
 ### Original kernel (attempt {attempt})
 ```c

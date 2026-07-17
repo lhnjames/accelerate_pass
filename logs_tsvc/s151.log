@@ -1,0 +1,18 @@
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-13_23-03-45_tsvc_s151
+  Dataset type: tsvc
+============================================================
+COMET agent: s151  max_steps=5
+============================================================
+
+[Evidence collection -- one-time analysis]
+  提取富 YAML remarks（含代码位置、向量化因子等）...
+  富 remarks: 4 passes, 6 missed
+  检查每个 pass 的 IR 修改情况（前20个）...
+  IR diff: 4 passes FIRED, 4 no-op
+  Pass graph → /home/hanning/comet/runs/2026-07-13_23-03-45_tsvc_s151/outputs/kernel_s151_pass_graph.dot
+  收集基线硬件计数器（perf stat + VTune）...
+  逆向推断: 瓶颈=['unknown'] → 优先pass: SLPVectorizerPass, GVN, LoopUnrollPass
+  检测正确性验证模式...
+  正确性验证模式: exit_only
+  53 passes in pipeline, 41 ran on kernel_s151
+基线计时失败，请检查编译配置

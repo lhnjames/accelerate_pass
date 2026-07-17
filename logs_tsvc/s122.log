@@ -1,0 +1,343 @@
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-13_19-19-24_tsvc_s122
+  Dataset type: tsvc
+============================================================
+COMET agent: s122  max_steps=5
+============================================================
+
+[Evidence collection -- one-time analysis]
+  提取富 YAML remarks（含代码位置、向量化因子等）...
+  富 remarks: 6 passes, 8 missed
+  检查每个 pass 的 IR 修改情况（前20个）...
+  IR diff: 4 passes FIRED, 4 no-op
+  Pass graph → /home/hanning/comet/runs/2026-07-13_19-19-24_tsvc_s122/outputs/kernel_s122_pass_graph.dot
+  收集基线硬件计数器（perf stat + VTune）...
+  瓶颈推断: unknown
+  VTune: vtune binary not found or not functional
+  逆向推断: 瓶颈=['unknown'] → 优先pass: SLPVectorizerPass, GVN, LoopUnrollPass
+  检测正确性验证模式...
+  正确性验证模式: polybench_dump
+  53 passes in pipeline, 41 ran on kernel_s122
+  基线 -O3: 2183.33 ms
+  快照目录: /home/hanning/comet/runs/2026-07-13_19-19-24_tsvc_s122/outputs/snapshots/s122
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 1/5]
+  Querying LLM (step 1)...
+  Action: try_flags
+  Reasoning: 当前瓶颈完全在于循环和SLP向量化均未成功，内循环无循环携带依赖且trip count运行时确定，适合向量化但被cost model拒绝。通过降低slp-threshold到负值、降低vectorizer-min-trip-count并提高vectorize-scev-check-threshold，可强制向量化并允许更多运行时检查，从而提升性能。
+  ImprovementAnalysis: 尚无改进。基础O3未向量化，主要原因：(1) SLP向量化器认为cost（0）不低于threshold（0），典型成本相等时默认不向量化；(2) 内循环trip count较小（取决于运行时n1/n3），触发min-trip-count限制而放弃向量化；(3) 运行时内存检查数量可能超过scev-check-threshold默认值。这三个参数是当前最直接的优化入口。
+    -slp-threshold=-1 -> 2162.2 ms (1.010x) <--
+    -slp-threshold=-2 -> 2155.1 ms (1.013x) <--
+    -slp-threshold=-5 -> 2152.8 ms (1.014x) <--
+    -slp-threshold=-10 -> 2160.2 ms (1.011x)
+    -vectorizer-min-trip-count=1 -> 2156.1 ms (1.013x) <--
+    -vectorizer-min-trip-count=2 -> 2151.0 ms (1.015x) <--
+    -vectorizer-min-trip-count=4 -> 2163.9 ms (1.009x)
+    --slp-look-ahead-users-budget=8 -> 2170.2 ms (1.006x) <--
+    --slp-look-ahead-users-budget=16 -> 2158.8 ms (1.011x) <--
+    --slp-look-ahead-users-budget=32 -> 2159.7 ms (1.011x)
+    --slp-look-ahead-users-budget=64 -> 2157.6 ms (1.012x) <--
+    --slp-look-ahead-users-budget=128 -> 2166.8 ms (1.008x)
+    --slp-look-ahead-users-budget=256 -> 2158.4 ms (1.012x)
+    --slp-max-look-ahead-depth=-1 -> 2154.1 ms (1.014x) <--
+    --slp-max-look-ahead-depth=-2 -> 2157.2 ms (1.012x)
+    --slp-max-look-ahead-depth=-4 -> 2155.9 ms (1.013x)
+    --slp-max-look-ahead-depth=0 -> 2151.9 ms (1.015x) <--
+    --slp-max-look-ahead-depth=5 -> 2164.1 ms (1.009x)
+    --slp-max-look-ahead-depth=10 -> 2149.0 ms (1.016x) <--
+    --slp-max-reg-size=-1 -> 2155.0 ms (1.013x) <--
+    --slp-max-reg-size=-2 -> 2149.5 ms (1.016x) <--
+    --slp-max-reg-size=-4 -> 2156.1 ms (1.013x)
+    --slp-max-reg-size=0 -> 2149.5 ms (1.016x) <--
+    --slp-max-reg-size=5 -> 2149.4 ms (1.016x) <--
+    --slp-max-reg-size=10 -> 2158.5 ms (1.012x)
+    --slp-max-store-lookup=-1 -> 2152.0 ms (1.015x) <--
+    --slp-max-store-lookup=-2 -> 2151.3 ms (1.015x) <--
+    --slp-max-store-lookup=-4 -> 2155.2 ms (1.013x)
+    --slp-max-store-lookup=0 -> 2150.6 ms (1.015x) <--
+    --slp-max-store-lookup=5 -> 2155.9 ms (1.013x)
+    --slp-max-store-lookup=10 -> 2150.9 ms (1.015x)
+    --slp-min-reg-size=-1 -> 2156.4 ms (1.012x) <--
+    --slp-min-reg-size=-2 -> 2152.7 ms (1.014x) <--
+    --slp-min-reg-size=-4 -> 2151.2 ms (1.015x) <--
+    --slp-min-reg-size=0 -> 2155.2 ms (1.013x)
+    --slp-min-reg-size=5 -> 2152.8 ms (1.014x)
+    --slp-min-reg-size=10 -> 2152.6 ms (1.014x)
+    --slp-min-tree-size=8 -> 2149.7 ms (1.016x) <--
+    --slp-min-tree-size=16 -> 2149.9 ms (1.016x)
+    --slp-min-tree-size=32 -> 2154.9 ms (1.013x)
+    --slp-min-tree-size=64 -> 2151.2 ms (1.015x)
+    --slp-min-tree-size=128 -> 2156.9 ms (1.012x)
+    --slp-min-tree-size=256 -> 2153.5 ms (1.014x)
+    --slp-recursion-max-depth=8 -> 2151.7 ms (1.015x) <--
+    --slp-recursion-max-depth=16 -> 2154.1 ms (1.014x)
+    --slp-recursion-max-depth=32 -> 2188.2 ms (0.998x)
+    --slp-recursion-max-depth=64 -> 2153.0 ms (1.014x)
+    --slp-recursion-max-depth=128 -> 2156.9 ms (1.012x)
+    --slp-recursion-max-depth=256 -> 2157.3 ms (1.012x)
+    --slp-schedule-budget=-1 -> 2172.7 ms (1.005x) <--
+    --slp-schedule-budget=-2 -> 2152.2 ms (1.014x) <--
+    --slp-schedule-budget=-4 -> 2152.7 ms (1.014x)
+    --slp-schedule-budget=0 -> 2154.5 ms (1.013x)
+    --slp-schedule-budget=5 -> 2148.1 ms (1.016x) <--
+    --slp-schedule-budget=10 -> 2148.4 ms (1.016x)
+    --pragma-vectorize-memory-check-threshold=8 -> 2170.9 ms (1.006x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 2151.0 ms (1.015x) <--
+    --pragma-vectorize-memory-check-threshold=32 -> 2152.4 ms (1.014x)
+    --pragma-vectorize-memory-check-threshold=64 -> 2150.8 ms (1.015x) <--
+    --pragma-vectorize-memory-check-threshold=128 -> 2153.0 ms (1.014x)
+    --pragma-vectorize-memory-check-threshold=256 -> 2154.4 ms (1.013x)
+    --pragma-vectorize-scev-check-threshold=8 -> 2160.5 ms (1.011x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 2156.5 ms (1.012x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 2155.3 ms (1.013x) <--
+    --pragma-vectorize-scev-check-threshold=64 -> 2156.2 ms (1.013x)
+    --pragma-vectorize-scev-check-threshold=128 -> 2150.9 ms (1.015x) <--
+    --pragma-vectorize-scev-check-threshold=256 -> 2150.9 ms (1.015x) <--
+    --vectorize-num-stores-pred=8 -> 2155.8 ms (1.013x) <--
+    --vectorize-num-stores-pred=16 -> 2156.6 ms (1.012x)
+    --vectorize-num-stores-pred=32 -> 2149.3 ms (1.016x) <--
+    --vectorize-num-stores-pred=64 -> 2148.8 ms (1.016x) <--
+    --vectorize-num-stores-pred=128 -> 2161.1 ms (1.010x)
+    --vectorize-num-stores-pred=256 -> 2147.9 ms (1.016x) <--
+    --vectorize-scev-check-threshold=8 -> 2153.0 ms (1.014x) <--
+    --vectorize-scev-check-threshold=16 -> 2155.9 ms (1.013x)
+    --vectorize-scev-check-threshold=32 -> 2151.7 ms (1.015x) <--
+    --vectorize-scev-check-threshold=64 -> 2153.2 ms (1.014x)
+    --vectorize-scev-check-threshold=128 -> 2154.7 ms (1.013x)
+    --vectorize-scev-check-threshold=256 -> 2156.4 ms (1.012x)
+    [joint-2] -mllvm --vectorize-num-stores-pred=256 -mllvm --slp-schedule-budget=5 -> 1.010x
+    [joint-3] -mllvm --vectorize-num-stores-pred=256 -mllvm --slp-schedule-budget=5 -mllvm --slp-max-look-ahead-depth=10 -> 1.010x
+  ⚠ try_flags 候选 flags: -mllvm --vectorize-num-stores-pred=256 数值验证失败，拒绝该 flags 组合: 编译失败 (exit_only): /usr/bin/ld: /tmp/s122_base-beda35.o: in function `kernel_s122':
+s122_base.c:(.text+0x40): undefined reference to `initialise_arrays'
+/usr/bin/ld: s122_base.c:(.text+0x64): undefined
+  步骤1: 1.000x  []
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 2/5]
+  Querying LLM (step 2)...
+  Action: rewrite_source
+  Reasoning: O3 baseline未向量化，missed remarks显示内循环被LoopVectorizePass拒绝，SLP cost为0（等于threshold）。内循环中a[i]跨步访问（步长n3），b顺序访问。通过手动展开4次并添加vectorize(enable) pragma，可暴露更多并行性给编译器，弥补cost model不足，有望触发向量化并提升性能。
+  ImprovementAnalysis: 当前最佳仅为1.000x baseline，无任何flags或源码修改。根本原因是O3向量化器cost model认为跨步访问收益不足或trip count太小，拒绝向量化；SLP由于树大小不足也未触发。手动展开和pragma强制向量化可绕过cost model限制，且不改变数值结果。
+content empty, falling back to reasoning_content on attempt 1
+content empty, falling back to reasoning_content on attempt 1
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## Step 1 — Memory access pattern
+  [重写实现] 根据分析生成优化代码...
+  步骤2: 1.000x  [对内循环（for (int i = n1-1; i < LEN_1D; i += n3)）添加#pragma clang loop vectorize(enable) interleave(enable)，并将循环体手动展开4次：使用临时变量t记录已处理次数，每次迭代4个i值（i, i+n3, i+2*n3, i+3*n3），同时累加k（k+1, k+2, k+3, k+4）。剩余迭代用原逻辑处理。此变换保持数值精确一致，但增加ILP并引导编译器使用SIMD。]
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 3/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 3)...
+  Action: try_pragma
+  Reasoning: 从IR和missed remarks看，内循环未向量化，虽无循环携带依赖，但跨步访问和运行时步长导致LoopVectorizePass拒绝。使用pragma强制向量化可能克服cost model，同时不改变数值正确性。SLP也有一次missed，但向量化内循环可能覆盖更广，先专注内循环向量化。
+  ImprovementAnalysis: 当前无改进，原因是O3向量化器因运行时步长和成本模型拒绝向量化。内循环体小（一次add，两次load，一次store），向量化可显著减少指令。数据集规模LEN_1D=32000，trip count可能较小，但循环位于外层nl迭代100000次，总执行次数大，向量化受益。之前两次尝试因编译错误失败，可能由于用户提供的flags或源码有误，本步骤使用简单pragma避免复杂转换。
+  步骤3: 1.000x  []
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 4/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 4)...
+  Action: try_flags
+  Reasoning: SLP向量化1次missed（cost=0>=threshold=0），LoopVectorizePass 2次missed（内循环未向量化）。内循环无循环携带依赖（k递增是reduction），但跨步访问和运行时步长导致cost model保守。降低slp-threshold和vectorizer-min-trip-count可强制SLP和循环向量化，且不违反约束。结合调整unroll-thre
+  ImprovementAnalysis: 历史无改进，所有尝试均编译失败。根本原因是内循环跨步访问（步长n3，运行时不统一）和可能较小的trip count，导致O3向量化cost model拒绝。同时b数组反向大跨度访问（LEN_1D - k）带来不规则访存，缓存利用率低。即使向量化，性能提升也可能受限，因为瓶颈在于内存延迟而非计算。但调整cost模型参数是当前最直接且风险最低的尝试。
+    -slp-threshold=-1 -> 2149.6 ms (1.016x) <--
+    -slp-threshold=-2 -> 2151.0 ms (1.015x)
+    -slp-threshold=-4 -> 2155.3 ms (1.013x)
+    -slp-threshold=-8 -> 2153.0 ms (1.014x)
+    -slp-threshold=0 -> 2160.4 ms (1.011x)
+    -vectorizer-min-trip-count=1 -> 2161.6 ms (1.010x) <--
+    -vectorizer-min-trip-count=2 -> 2150.5 ms (1.015x) <--
+    -vectorizer-min-trip-count=4 -> 2153.9 ms (1.014x)
+    -vectorizer-min-trip-count=8 -> 2161.6 ms (1.010x)
+    -vectorizer-min-trip-count=100 -> 2152.3 ms (1.014x)
+    -unroll-threshold-aggressive=200 -> 2156.8 ms (1.012x) <--
+    -unroll-threshold-aggressive=400 -> 2151.2 ms (1.015x) <--
+    -unroll-threshold-aggressive=600 -> 2156.2 ms (1.013x)
+    -unroll-threshold-aggressive=800 -> 2155.6 ms (1.013x)
+    -unroll-threshold-aggressive=1000 -> 2148.1 ms (1.016x) <--
+    --slp-look-ahead-users-budget=8 -> 2149.7 ms (1.016x) <--
+    --slp-look-ahead-users-budget=16 -> 2155.7 ms (1.013x)
+    --slp-look-ahead-users-budget=32 -> 2151.5 ms (1.015x)
+    --slp-look-ahead-users-budget=64 -> 2150.9 ms (1.015x)
+    --slp-look-ahead-users-budget=128 -> 2158.4 ms (1.012x)
+    --slp-look-ahead-users-budget=256 -> 2150.1 ms (1.015x)
+    --slp-max-look-ahead-depth=-1 -> 2152.5 ms (1.014x) <--
+    --slp-max-look-ahead-depth=-2 -> 2158.9 ms (1.011x)
+    --slp-max-look-ahead-depth=-4 -> 2168.3 ms (1.007x)
+    --slp-max-look-ahead-depth=0 -> 2156.0 ms (1.013x)
+    --slp-max-look-ahead-depth=5 -> 2155.4 ms (1.013x)
+    --slp-max-look-ahead-depth=10 -> 2153.2 ms (1.014x)
+    --slp-max-reg-size=-1 -> 2152.8 ms (1.014x) <--
+    --slp-max-reg-size=-2 -> 2151.0 ms (1.015x) <--
+    --slp-max-reg-size=-4 -> 2154.2 ms (1.014x)
+    --slp-max-reg-size=0 -> 2155.3 ms (1.013x)
+    --slp-max-reg-size=5 -> 2155.5 ms (1.013x)
+    --slp-max-reg-size=10 -> 2148.7 ms (1.016x) <--
+    --slp-max-store-lookup=-1 -> 2162.6 ms (1.010x) <--
+    --slp-max-store-lookup=-2 -> 2161.7 ms (1.010x) <--
+    --slp-max-store-lookup=-4 -> 2151.5 ms (1.015x) <--
+    --slp-max-store-lookup=0 -> 2158.4 ms (1.012x)
+    --slp-max-store-lookup=5 -> 2151.5 ms (1.015x) <--
+    --slp-max-store-lookup=10 -> 2148.5 ms (1.016x) <--
+    --slp-min-reg-size=-1 -> 2149.6 ms (1.016x) <--
+    --slp-min-reg-size=-2 -> 2149.9 ms (1.016x)
+    --slp-min-reg-size=-4 -> 2148.0 ms (1.016x) <--
+    --slp-min-reg-size=0 -> 2153.9 ms (1.014x)
+    --slp-min-reg-size=5 -> 2150.9 ms (1.015x)
+    --slp-min-reg-size=10 -> 2152.3 ms (1.014x)
+    --slp-min-tree-size=8 -> 2156.1 ms (1.013x) <--
+    --slp-min-tree-size=16 -> 2152.2 ms (1.014x) <--
+    --slp-min-tree-size=32 -> 2150.4 ms (1.015x) <--
+    --slp-min-tree-size=64 -> 2148.5 ms (1.016x) <--
+    --slp-min-tree-size=128 -> 2154.7 ms (1.013x)
+    --slp-min-tree-size=256 -> 2153.4 ms (1.014x)
+    --slp-recursion-max-depth=8 -> 2148.3 ms (1.016x) <--
+    --slp-recursion-max-depth=16 -> 2150.1 ms (1.015x)
+    --slp-recursion-max-depth=32 -> 2158.8 ms (1.011x)
+    --slp-recursion-max-depth=64 -> 2150.7 ms (1.015x)
+    --slp-recursion-max-depth=128 -> 2149.7 ms (1.016x)
+    --slp-recursion-max-depth=256 -> 2153.1 ms (1.014x)
+    --slp-schedule-budget=-1 -> 2160.8 ms (1.010x) <--
+    --slp-schedule-budget=-2 -> 2154.4 ms (1.013x) <--
+    --slp-schedule-budget=-4 -> 2156.6 ms (1.012x)
+    --slp-schedule-budget=0 -> 2158.6 ms (1.011x)
+    --slp-schedule-budget=5 -> 2156.2 ms (1.013x)
+    --slp-schedule-budget=10 -> 2149.7 ms (1.016x) <--
+    --pragma-vectorize-memory-check-threshold=8 -> 2149.9 ms (1.016x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 2160.2 ms (1.011x)
+    --pragma-vectorize-memory-check-threshold=32 -> 2154.6 ms (1.013x)
+    --pragma-vectorize-memory-check-threshold=64 -> 2158.7 ms (1.011x)
+    --pragma-vectorize-memory-check-threshold=128 -> 2157.9 ms (1.012x)
+    --pragma-vectorize-memory-check-threshold=256 -> 2148.6 ms (1.016x) <--
+    --pragma-vectorize-scev-check-threshold=8 -> 2164.8 ms (1.009x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 2151.5 ms (1.015x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 2150.7 ms (1.015x) <--
+    --pragma-vectorize-scev-check-threshold=64 -> 2150.2 ms (1.015x) <--
+    --pragma-vectorize-scev-check-threshold=128 -> 2151.8 ms (1.015x)
+    --pragma-vectorize-scev-check-threshold=256 -> 2147.6 ms (1.017x) <--
+    --vectorize-num-stores-pred=8 -> 2148.9 ms (1.016x) <--
+    --vectorize-num-stores-pred=16 -> 2153.8 ms (1.014x)
+    --vectorize-num-stores-pred=32 -> 2147.8 ms (1.017x) <--
+    --vectorize-num-stores-pred=64 -> 2158.2 ms (1.012x)
+    --vectorize-num-stores-pred=128 -> 2153.9 ms (1.014x)
+    --vectorize-num-stores-pred=256 -> 2155.0 ms (1.013x)
+    --vectorize-scev-check-threshold=8 -> 2151.4 ms (1.015x) <--
+    --vectorize-scev-check-threshold=16 -> 2153.7 ms (1.014x)
+    --vectorize-scev-check-threshold=32 -> 2149.8 ms (1.016x) <--
+    --vectorize-scev-check-threshold=64 -> 2158.4 ms (1.012x)
+    --vectorize-scev-check-threshold=128 -> 2153.3 ms (1.014x)
+    --vectorize-scev-check-threshold=256 -> 2152.6 ms (1.014x)
+    [joint-2] -mllvm --pragma-vectorize-scev-check-threshold=256 -mllvm --vectorize-num-stores-pred=32 -> 1.016x
+    [joint-3] -mllvm --pragma-vectorize-scev-check-threshold=256 -mllvm --vectorize-num-stores-pred=32 -mllvm --slp-min-reg-size=-4 -> 1.011x
+content empty, falling back to reasoning_content on attempt 1
+  ⚠ try_flags 候选 flags: -mllvm --pragma-vectorize-scev-check-threshold=256 数值验证失败，拒绝该 flags 组合: 编译失败 (exit_only): /usr/bin/ld: /tmp/s122_base-a6abe3.o: in function `kernel_s122':
+s122_base.c:(.text+0x40): undefined reference to `initialise_arrays'
+/usr/bin/ld: s122_base.c:(.text+0x64): undefined
+  步骤4: 1.000x  []
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 5/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 5)...
+  Action: try_flags
+  Reasoning: 从missed remarks和IR分析看，内部循环存在k的递推依赖，导致LoopVectorizePass拒绝向量化（2次missed），而SLP向量化一次missed（cost=0等于threshold=0）。调整slp-threshold为1可以使cost(0)低于threshold，允许SLP向量化循环体中的标量运算，可能打包加法与存取指令为SIMD操作，提升性能。由于仅剩一步，且之前多次
+  ImprovementAnalysis: 历史所有步骤均未实现加速（编译失败或数值验证失败）。根本原因是内核存在k变量的串行递推依赖，导致O3自动向量化完全失效。LoopVectorizePass因dpd拒绝内循环，SLP向量化因cost等于threshold（0）而未触发。即使成功触发SLP，由于访存模式反向且跨步，性能提升可能有限，但这是当前成本最低且最有希望的方向。
+    -slp-threshold=1 -> 2158.0 ms (1.012x) <--
+    --slp-look-ahead-users-budget=8 -> 2151.1 ms (1.015x) <--
+    --slp-look-ahead-users-budget=16 -> 2156.6 ms (1.012x)
+    --slp-look-ahead-users-budget=32 -> 2167.2 ms (1.007x)
+    --slp-look-ahead-users-budget=64 -> 2159.6 ms (1.011x)
+    --slp-look-ahead-users-budget=128 -> 2152.5 ms (1.014x)
+    --slp-look-ahead-users-budget=256 -> 2155.1 ms (1.013x)
+    --slp-max-look-ahead-depth=-1 -> 2147.6 ms (1.017x) <--
+    --slp-max-look-ahead-depth=-2 -> 2155.7 ms (1.013x)
+    --slp-max-look-ahead-depth=-4 -> 2149.6 ms (1.016x)
+    --slp-max-look-ahead-depth=0 -> 2152.1 ms (1.015x)
+    --slp-max-look-ahead-depth=5 -> 2148.5 ms (1.016x)
+    --slp-max-look-ahead-depth=10 -> 2149.9 ms (1.016x)
+    --slp-max-reg-size=-1 -> 2162.9 ms (1.009x) <--
+    --slp-max-reg-size=-2 -> 2149.0 ms (1.016x) <--
+    --slp-max-reg-size=-4 -> 2151.6 ms (1.015x)
+    --slp-max-reg-size=0 -> 2154.8 ms (1.013x)
+    --slp-max-reg-size=5 -> 2152.1 ms (1.015x)
+    --slp-max-reg-size=10 -> 2151.5 ms (1.015x)
+    --slp-max-store-lookup=-1 -> 2156.8 ms (1.012x) <--
+    --slp-max-store-lookup=-2 -> 2148.5 ms (1.016x) <--
+    --slp-max-store-lookup=-4 -> 2168.9 ms (1.007x)
+    --slp-max-store-lookup=0 -> 2158.6 ms (1.011x)
+    --slp-max-store-lookup=5 -> 2148.6 ms (1.016x)
+    --slp-max-store-lookup=10 -> 2153.6 ms (1.014x)
+    --slp-min-reg-size=-1 -> 2153.1 ms (1.014x) <--
+    --slp-min-reg-size=-2 -> 2159.4 ms (1.011x)
+    --slp-min-reg-size=-4 -> 2157.0 ms (1.012x)
+    --slp-min-reg-size=0 -> 2150.5 ms (1.015x) <--
+    --slp-min-reg-size=5 -> 2147.7 ms (1.017x) <--
+    --slp-min-reg-size=10 -> 2151.4 ms (1.015x)
+    --slp-min-tree-size=8 -> 2150.9 ms (1.015x) <--
+    --slp-min-tree-size=16 -> 2149.7 ms (1.016x) <--
+    --slp-min-tree-size=32 -> 2150.9 ms (1.015x)
+    --slp-min-tree-size=64 -> 2149.8 ms (1.016x)
+    --slp-min-tree-size=128 -> 2151.2 ms (1.015x)
+    --slp-min-tree-size=256 -> 2155.6 ms (1.013x)
+    --slp-recursion-max-depth=8 -> 2153.9 ms (1.014x) <--
+    --slp-recursion-max-depth=16 -> 2150.5 ms (1.015x) <--
+    --slp-recursion-max-depth=32 -> 2149.4 ms (1.016x) <--
+    --slp-recursion-max-depth=64 -> 2163.2 ms (1.009x)
+    --slp-recursion-max-depth=128 -> 2155.5 ms (1.013x)
+    --slp-recursion-max-depth=256 -> 2152.6 ms (1.014x)
+    --slp-schedule-budget=-1 -> 2148.5 ms (1.016x) <--
+    --slp-schedule-budget=-2 -> 2150.6 ms (1.015x)
+    --slp-schedule-budget=-4 -> 2171.3 ms (1.006x)
+    --slp-schedule-budget=0 -> 2156.0 ms (1.013x)
+    --slp-schedule-budget=5 -> 2156.0 ms (1.013x)
+    --slp-schedule-budget=10 -> 2152.0 ms (1.015x)
+    --pragma-vectorize-memory-check-threshold=8 -> 2158.1 ms (1.012x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 2160.7 ms (1.010x)
+    --pragma-vectorize-memory-check-threshold=32 -> 2160.7 ms (1.010x)
+    --pragma-vectorize-memory-check-threshold=64 -> 2162.5 ms (1.010x)
+    --pragma-vectorize-memory-check-threshold=128 -> 2149.7 ms (1.016x) <--
+    --pragma-vectorize-memory-check-threshold=256 -> 2159.9 ms (1.011x)
+    --pragma-vectorize-scev-check-threshold=8 -> 2147.4 ms (1.017x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 2148.3 ms (1.016x)
+    --pragma-vectorize-scev-check-threshold=32 -> 2150.4 ms (1.015x)
+    --pragma-vectorize-scev-check-threshold=64 -> 2150.9 ms (1.015x)
+    --pragma-vectorize-scev-check-threshold=128 -> 2156.4 ms (1.012x)
+    --pragma-vectorize-scev-check-threshold=256 -> 2160.7 ms (1.010x)
+    --vectorize-num-stores-pred=8 -> 2156.4 ms (1.013x) <--
+    --vectorize-num-stores-pred=16 -> 2157.9 ms (1.012x)
+    --vectorize-num-stores-pred=32 -> 2152.2 ms (1.014x) <--
+    --vectorize-num-stores-pred=64 -> 2154.2 ms (1.014x)
+    --vectorize-num-stores-pred=128 -> 2156.5 ms (1.012x)
+    --vectorize-num-stores-pred=256 -> 2159.2 ms (1.011x)
+    --vectorize-scev-check-threshold=8 -> 2150.8 ms (1.015x) <--
+    --vectorize-scev-check-threshold=16 -> 2160.3 ms (1.011x)
+    --vectorize-scev-check-threshold=32 -> 2151.2 ms (1.015x)
+    --vectorize-scev-check-threshold=64 -> 2151.4 ms (1.015x)
+    --vectorize-scev-check-threshold=128 -> 2149.4 ms (1.016x) <--
+    --vectorize-scev-check-threshold=256 -> 2151.8 ms (1.015x)
+    --vectorizer-min-trip-count=8 -> 2151.8 ms (1.015x) <--
+    --vectorizer-min-trip-count=16 -> 2154.1 ms (1.014x)
+    --vectorizer-min-trip-count=32 -> 2154.7 ms (1.013x)
+    --vectorizer-min-trip-count=64 -> 2154.1 ms (1.014x)
+    --vectorizer-min-trip-count=128 -> 2159.5 ms (1.011x)
+    --vectorizer-min-trip-count=256 -> 2160.4 ms (1.011x)
+    [joint-2] -mllvm --pragma-vectorize-scev-check-threshold=8 -mllvm --slp-max-look-ahead-depth=-1 -> 1.008x
+    [joint-3] -mllvm --pragma-vectorize-scev-check-threshold=8 -mllvm --slp-max-look-ahead-depth=-1 -mllvm --slp-min-reg-size=5 -> 1.007x
+  ⚠ try_flags 候选 flags: -mllvm --pragma-vectorize-scev-check-threshold=8 数值验证失败，拒绝该 flags 组合: 编译失败 (exit_only): /usr/bin/ld: /tmp/s122_base-f0ac0d.o: in function `kernel_s122':
+s122_base.c:(.text+0x40): undefined reference to `initialise_arrays'
+/usr/bin/ld: s122_base.c:(.text+0x64): undefined
+  步骤5: 1.000x  []
+
+============================================================
+程序:            s122
+基线 -O3:        2183.33 ms
+已完成步骤:      5/5
+
+最优加速比:      1.0000x (+0.0%)
+
+未找到有效优化（无源码改进，无有效参数）。
+快照目录:        /home/hanning/comet/runs/2026-07-13_19-19-24_tsvc_s122/outputs/snapshots/s122
+结果 JSON:       /home/hanning/comet/runs/2026-07-13_19-19-24_tsvc_s122/outputs/s122_agent_results.json
+Pass graph:   /home/hanning/comet/runs/2026-07-13_19-19-24_tsvc_s122/outputs/kernel_s122_pass_graph.dot
+============================================================

@@ -1,0 +1,271 @@
+content empty, falling back to reasoning_content on attempt 1
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-14_11-14-39_tsvc_s241
+  Dataset type: tsvc
+============================================================
+COMET agent: s241  max_steps=5
+============================================================
+
+[Evidence collection -- one-time analysis]
+  提取富 YAML remarks（含代码位置、向量化因子等）...
+  富 remarks: 6 passes, 14 missed
+  检查每个 pass 的 IR 修改情况（前20个）...
+  IR diff: 4 passes FIRED, 4 no-op
+  Pass graph → /home/hanning/comet/runs/2026-07-14_11-14-39_tsvc_s241/outputs/kernel_s241_pass_graph.dot
+  收集基线硬件计数器（perf stat + VTune）...
+  瓶颈推断: unknown
+  VTune: vtune binary not found or not functional
+  逆向推断: 瓶颈=['unknown'] → 优先pass: SLPVectorizerPass, GVN, LoopUnrollPass
+  检测正确性验证模式...
+  正确性验证模式: polybench_dump
+  53 passes in pipeline, 41 ran on kernel_s241
+  基线 -O3: 9068.39 ms
+  快照目录: /home/hanning/comet/runs/2026-07-14_11-14-39_tsvc_s241/outputs/snapshots/s241
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 1/5]
+  Querying LLM (step 1)...
+  Action: try_flags
+  Reasoning: 已知LoopVectorizePass有1次missed（循环未向量化），且当前IR中vector_ops=0，表明循环未自动向量化。因此调整向量化相关的cost-model参数（如SCEV检查阈值、最小迭代次数）可能使向量化通过成本模型。同时提升unroll阈值可扩大基本块，增加向量化机会。SLP阈值负值化可降低向量化门槛，尝试触发SLP向量化。
+  ImprovementAnalysis: 目前尚无任何改进（baseline加速比1.000x）。根本原因是核心循环未被向量化，导致浮点运算完全标量执行。missed remark显示循环被向量化pass拒绝，说明成本模型认为向量化不收益或存在运行时检查开销。通过放宽参数可能让向量化通过，从而利用SIMD并行提升性能。
+    -vectorize-scev-check-threshold=10 -> 8941.2 ms (1.014x) <--
+    -vectorize-scev-check-threshold=20 -> 8961.3 ms (1.012x)
+    -vectorize-scev-check-threshold=50 -> 8970.4 ms (1.011x)
+    -vectorize-scev-check-threshold=100 -> 8914.7 ms (1.017x) <--
+    -vectorize-scev-check-threshold=200 -> 8910.3 ms (1.018x) <--
+    -vectorizer-min-trip-count=1 -> 8969.6 ms (1.011x) <--
+    -vectorizer-min-trip-count=2 -> 8955.4 ms (1.013x) <--
+    -vectorizer-min-trip-count=4 -> 8889.7 ms (1.020x) <--
+    -unroll-threshold-aggressive=100 -> 8906.0 ms (1.018x) <--
+    -unroll-threshold-aggressive=200 -> 8989.2 ms (1.009x)
+    -unroll-threshold-aggressive=400 -> 8993.2 ms (1.008x)
+    -unroll-threshold-aggressive=800 -> 8971.9 ms (1.011x)
+    -slp-threshold=-5 -> 8926.8 ms (1.016x) <--
+    -slp-threshold=-2 -> 8949.2 ms (1.013x)
+    -slp-threshold=-1 -> 9035.6 ms (1.004x)
+    -slp-threshold=0 -> 8988.4 ms (1.009x)
+    -slp-threshold=5 -> 8940.4 ms (1.014x)
+    --gvn-hoist-max-bbs=8 -> 8951.2 ms (1.013x) <--
+    --gvn-hoist-max-bbs=16 -> 8903.3 ms (1.019x) <--
+    --gvn-hoist-max-bbs=2 -> 8888.6 ms (1.020x) <--
+    --gvn-hoist-max-bbs=-1 -> 8983.6 ms (1.009x)
+    --gvn-hoist-max-bbs=-2 -> 8970.2 ms (1.011x)
+    --gvn-hoist-max-chain-length=20 -> 8946.0 ms (1.014x) <--
+    --gvn-hoist-max-chain-length=40 -> 8960.8 ms (1.012x)
+    --gvn-hoist-max-chain-length=5 -> 9056.3 ms (1.001x)
+    --gvn-hoist-max-chain-length=-1 -> 8937.8 ms (1.015x) <--
+    --gvn-hoist-max-chain-length=-2 -> 8947.4 ms (1.014x)
+    --gvn-hoist-max-depth=200 -> 8980.3 ms (1.010x) <--
+    --gvn-hoist-max-depth=400 -> 9050.3 ms (1.002x)
+    --gvn-hoist-max-depth=50 -> 8956.2 ms (1.013x) <--
+    --gvn-hoist-max-depth=-1 -> 8998.0 ms (1.008x)
+    --gvn-hoist-max-depth=-2 -> 8936.0 ms (1.015x) <--
+    --gvn-max-hoisted=-1 -> 8967.4 ms (1.011x) <--
+    --gvn-max-hoisted=-2 -> 8922.0 ms (1.016x) <--
+    --gvn-max-hoisted=-4 -> 8935.9 ms (1.015x)
+    --gvn-max-hoisted=0 -> 8978.7 ms (1.010x)
+    --gvn-max-hoisted=5 -> 8926.0 ms (1.016x)
+    --gvn-max-hoisted=10 -> 8951.3 ms (1.013x)
+    --gvn-max-num-deps=200 -> 8920.6 ms (1.017x) <--
+    --gvn-max-num-deps=400 -> 8915.9 ms (1.017x) <--
+    --gvn-max-num-deps=800 -> 9007.1 ms (1.007x)
+    --gvn-max-num-deps=1600 -> 8982.8 ms (1.010x)
+    --gvn-max-recurse-depth=2000 -> 8923.0 ms (1.016x) <--
+    --gvn-max-recurse-depth=4000 -> 8942.0 ms (1.014x)
+    --gvn-max-recurse-depth=8000 -> 8977.6 ms (1.010x)
+    --gvn-max-recurse-depth=16000 -> 8994.2 ms (1.008x)
+    --pragma-vectorize-memory-check-threshold=8 -> 8986.3 ms (1.009x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 8908.2 ms (1.018x) <--
+    --pragma-vectorize-memory-check-threshold=32 -> 8961.7 ms (1.012x)
+    --pragma-vectorize-memory-check-threshold=64 -> 8926.4 ms (1.016x)
+    --pragma-vectorize-memory-check-threshold=128 -> 8928.3 ms (1.016x)
+    --pragma-vectorize-memory-check-threshold=256 -> 8939.2 ms (1.014x)
+    --pragma-vectorize-scev-check-threshold=8 -> 8938.0 ms (1.015x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 8962.8 ms (1.012x)
+    --pragma-vectorize-scev-check-threshold=32 -> 8917.2 ms (1.017x) <--
+    --pragma-vectorize-scev-check-threshold=64 -> 8937.8 ms (1.015x)
+    --pragma-vectorize-scev-check-threshold=128 -> 8963.8 ms (1.012x)
+    --pragma-vectorize-scev-check-threshold=256 -> 8923.3 ms (1.016x)
+    --vectorize-num-stores-pred=8 -> 8986.8 ms (1.009x) <--
+    --vectorize-num-stores-pred=16 -> 8951.3 ms (1.013x) <--
+    --vectorize-num-stores-pred=32 -> 8954.0 ms (1.013x)
+    --vectorize-num-stores-pred=64 -> 9027.7 ms (1.005x)
+    --vectorize-num-stores-pred=128 -> 8895.5 ms (1.019x) <--
+    --vectorize-num-stores-pred=256 -> 8967.9 ms (1.011x)
+    [joint-2] -mllvm --gvn-hoist-max-bbs=2 -mllvm -vectorizer-min-trip-count=4 -> 1.008x
+    [joint-3] -mllvm --gvn-hoist-max-bbs=2 -mllvm -vectorizer-min-trip-count=4 -mllvm --vectorize-num-stores-pred=128 -> 1.019x
+  ⚠ try_flags 候选 flags: -mllvm --gvn-hoist-max-bbs=2 数值验证失败，拒绝该 flags 组合: 编译失败 (exit_only): /usr/bin/ld: /tmp/s241_base-b3f573.o: in function `kernel_s241':
+s241_base.c:(.text+0x2c): undefined reference to `initialise_arrays'
+/usr/bin/ld: s241_base.c:(.text+0x40): undefined
+  步骤1: 1.000x  []
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 2/5]
+  Querying LLM (step 2)...
+  Action: rewrite_source
+  Reasoning: 当前最佳性能加速比为1.000x（baseline），未取得任何提升。核心瓶颈是内层循环未被向量化（vector_ops=0），missed remark显示LoopVectorizePass拒绝向量化。原始循环存在写后读依赖（a[i]先写后用于b[i]，且b[i]读取a[i+1]旧值），编译器可能因数据依赖和存储转发延迟而无法有效自动SIMD。手动循环展开并利用标量临时变量可打破依赖链，减少lo
+  ImprovementAnalysis: 目前从未有过改进，根本原因是循环未被向量化且存在数据依赖导致标量瓶颈。通过源码变换（展开+标量替换）可减少存储转发开销，增加寄存器重用，从而提升性能。
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## Diagnosis
+  [重写实现] 根据分析生成优化代码...
+  步骤2: 1.000x  [对内层循环（for i=0 to LEN_1D-2）手动展开2次，使用标量临时变量t_ai1保存a[i+1]的旧值，先计算a[i]和a[i+1]的新值，然后利用保存的旧值计算b[i]=a[i]*t_ai1*d[i]，以及b[i+1]=a[i+1]*(下一迭代的a[i+2]旧值)*d[i+1]，减少内存加载并打破循环携带伪依赖。剩余迭代（当剩余不足2时）单独处理。]
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 3/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 3)...
+  Action: try_flags
+content empty, falling back to reasoning_content on attempt 1
+content empty, falling back to reasoning_content on attempt 1
+  Reasoning: LoopVectorizePass有1次missed（内层循环未向量化），当前vector_ops=0。通过降低向量器最小迭代阈值和增大SCEV检查阈值，可能使成本模型允许向量化，从而利用SIMD提升性能。GVN有8次missed，尝试增大hoisting上限可能减少冗余load。
+  ImprovementAnalysis: 从未有过改进。根本原因是核心循环未被向量化，浮点运算完全标量执行。missed remark显示向量化pass拒绝，可能因成本模型保守或运行时检查过多。调整参数可绕过成本模型限制，获得向量化收益。
+    -vectorizer-min-trip-count=2 -> 9021.9 ms (1.005x) <--
+    -vectorizer-min-trip-count=4 -> 8970.6 ms (1.011x) <--
+    -vectorizer-min-trip-count=8 -> 8980.9 ms (1.010x)
+    -vectorizer-min-trip-count=16 -> 9058.0 ms (1.001x)
+    -vectorize-scev-check-threshold=64 -> 8893.8 ms (1.020x) <--
+    -vectorize-scev-check-threshold=128 -> 8910.9 ms (1.018x)
+    -vectorize-scev-check-threshold=256 -> 8929.0 ms (1.016x)
+    -vectorize-scev-check-threshold=512 -> 8991.8 ms (1.009x)
+    -slp-threshold=-4 -> 8944.3 ms (1.014x) <--
+    -slp-threshold=-2 -> 9068.3 ms (1.000x)
+    -slp-threshold=0 -> 8970.7 ms (1.011x)
+    -slp-threshold=2 -> 8990.1 ms (1.009x)
+    -gvn-max-hoisted=-1 -> 8943.1 ms (1.014x) <--
+    --gvn-hoist-max-bbs=8 -> 8948.4 ms (1.013x) <--
+    --gvn-hoist-max-bbs=16 -> 9043.5 ms (1.003x)
+    --gvn-hoist-max-bbs=2 -> 9022.2 ms (1.005x)
+    --gvn-hoist-max-bbs=-1 -> 9047.0 ms (1.002x)
+    --gvn-hoist-max-bbs=-2 -> 8945.0 ms (1.014x) <--
+    --gvn-hoist-max-chain-length=20 -> 8973.8 ms (1.011x) <--
+    --gvn-hoist-max-chain-length=40 -> 8997.3 ms (1.008x)
+    --gvn-hoist-max-chain-length=5 -> 9046.4 ms (1.002x)
+    --gvn-hoist-max-chain-length=-1 -> 9045.9 ms (1.002x)
+    --gvn-hoist-max-chain-length=-2 -> 9014.0 ms (1.006x)
+    --gvn-hoist-max-depth=200 -> 8909.6 ms (1.018x) <--
+    --gvn-hoist-max-depth=400 -> 9047.1 ms (1.002x)
+    --gvn-hoist-max-depth=50 -> 8989.3 ms (1.009x)
+    --gvn-hoist-max-depth=-1 -> 8983.3 ms (1.009x)
+    --gvn-hoist-max-depth=-2 -> 9033.0 ms (1.004x)
+    --gvn-max-num-deps=200 -> 8997.0 ms (1.008x) <--
+    --gvn-max-num-deps=400 -> 9003.3 ms (1.007x)
+    --gvn-max-num-deps=800 -> 8972.8 ms (1.011x) <--
+    --gvn-max-num-deps=1600 -> 8919.6 ms (1.017x) <--
+    --gvn-max-recurse-depth=2000 -> 8970.4 ms (1.011x) <--
+    --gvn-max-recurse-depth=4000 -> 9055.1 ms (1.001x)
+    --gvn-max-recurse-depth=8000 -> 9065.0 ms (1.000x)
+    --gvn-max-recurse-depth=16000 -> 9031.4 ms (1.004x)
+    --pragma-vectorize-memory-check-threshold=8 -> 8995.3 ms (1.008x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 8988.6 ms (1.009x) <--
+    --pragma-vectorize-memory-check-threshold=32 -> 8966.7 ms (1.011x) <--
+    --pragma-vectorize-memory-check-threshold=64 -> 8988.4 ms (1.009x)
+    --pragma-vectorize-memory-check-threshold=128 -> 8934.1 ms (1.015x) <--
+    --pragma-vectorize-memory-check-threshold=256 -> 9016.8 ms (1.006x)
+    --pragma-vectorize-scev-check-threshold=8 -> 8931.2 ms (1.015x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 8908.5 ms (1.018x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 9014.1 ms (1.006x)
+    --pragma-vectorize-scev-check-threshold=64 -> 8940.9 ms (1.014x)
+    --pragma-vectorize-scev-check-threshold=128 -> 8918.7 ms (1.017x)
+    --pragma-vectorize-scev-check-threshold=256 -> 9033.2 ms (1.004x)
+    --vectorize-num-stores-pred=8 -> 8948.6 ms (1.013x) <--
+    --vectorize-num-stores-pred=16 -> 8915.6 ms (1.017x) <--
+    --vectorize-num-stores-pred=32 -> 8890.2 ms (1.020x) <--
+    --vectorize-num-stores-pred=64 -> 8896.4 ms (1.019x)
+    --vectorize-num-stores-pred=128 -> 9009.5 ms (1.007x)
+    --vectorize-num-stores-pred=256 -> 8919.6 ms (1.017x)
+    [joint-2] -mllvm --vectorize-num-stores-pred=32 -mllvm -vectorize-scev-check-threshold=64 -> 1.015x
+    [joint-3] -mllvm --vectorize-num-stores-pred=32 -mllvm -vectorize-scev-check-threshold=64 -mllvm --pragma-vectorize-scev-check-threshold=16 -> 1.009x
+  ⚠ try_flags 候选 flags: -mllvm --vectorize-num-stores-pred=32 数值验证失败，拒绝该 flags 组合: 编译失败 (exit_only): /usr/bin/ld: /tmp/s241_base-cebd69.o: in function `kernel_s241':
+s241_base.c:(.text+0x2c): undefined reference to `initialise_arrays'
+/usr/bin/ld: s241_base.c:(.text+0x40): undefined
+  步骤3: 1.000x  []
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 4/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 4)...
+  Action: try_pragma
+  Reasoning: 核心循环未被向量化（vector_ops=0），missed remark显示LoopVectorizePass拒绝。循环依赖分析表明a[i+1]的读取是旧值，无跨迭代依赖，可安全向量化。使用#pragma clang loop vectorize(enable)直接强制向量化，配合interleave提高指令级并行，预期显著提升性能。
+  ImprovementAnalysis: 从未有过改进，根本原因是循环完全标量执行，浮点运算未利用SIMD。依赖分析显示循环可向量化，编译器成本模型保守导致拒绝。强制向量化可打破瓶颈，预期加速比>1.5x。
+  步骤4: 1.000x  []
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 5/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 5)...
+  Action: try_flags
+  Reasoning: 核心循环从未被向量化（vector_ops=0），LoopVectorizePass有一处missed remark，说明成本模型拒绝了向量化。之前所有try_flags均因编译失败未出结果，可能是多参数组合或特定参数值导致。本次选择最安全的单参数调整：降低向量化最小迭代阈值至0，以强制任何循环被向量化候选。该参数极有可能通过成本模型并触发向量化，且仅修改一个参数，风险最低。
+  ImprovementAnalysis: 从未有过改进，根本原因是内层循环完全标量执行，浮点运算未利用SIMD。循环体仅包含4次fmul和2次store，数据依赖链短（a[i] -> b[i]），理论上可向量化。编译器成本模型保守导致拒绝。调整向量化门槛参数有较高概率突破瓶颈，预期加速比1.5x以上。
+    -vectorizer-min-trip-count=0 -> 8918.7 ms (1.017x) <--
+    -vectorizer-min-trip-count=1 -> 8944.1 ms (1.014x)
+    --gvn-hoist-max-bbs=8 -> 8933.7 ms (1.015x) <--
+    --gvn-hoist-max-bbs=16 -> 8925.7 ms (1.016x) <--
+    --gvn-hoist-max-bbs=2 -> 8991.3 ms (1.009x)
+    --gvn-hoist-max-bbs=-1 -> 8951.8 ms (1.013x)
+    --gvn-hoist-max-bbs=-2 -> 8975.7 ms (1.010x)
+    --gvn-hoist-max-chain-length=20 -> 9007.4 ms (1.007x) <--
+    --gvn-hoist-max-chain-length=40 -> 8894.8 ms (1.020x) <--
+    --gvn-hoist-max-chain-length=5 -> 8936.8 ms (1.015x)
+    --gvn-hoist-max-chain-length=-1 -> 8934.6 ms (1.015x)
+    --gvn-hoist-max-chain-length=-2 -> 9116.1 ms (0.995x)
+    --gvn-hoist-max-depth=200 -> 9016.6 ms (1.006x) <--
+    --gvn-hoist-max-depth=400 -> 9014.0 ms (1.006x) <--
+    --gvn-hoist-max-depth=50 -> 8980.7 ms (1.010x) <--
+    --gvn-hoist-max-depth=-1 -> 8919.4 ms (1.017x) <--
+    --gvn-hoist-max-depth=-2 -> 8961.9 ms (1.012x)
+    --gvn-max-hoisted=-1 -> 8973.8 ms (1.011x) <--
+    --gvn-max-hoisted=-2 -> 8912.0 ms (1.018x) <--
+    --gvn-max-hoisted=-4 -> 8999.9 ms (1.008x)
+    --gvn-max-hoisted=0 -> 8978.6 ms (1.010x)
+    --gvn-max-hoisted=5 -> 8907.9 ms (1.018x) <--
+    --gvn-max-hoisted=10 -> 8923.4 ms (1.016x)
+    --gvn-max-num-deps=200 -> 8998.2 ms (1.008x) <--
+    --gvn-max-num-deps=400 -> 9062.7 ms (1.001x)
+    --gvn-max-num-deps=800 -> 8993.1 ms (1.008x) <--
+    --gvn-max-num-deps=1600 -> 8911.8 ms (1.018x) <--
+    --gvn-max-recurse-depth=2000 -> 8947.5 ms (1.014x) <--
+    --gvn-max-recurse-depth=4000 -> 8912.5 ms (1.017x) <--
+    --gvn-max-recurse-depth=8000 -> 8988.1 ms (1.009x)
+    --gvn-max-recurse-depth=16000 -> 8966.1 ms (1.011x)
+    --pragma-vectorize-memory-check-threshold=8 -> 8960.2 ms (1.012x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 8973.6 ms (1.011x)
+    --pragma-vectorize-memory-check-threshold=32 -> 8948.2 ms (1.013x) <--
+    --pragma-vectorize-memory-check-threshold=64 -> 8898.7 ms (1.019x) <--
+    --pragma-vectorize-memory-check-threshold=128 -> 8909.0 ms (1.018x)
+    --pragma-vectorize-memory-check-threshold=256 -> 8943.8 ms (1.014x)
+    --pragma-vectorize-scev-check-threshold=8 -> 8957.4 ms (1.012x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 8938.5 ms (1.015x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 9098.9 ms (0.997x)
+    --pragma-vectorize-scev-check-threshold=64 -> 8921.9 ms (1.016x) <--
+    --pragma-vectorize-scev-check-threshold=128 -> 8921.4 ms (1.016x) <--
+    --pragma-vectorize-scev-check-threshold=256 -> 9098.0 ms (0.997x)
+    --vectorize-num-stores-pred=8 -> 8999.0 ms (1.008x) <--
+    --vectorize-num-stores-pred=16 -> 9022.1 ms (1.005x)
+    --vectorize-num-stores-pred=32 -> 9066.3 ms (1.000x)
+    --vectorize-num-stores-pred=64 -> 8969.6 ms (1.011x) <--
+    --vectorize-num-stores-pred=128 -> 8986.0 ms (1.009x)
+    --vectorize-num-stores-pred=256 -> 8896.7 ms (1.019x) <--
+    --vectorize-scev-check-threshold=8 -> 8943.5 ms (1.014x) <--
+    --vectorize-scev-check-threshold=16 -> 8983.0 ms (1.010x)
+    --vectorize-scev-check-threshold=32 -> 8960.8 ms (1.012x)
+    --vectorize-scev-check-threshold=64 -> 9020.3 ms (1.005x)
+    --vectorize-scev-check-threshold=128 -> 8920.6 ms (1.017x) <--
+    --vectorize-scev-check-threshold=256 -> 8938.9 ms (1.014x)
+    [joint-2] -mllvm --gvn-hoist-max-chain-length=40 -mllvm --vectorize-num-stores-pred=256 -> 1.014x
+    [joint-3] -mllvm --gvn-hoist-max-chain-length=40 -mllvm --vectorize-num-stores-pred=256 -mllvm --pragma-vectorize-memory-check-threshold=64 -> 1.005x
+  ⚠ try_flags 候选 flags: -mllvm --gvn-hoist-max-chain-length=40 数值验证失败，拒绝该 flags 组合: 编译失败 (exit_only): /usr/bin/ld: /tmp/s241_base-fb91a5.o: in function `kernel_s241':
+s241_base.c:(.text+0x2c): undefined reference to `initialise_arrays'
+/usr/bin/ld: s241_base.c:(.text+0x40): undefined
+  步骤5: 1.000x  []
+
+============================================================
+程序:            s241
+基线 -O3:        9068.39 ms
+已完成步骤:      5/5
+
+最优加速比:      1.0000x (+0.0%)
+
+未找到有效优化（无源码改进，无有效参数）。
+快照目录:        /home/hanning/comet/runs/2026-07-14_11-14-39_tsvc_s241/outputs/snapshots/s241
+结果 JSON:       /home/hanning/comet/runs/2026-07-14_11-14-39_tsvc_s241/outputs/s241_agent_results.json
+Pass graph:   /home/hanning/comet/runs/2026-07-14_11-14-39_tsvc_s241/outputs/kernel_s241_pass_graph.dot
+============================================================

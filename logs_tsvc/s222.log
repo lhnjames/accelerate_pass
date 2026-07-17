@@ -1,0 +1,216 @@
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-14_02-53-41_tsvc_s222
+  Dataset type: tsvc
+============================================================
+COMET agent: s222  max_steps=5
+============================================================
+
+[Evidence collection -- one-time analysis]
+  提取富 YAML remarks（含代码位置、向量化因子等）...
+  富 remarks: 7 passes, 25 missed
+  检查每个 pass 的 IR 修改情况（前20个）...
+  IR diff: 4 passes FIRED, 4 no-op
+  Pass graph → /home/hanning/comet/runs/2026-07-14_02-53-41_tsvc_s222/outputs/kernel_s222_pass_graph.dot
+  收集基线硬件计数器（perf stat + VTune）...
+  瓶颈推断: unknown
+  VTune: vtune binary not found or not functional
+  逆向推断: 瓶颈=['unknown'] → 优先pass: LICMPass, SLPVectorizerPass, GVN
+  检测正确性验证模式...
+  正确性验证模式: polybench_dump
+  53 passes in pipeline, 41 ran on kernel_s222
+  基线 -O3: 2103.11 ms
+  快照目录: /home/hanning/comet/runs/2026-07-14_02-53-41_tsvc_s222/outputs/snapshots/s222
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 1/5]
+  Querying LLM (step 1)...
+  Action: try_flags
+  Reasoning: 从missed remarks看出，SLP向量化因available vectorization factors失败，GVN因call干扰无法消除load，LICM因循环可能使地址失效。循环体内依赖链阻止整体向量化，但独立操作仍可被SLP向量化或通过展开改善。因此尝试调整SLP成本阈值、展开阈值、GVN hoist参数、向量化检查阈值及EarlyCSE容量，以提升自动向量化和优化机会。
+  ImprovementAnalysis: 当前baseline无任何优化历史，瓶颈来源于循环内的递推依赖(e[i]=e[i-1]*e[i-1])阻止了循环向量化，且SLP向量化因cost model拒绝。GVN大量missed因call干扰，LICM无法外提load。需要激进调整cost model参数来激活向量化和消除冗余。
+    -slp-threshold=-10 -> 2088.9 ms (1.007x) <--
+    -slp-threshold=-5 -> 2097.2 ms (1.003x)
+    -slp-threshold=-2 -> 2100.2 ms (1.001x)
+    -slp-threshold=-1 -> 2099.3 ms (1.002x)
+    -slp-threshold=0 -> 2093.3 ms (1.005x)
+    -slp-threshold=5 -> 2108.4 ms (0.997x)
+    -slp-threshold=10 -> 2111.4 ms (0.996x)
+    -unroll-threshold=200 -> 2095.3 ms (1.004x) <--
+    -unroll-threshold=300 -> 2096.7 ms (1.003x)
+    -unroll-threshold=500 -> 2094.1 ms (1.004x) <--
+    -unroll-threshold=800 -> 2089.7 ms (1.006x) <--
+    -unroll-threshold=1000 -> 2092.6 ms (1.005x)
+    -unroll-threshold=1500 -> 2089.4 ms (1.007x) <--
+    -gvn-hoist-max-bbs=4 -> 2109.3 ms (0.997x)
+    -gvn-hoist-max-bbs=8 -> 2090.0 ms (1.006x) <--
+    -gvn-hoist-max-bbs=16 -> 2101.9 ms (1.001x)
+    -gvn-hoist-max-bbs=32 -> 2089.7 ms (1.006x) <--
+    -gvn-hoist-max-bbs=64 -> 2101.3 ms (1.001x)
+    -gvn-hoist-max-bbs=-1 -> 2100.6 ms (1.001x)
+    -gvn-hoist-max-chain-length=10 -> 2089.1 ms (1.007x) <--
+    -gvn-hoist-max-chain-length=20 -> 2110.9 ms (0.996x)
+    -gvn-hoist-max-chain-length=50 -> 2102.0 ms (1.001x)
+    -gvn-hoist-max-chain-length=100 -> 2087.6 ms (1.007x) <--
+    -gvn-hoist-max-chain-length=-1 -> 2101.4 ms (1.001x)
+    -vectorize-scev-check-threshold=100 -> 2089.2 ms (1.007x) <--
+    -vectorize-scev-check-threshold=200 -> 2094.2 ms (1.004x)
+    -vectorize-scev-check-threshold=500 -> 2090.1 ms (1.006x)
+    -vectorize-scev-check-threshold=1000 -> 2089.8 ms (1.006x)
+    -vectorize-scev-check-threshold=2000 -> 2097.8 ms (1.003x)
+    -earlycse-mssa-optimization-cap=1 -> 2090.5 ms (1.006x) <--
+    -earlycse-mssa-optimization-cap=2 -> 2094.4 ms (1.004x)
+    -earlycse-mssa-optimization-cap=3 -> 2089.7 ms (1.006x) <--
+    -earlycse-mssa-optimization-cap=5 -> 2089.6 ms (1.006x) <--
+    -earlycse-mssa-optimization-cap=10 -> 2095.2 ms (1.004x)
+    --slp-look-ahead-users-budget=8 -> 2090.6 ms (1.006x) <--
+    --slp-look-ahead-users-budget=16 -> 2088.5 ms (1.007x) <--
+    --slp-look-ahead-users-budget=32 -> 2098.6 ms (1.002x)
+    --slp-look-ahead-users-budget=64 -> 2090.5 ms (1.006x)
+    --slp-look-ahead-users-budget=128 -> 2094.2 ms (1.004x)
+    --slp-look-ahead-users-budget=256 -> 2100.9 ms (1.001x)
+    --slp-max-look-ahead-depth=-1 -> 2092.6 ms (1.005x) <--
+    --slp-max-look-ahead-depth=-2 -> 2088.2 ms (1.007x) <--
+    --slp-max-look-ahead-depth=-4 -> 2090.9 ms (1.006x)
+    --slp-max-look-ahead-depth=0 -> 2093.9 ms (1.004x)
+    --slp-max-look-ahead-depth=5 -> 2089.9 ms (1.006x)
+    --slp-max-look-ahead-depth=10 -> 2091.7 ms (1.005x)
+    --slp-max-reg-size=-1 -> 2095.6 ms (1.004x) <--
+    --slp-max-reg-size=-2 -> 2095.5 ms (1.004x) <--
+    --slp-max-reg-size=-4 -> 2091.6 ms (1.005x) <--
+    --slp-max-reg-size=0 -> 2090.0 ms (1.006x) <--
+    --slp-max-reg-size=5 -> 2093.3 ms (1.005x)
+    --slp-max-reg-size=10 -> 2093.3 ms (1.005x)
+    --slp-max-store-lookup=-1 -> 2090.6 ms (1.006x) <--
+    --slp-max-store-lookup=-2 -> 2090.2 ms (1.006x) <--
+    --slp-max-store-lookup=-4 -> 2094.8 ms (1.004x)
+    --slp-max-store-lookup=0 -> 2092.6 ms (1.005x)
+    --slp-max-store-lookup=5 -> 2088.9 ms (1.007x) <--
+    --slp-max-store-lookup=10 -> 2093.7 ms (1.004x)
+    --slp-min-reg-size=-1 -> 2097.0 ms (1.003x) <--
+    --slp-min-reg-size=-2 -> 2099.0 ms (1.002x)
+    --slp-min-reg-size=-4 -> 2091.8 ms (1.005x) <--
+    --slp-min-reg-size=0 -> 2092.3 ms (1.005x)
+    --slp-min-reg-size=5 -> 2096.9 ms (1.003x)
+    --slp-min-reg-size=10 -> 2089.4 ms (1.007x) <--
+    --slp-min-tree-size=8 -> 2095.6 ms (1.004x) <--
+    --slp-min-tree-size=16 -> 2091.1 ms (1.006x) <--
+    --slp-min-tree-size=32 -> 2089.4 ms (1.007x) <--
+    --slp-min-tree-size=64 -> 2094.6 ms (1.004x)
+    --slp-min-tree-size=128 -> 2105.4 ms (0.999x)
+    --slp-min-tree-size=256 -> 2090.7 ms (1.006x)
+    --slp-recursion-max-depth=8 -> 2093.6 ms (1.005x) <--
+    --slp-recursion-max-depth=16 -> 2096.2 ms (1.003x)
+    --slp-recursion-max-depth=32 -> 2096.0 ms (1.003x)
+    --slp-recursion-max-depth=64 -> 2096.0 ms (1.003x)
+    --slp-recursion-max-depth=128 -> 2091.2 ms (1.006x) <--
+    --slp-recursion-max-depth=256 -> 2097.3 ms (1.003x)
+    --slp-schedule-budget=-1 -> 2091.2 ms (1.006x) <--
+    --slp-schedule-budget=-2 -> 2091.8 ms (1.005x)
+    --slp-schedule-budget=-4 -> 2098.0 ms (1.002x)
+    --slp-schedule-budget=0 -> 2089.3 ms (1.007x) <--
+    --slp-schedule-budget=5 -> 2091.6 ms (1.006x)
+    --slp-schedule-budget=10 -> 2108.4 ms (0.997x)
+    --gvn-hoist-max-depth=200 -> 2090.4 ms (1.006x) <--
+    --gvn-hoist-max-depth=400 -> 2095.8 ms (1.003x)
+    --gvn-hoist-max-depth=50 -> 2096.4 ms (1.003x)
+    --gvn-hoist-max-depth=-1 -> 2090.4 ms (1.006x)
+    --gvn-hoist-max-depth=-2 -> 2099.0 ms (1.002x)
+    --gvn-max-hoisted=-1 -> 2098.7 ms (1.002x) <--
+    --gvn-max-hoisted=-2 -> 2089.4 ms (1.007x) <--
+    --gvn-max-hoisted=-4 -> 2093.1 ms (1.005x)
+    --gvn-max-hoisted=0 -> 2097.5 ms (1.003x)
+    --gvn-max-hoisted=5 -> 2100.4 ms (1.001x)
+    --gvn-max-hoisted=10 -> 2092.3 ms (1.005x)
+    --gvn-max-num-deps=200 -> 2098.6 ms (1.002x) <--
+    --gvn-max-num-deps=400 -> 2089.3 ms (1.007x) <--
+    --gvn-max-num-deps=800 -> 2091.8 ms (1.005x)
+    --gvn-max-num-deps=1600 -> 2095.0 ms (1.004x)
+    --gvn-max-recurse-depth=2000 -> 2092.1 ms (1.005x) <--
+    --gvn-max-recurse-depth=4000 -> 2102.1 ms (1.000x)
+    --gvn-max-recurse-depth=8000 -> 2096.7 ms (1.003x)
+    --gvn-max-recurse-depth=16000 -> 2096.2 ms (1.003x)
+    --pragma-vectorize-memory-check-threshold=8 -> 2093.4 ms (1.005x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 2091.5 ms (1.006x) <--
+    --pragma-vectorize-memory-check-threshold=32 -> 2109.0 ms (0.997x)
+    --pragma-vectorize-memory-check-threshold=64 -> 2095.4 ms (1.004x)
+    --pragma-vectorize-memory-check-threshold=128 -> 2090.1 ms (1.006x) <--
+    --pragma-vectorize-memory-check-threshold=256 -> 2088.5 ms (1.007x) <--
+    --pragma-vectorize-scev-check-threshold=8 -> 2098.2 ms (1.002x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 2089.6 ms (1.006x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 2094.7 ms (1.004x)
+    --pragma-vectorize-scev-check-threshold=64 -> 2091.5 ms (1.006x)
+content empty, falling back to reasoning_content on attempt 1
+content empty, falling back to reasoning_content on attempt 1
+content empty, falling back to reasoning_content on attempt 1
+    --pragma-vectorize-scev-check-threshold=128 -> 2096.9 ms (1.003x)
+    --pragma-vectorize-scev-check-threshold=256 -> 2090.9 ms (1.006x)
+    --vectorize-num-stores-pred=8 -> 2095.6 ms (1.004x) <--
+    --vectorize-num-stores-pred=16 -> 2098.5 ms (1.002x)
+    --vectorize-num-stores-pred=32 -> 2092.8 ms (1.005x) <--
+    --vectorize-num-stores-pred=64 -> 2095.4 ms (1.004x)
+    --vectorize-num-stores-pred=128 -> 2095.8 ms (1.003x)
+    --vectorize-num-stores-pred=256 -> 2091.3 ms (1.006x) <--
+    --vectorizer-min-trip-count=8 -> 2095.6 ms (1.004x) <--
+    --vectorizer-min-trip-count=16 -> 2095.6 ms (1.004x) <--
+    --vectorizer-min-trip-count=32 -> 2095.7 ms (1.004x)
+    --vectorizer-min-trip-count=64 -> 2095.0 ms (1.004x) <--
+    --vectorizer-min-trip-count=128 -> 2102.1 ms (1.000x)
+    --vectorizer-min-trip-count=256 -> 2089.9 ms (1.006x) <--
+    [joint-2] -mllvm -gvn-hoist-max-chain-length=100 -mllvm --slp-max-look-ahead-depth=-2 -> 1.006x
+    [joint-3] -mllvm -gvn-hoist-max-chain-length=100 -mllvm --slp-max-look-ahead-depth=-2 -mllvm --pragma-vectorize-memory-check-threshold=256 -> 1.003x
+  ⚠ try_flags 候选 flags: -mllvm -gvn-hoist-max-chain-length=100 数值验证失败，拒绝该 flags 组合: 编译失败 (exit_only): /usr/bin/ld: /tmp/s222_base-5569f9.o: in function `kernel_s222':
+s222_base.c:(.text+0x2c): undefined reference to `initialise_arrays'
+/usr/bin/ld: s222_base.c:(.text+0x40): undefined
+  步骤1: 1.000x  []
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 2/5]
+  Querying LLM (step 2)...
+  Action: rewrite_source
+  Reasoning: 原始内核中 a[i] 的计算与 e[i] 的递推混合在同一循环内，导致向量化被阻止（LoopVectorizePass 和 SLPVectorizerPass 均因递推依赖而失败）。同时 a[i] 的加/减操作使用相同 b[i]*c[i] 但无跨迭代依赖，可以通过循环分裂将两个独立计算分离，使 a 循环可向量化，e 循环保持顺序但可展开优化。
+  ImprovementAnalysis: 当前 baseline 无任何历史优化，因为循环内 e[i]=e[i-1]*e[i-1] 的递推依赖使得自动向量化无法进行，且 GVN 大量 missed 也源于同一依赖。此外，a[i] 的两次操作（加/减）实际为浮点冗余，但为确保数值一致不能合并。仅靠 -mllvm 参数无法克服依赖结构，必须通过源码变换（循环分裂）打破依赖链，将无依赖的 a 循环分离出来供向量化。
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## 诊断报告：`kernel_s222` 的性能瓶颈与策略评估
+  [重写实现] 根据分析生成优化代码...
+  步骤2: 1.000x  [将内层 for (int i=1; i<LEN_1D; i++) 循环分裂为两个独立循环：第一个循环只处理 a[i] += b[i]*c[i]; a[i] -= b[i]*c[i];（无依赖，可向量化）；第二个循环只处理 e[i] = e[i-1] * e[i-1];（保留递推顺序）。两循环在外层 nl 循环内顺序执行，dummy 调用保持不变。这样 a 循环可被 LoopVectorizePass 自动向量化，e 循环可被局部展开或保持标量优化。]
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 3/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 3)...
+  Action: try_pragma
+  Reasoning: 瓶颈是内层循环中的递推依赖 e[i] = e[i-1]*e[i-1] 阻止了循环向量化和SLP向量化，且LICM和GVN因依赖和外部函数调用而无法优化。手动循环分裂虽然理论上可行，但之前尝试编译失败；使用 distribute(enable) pragma 可以无害地提示编译器自动分裂循环，使无依赖部分获得向量化机会，这是风险最低的源码变换尝试。
+  ImprovementAnalysis: 从未有过改进，根本原因是循环内的串行递推链导致所有尝试的 pass（SLP、LoopVectorize、GVN、LICM）都无法有效优化。只有通过循环分裂将无依赖的 a[i] 操作与递推的 e[i] 操作分离，才能使 a 部分被向量化。使用 distribute  pragma 是比手动重写更安全的起点。
+  步骤3: 1.000x  []
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 4/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 4)...
+  Action: rewrite_source
+  Reasoning: 循环内 e[i] = e[i-1]*e[i-1] 的串行递推依赖使整个循环无法向量化，LoopVectorizePass 和 SLPVectorizerPass 均失败。将无依赖的 a[i] 加/减操作分离到独立循环，可使该循环被向量化；递推循环保持标量但可通过展开优化。之前的编译失败源于语法错误，需确保拆分后的代码正确编译。
+  ImprovementAnalysis: 从未有过改进。根本原因是循环内串行递推链 (e[i]=e[i-1]^2) 阻止任何向量化，且由于依赖关系使得 GVN 和 LICM 无法消除冗余和移动循环不变代码。只有通过循环分裂打破依赖，使无依赖部分获得向量化机会，才能显著提升性能。
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## Diagnosis of `kernel_s222` Performance Bottleneck
+  [重写实现] 根据分析生成优化代码...
+  步骤4: 1.000x  [将内层 for (int i=1; i<LEN_1D; i++) 循环分裂为两个独立循环，并确保编译无误：第一个循环中只保留 a[i] += b[i]*c[i]; a[i] -= b[i]*c[i]; 并在该循环前添加 #pragma clang loop vectorize(enable) 以强制向量化；第二个循环仅保留 e[i] = e[i-1]*e[i-1]; 不做向量化提示。两循环在外层 nl 循环内顺序执行，并保证只有一次 dummy 调用。需注意数组下标和循环变量正确性，避免语法错误。]
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 5/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 5)...
+  Action: try_pragma
+  Reasoning: 历史4步全部失败，最佳加速比仅1.000x。根本瓶颈是内层循环中e[i]=e[i-1]*e[i-1]的串行递推依赖，阻止了LoopVectorize、SLP、GVN和LICM的任何有效优化。唯一可行的方法是循环分裂，将无依赖的a[i]加/减操作独立出来。由于之前手动重写多次编译失败，改用#pragma clang loop distribute(enable)让编译器自动分裂，风险更低。
+  ImprovementAnalysis: 从未有过任何改进。根本原因是循环内存在串行递推链（e[i]依赖e[i-1]），使得所有自动向量化pass均失败。a[i]的加/减操作虽无跨迭代依赖，但因与递推语句混合在同一个循环中，编译器无法单独向量化。只有通过循环分裂打破依赖，使a循环可被向量化，e循环保持标量（但可被展开优化）。此前手动重写均因语法错误编译失败，因此采用pragma提示编译器自动分裂，这是成本最低、成功率最高的尝试。
+  步骤5: 1.000x  []
+
+============================================================
+程序:            s222
+基线 -O3:        2103.11 ms
+已完成步骤:      5/5
+
+最优加速比:      1.0000x (+0.0%)
+
+未找到有效优化（无源码改进，无有效参数）。
+快照目录:        /home/hanning/comet/runs/2026-07-14_02-53-41_tsvc_s222/outputs/snapshots/s222
+结果 JSON:       /home/hanning/comet/runs/2026-07-14_02-53-41_tsvc_s222/outputs/s222_agent_results.json
+Pass graph:   /home/hanning/comet/runs/2026-07-14_02-53-41_tsvc_s222/outputs/kernel_s222_pass_graph.dot
+============================================================

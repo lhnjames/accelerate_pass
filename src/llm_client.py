@@ -8,6 +8,17 @@ from src.config import LLMConfig
 logger = logging.getLogger(__name__)
 
 
+def strip_json_fences(text: str) -> str:
+    """Strip a leading ```json/``` code fence and trailing ``` from LLM output."""
+    clean = text.strip()
+    for fence in ("```json", "```"):
+        if clean.startswith(fence):
+            clean = clean[len(fence):]
+    if clean.endswith("```"):
+        clean = clean[:-3]
+    return clean.strip()
+
+
 class LLMClient:
     def __init__(self, config: LLMConfig):
         self.config = config
@@ -101,13 +112,7 @@ class LLMClient:
 
     def parse_json_response(self, response: str) -> Optional[Dict]:
         try:
-            if '```json' in response:
-                json_str = response.split('```json')[1].split('```')[0].strip()
-            elif '```' in response:
-                json_str = response.split('```')[1].split('```')[0].strip()
-            else:
-                json_str = response
-            return json.loads(json_str)
+            return json.loads(strip_json_fences(response))
         except Exception as e:
             logger.error(f"Failed to parse JSON response: {e}")
             return None

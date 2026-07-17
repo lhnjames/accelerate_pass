@@ -1,423 +1,450 @@
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov
+  Dataset type: polybench
 ============================================================
-COMET: nussinov  rounds=9
+COMET agent: nussinov  max_steps=5
 ============================================================
-Collecting vectorization remarks for source rounds...
-  16 remarks collected
 
-[Param round]
-  Kernel 'kernel_nussinov': lines 80–109
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_nussinov
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: Key bottlenecks: SLP vectorizer misses due to cost threshold (cost 0 >= 0) preventing beneficial vectorization; LICM fails to hoist loop-invariant loads because invariance detection is limited; GVN cannot eliminate redundant i8 loads due to insufficient hoisting depth. Tuning these thresholds can unlock vectorization, hoisting, and load elimination.
-    -slp-threshold: [-4, -2, -1, 0]
-    -gvn-hoist-max-depth: [100, 200, 500, 1000]
-    -licm-max-num-uses-traversed: [8, 32, 128]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 10
-  Baseline -O3: 4871.76 ms
-  Phase A — independent flag search:
-    -slp-threshold=-4 → 5975.7 ms (0.815x)
-    -slp-threshold=-2 → 5872.0 ms (0.830x)
-    -slp-threshold=-1 → 4846.0 ms (1.005x) ← best
-    -slp-threshold=0 → 4814.5 ms (1.012x) ← best
-    -gvn-hoist-max-depth=100 → 4859.0 ms (1.003x) ← best
-    -gvn-hoist-max-depth=200 → 4929.9 ms (0.988x)
-    -gvn-hoist-max-depth=500 → 4860.4 ms (1.002x)
-    -gvn-hoist-max-depth=1000 → 4798.6 ms (1.015x) ← best
-    -licm-max-num-uses-traversed=8 → 4843.8 ms (1.006x) ← best
-    -licm-max-num-uses-traversed=32 → 4849.5 ms (1.005x)
-    -licm-max-num-uses-traversed=128 → 4797.6 ms (1.015x) ← best
-    -slp-look-ahead-users-budget=4 → 4811.1 ms (1.013x) ← best
-    -slp-look-ahead-users-budget=8 → 5111.1 ms (0.953x)
-    -slp-look-ahead-users-budget=16 → 5932.6 ms (0.821x)
-    -gvn-hoist-max-bbs=5 → 4960.0 ms (0.982x)
-    -gvn-hoist-max-bbs=10 → 4809.0 ms (1.013x) ← best
-    -gvn-hoist-max-bbs=20 → 5715.1 ms (0.852x)
-    -pragma-vectorize-scev-check-threshold=32 → 4798.1 ms (1.015x) ← best
-    -pragma-vectorize-scev-check-threshold=64 → 4904.0 ms (0.993x)
-    -pragma-vectorize-scev-check-threshold=128 → 4906.8 ms (0.993x)
-    -amdgpu-unroll-threshold-if=150 → 4773.6 ms (1.021x) ← best
-    -amdgpu-unroll-threshold-if=300 → 4811.2 ms (1.013x)
-    -amdgpu-unroll-threshold-if=600 → 4867.6 ms (1.001x)
-    -loop-load-elimination-scev-check-threshold=1 → 4861.4 ms (1.002x) ← best
-    -loop-load-elimination-scev-check-threshold=2 → 4816.9 ms (1.011x) ← best
-    -loop-load-elimination-scev-check-threshold=4 → 4854.7 ms (1.004x)
-    -loop-distribute-scev-check-threshold=16 → 4853.4 ms (1.004x) ← best
-    -loop-distribute-scev-check-threshold=32 → 4798.4 ms (1.015x) ← best
-    -loop-distribute-scev-check-threshold=64 → 4801.7 ms (1.015x)
-    -instcombine-max-iterations=1 → 4793.9 ms (1.016x) ← best
-    -instcombine-max-iterations=3 → 4739.1 ms (1.028x) ← best
-    -instcombine-max-iterations=6 → 4799.4 ms (1.015x)
-  LLM refinement (Phase A → refined candidates)...
-  Refined: [('-slp-threshold', [-1, 0, 1]), ('-gvn-hoist-max-depth', [500, 1000, 1500]), ('-licm-max-num-uses-traversed', [32, 128, 224]), ('-slp-look-ahead-users-budget', [4]), ('-gvn-hoist-max-bbs', [10]), ('-pragma-vectorize-scev-check-threshold', [32]), ('-amdgpu-unroll-threshold-if', [150, 300]), ('-loop-load-elimination-scev-check-threshold', [1, 2, 3]), ('-loop-distribute-scev-check-threshold', [16, 32, 64]), ('-instcombine-max-iterations', [1, 3, 6])]
-  Phase B — joint search (best pairs):
-    -instcombine-max-iterations=1, -amdgpu-unroll-threshold-if=150 → 4844.8 ms (1.006x)
-    -instcombine-max-iterations=1, -amdgpu-unroll-threshold-if=300 → 4809.6 ms (1.013x)
-    -instcombine-max-iterations=3, -amdgpu-unroll-threshold-if=150 → 4811.4 ms (1.013x)
-    -instcombine-max-iterations=3, -amdgpu-unroll-threshold-if=300 → 4807.5 ms (1.013x)
-    -instcombine-max-iterations=6, -amdgpu-unroll-threshold-if=150 → 4952.5 ms (0.984x)
-    -instcombine-max-iterations=6, -amdgpu-unroll-threshold-if=300 → 4809.6 ms (1.013x)
-  Best: -mllvm -instcombine-max-iterations=3  → 4739.12 ms (1.028x)
-  Param flags for source rounds: -mllvm -instcombine-max-iterations=3
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: The innermost k-loop reads `table[k+1][j]` with column-major stride (the first index varies while the second stays fixed), causing cache misses that dominate performance....
+[Evidence collection -- one-time analysis]
+  提取富 YAML remarks（含代码位置、向量化因子等）...
+  富 remarks: 7 passes, 17 missed
+  检查每个 pass 的 IR 修改情况（前20个）...
+  IR diff: 5 passes FIRED, 3 no-op
+  Pass graph → /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov/outputs/kernel_nussinov_pass_graph.dot
+  收集基线硬件计数器（perf stat + VTune）...
+  瓶颈推断: unknown
+  VTune: vtune binary not found or not functional
+  逆向推断: 瓶颈=['unknown'] → 优先pass: LICMPass, SLPVectorizerPass, GVN
+  检测正确性验证模式...
+  正确性验证模式: polybench_dump
+  53 passes in pipeline, 41 ran on kernel_nussinov
+  基线 -O3: 10980.96 ms
+  快照目录: /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov/outputs/snapshots/nussinov
 
-[Source round 1/8]
-  Speedup: 9.398x (+839.8%)  504.43 ms
-  → New best (9.398x)!
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: Column‑major (stride‑n) access to `table[i][j]` and `table[i][j‑1]` in the i‑loop causes cache misses and dominates the memory bottleneck; the innermost k‑loop is already vectorized....
-  Kernel 'kernel_nussinov': lines 79–135
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_nussinov
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: SLP vectorizer misses 20 opportunities due to unsupported <8 x i32> type; lowering slp-threshold may enable vectorization of shorter sequences. GVN fails to eliminate i8 loads across blocks; increasing gvn-hoist-max-bbs can hoist loads further. LICM cannot move loop-invariant loads because of aliasing uncertainty; raising licm-mssa-max-acc-promotion allows promotion of more memory accesses.
-    -slp-threshold: [-2, -1, 0, 1]
-    -gvn-hoist-max-bbs: [4, 8, 16, 32]
-    -licm-mssa-max-acc-promotion: [0, 8, 16, 32]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 10
-  Baseline -O3: 480.02 ms
-  Phase A — independent flag search:
-    -slp-threshold=-2 → 496.3 ms (0.967x)
-    -slp-threshold=-1 → 480.7 ms (0.999x)
-    -slp-threshold=0 → 480.9 ms (0.998x)
-    -slp-threshold=1 → 479.2 ms (1.002x) ← best
-    -gvn-hoist-max-bbs=4 → 481.0 ms (0.998x)
-    -gvn-hoist-max-bbs=8 → 470.0 ms (1.021x) ← best
-    -gvn-hoist-max-bbs=16 → 475.1 ms (1.010x)
-    -gvn-hoist-max-bbs=32 → 501.6 ms (0.957x)
-    -licm-mssa-max-acc-promotion=0 → 470.6 ms (1.020x) ← best
-    -licm-mssa-max-acc-promotion=8 → 461.7 ms (1.040x) ← best
-    -licm-mssa-max-acc-promotion=16 → 470.4 ms (1.020x)
-    -licm-mssa-max-acc-promotion=32 → 469.6 ms (1.022x)
-    -slp-look-ahead-users-budget=4 → 470.5 ms (1.020x) ← best
-    -slp-look-ahead-users-budget=8 → 481.1 ms (0.998x)
-    -slp-look-ahead-users-budget=16 → 462.3 ms (1.038x) ← best
-    -pragma-vectorize-scev-check-threshold=32 → 475.5 ms (1.009x) ← best
-    -pragma-vectorize-scev-check-threshold=64 → 469.8 ms (1.022x) ← best
-    -pragma-vectorize-scev-check-threshold=128 → 459.8 ms (1.044x) ← best
-    -licm-max-num-uses-traversed=16 → 489.5 ms (0.981x)
-    -licm-max-num-uses-traversed=32 → 480.7 ms (0.999x)
-    -licm-max-num-uses-traversed=64 → 510.4 ms (0.940x)
-    -amdgpu-unroll-threshold-if=150 → 506.3 ms (0.948x)
-    -amdgpu-unroll-threshold-if=300 → 482.8 ms (0.994x)
-    -amdgpu-unroll-threshold-if=600 → 481.6 ms (0.997x)
-    -loop-load-elimination-scev-check-threshold=1 → 470.9 ms (1.019x) ← bestcontent empty, falling back to reasoning_content on attempt 1
+────────────────────────────────────────────────────────────
+[Agent 步骤 1/5]
+  Querying LLM (step 1)...
+  Action: try_flags
+  Reasoning: 基于missed remarks，SLP向量化5次未应用（其中2次cost=0>=threshold=0），表明默认SLP阈值过于保守；GVN有14次missed，其中一些可能是hoisting受限导致冗余load未消除；LoopVectorize有1次missed（内层循环未向量化）。调整这些参数有望提升向量化覆盖率和消除冗余内存访问，从而改善性能。
+  ImprovementAnalysis: 当前baseline性能为1.000x，尚未有任何改进。瓶颈根本原因在于：(1) 内层k循环的SLP向量化被阈值0拒绝，导致多个max_score操作仍为标量；(2) GVN未能hoist部分load，可能因hoist深度或基本块数量限制；(3) 循环向量化因最小行程计数或SCEV检查阈值限制而未触发。这些参数调整可直接应对上述问题。
+    -slp-threshold=-8 -> 11162.1 ms (0.984x)
+    -slp-threshold=-4 -> 10944.5 ms (1.003x) <--
+    -slp-threshold=-2 -> 10559.3 ms (1.040x) <--
+    -slp-threshold=-1 -> 11039.2 ms (0.995x)
+    -slp-threshold=0 -> 10806.4 ms (1.016x)
+    -slp-threshold=5 -> 11153.2 ms (0.985x)
+    -slp-threshold=10 -> 10979.1 ms (1.000x)
+    -slp-threshold=20 -> 11101.0 ms (0.989x)
+    -slp-schedule-budget=64 -> 11227.4 ms (0.978x)
+    -slp-schedule-budget=128 -> 11278.9 ms (0.974x)
+    -slp-schedule-budget=256 -> 11502.5 ms (0.955x)
+    -slp-schedule-budget=512 -> 11535.7 ms (0.952x)
+    -slp-schedule-budget=1024 -> 11185.2 ms (0.982x)
+    -gvn-hoist-max-bbs=4 -> 11074.4 ms (0.992x)
+    -gvn-hoist-max-bbs=8 -> 11065.9 ms (0.992x)
+    -gvn-hoist-max-bbs=16 -> 11084.9 ms (0.991x)
+    -gvn-hoist-max-bbs=32 -> 11430.9 ms (0.961x)
+    -gvn-hoist-max-bbs=64 -> 11718.9 ms (0.937x)
+    -vectorizer-min-trip-count=1 -> 11347.1 ms (0.968x)
+    -vectorizer-min-trip-count=2 -> 11076.7 ms (0.991x)
+    -vectorizer-min-trip-count=4 -> 11115.8 ms (0.988x)
+    -vectorizer-min-trip-count=8 -> 11000.6 ms (0.998x)
+    -unroll-threshold-aggressive=100 -> 10678.6 ms (1.028x) <--
+    -unroll-threshold-aggressive=200 -> 11044.5 ms (0.994x)
+    -unroll-threshold-aggressive=300 -> 10819.0 ms (1.015x)
+    -unroll-threshold-aggressive=400 -> 11049.1 ms (0.994x)
+    -unroll-threshold-aggressive=500 -> 11304.7 ms (0.971x)
+    --slp-look-ahead-users-budget=8 -> 10862.2 ms (1.011x) <--
+    --slp-look-ahead-users-budget=16 -> 10514.2 ms (1.044x) <--
+    --slp-look-ahead-users-budget=32 -> 10581.3 ms (1.038x)
+    --slp-look-ahead-users-budget=64 -> 11091.9 ms (0.990x)
+    --slp-look-ahead-users-budget=128 -> 11012.0 ms (0.997x)
+    --slp-look-ahead-users-budget=256 -> 10960.6 ms (1.002x)
+    --slp-max-look-ahead-depth=-1 -> 11194.8 ms (0.981x)
+    --slp-max-look-ahead-depth=-2 -> 10959.9 ms (1.002x) <--
+    --slp-max-look-ahead-depth=-4 -> 10716.2 ms (1.025x) <--
+    --slp-max-look-ahead-depth=0 -> 10937.5 ms (1.004x)
+    --slp-max-look-ahead-depth=5 -> 10867.3 ms (1.010x)
+    --slp-max-look-ahead-depth=10 -> 11034.8 ms (0.995x)
+    --slp-max-reg-size=-1 -> 11240.5 ms (0.977x)
+    --slp-max-reg-size=-2 -> 11078.9 ms (0.991x)
+    --slp-max-reg-size=-4 -> 10858.4 ms (1.011x) <--
+    --slp-max-reg-size=0 -> 10640.7 ms (1.032x) <--
+    --slp-max-reg-size=5 -> 10739.1 ms (1.023x)
+    --slp-max-reg-size=10 -> 11090.7 ms (0.990x)
+    --slp-max-store-lookup=-1 -> 11008.6 ms (0.997x)
+    --slp-max-store-lookup=-2 -> 11445.4 ms (0.959x)
+    --slp-max-store-lookup=-4 -> 10834.3 ms (1.014x) <--
+    --slp-max-store-lookup=0 -> 10839.2 ms (1.013x)
+    --slp-max-store-lookup=5 -> 10709.8 ms (1.025x) <--
+    --slp-max-store-lookup=10 -> 10859.6 ms (1.011x)
+    --slp-min-reg-size=-1 -> 11213.1 ms (0.979x)
+    --slp-min-reg-size=-2 -> 11384.8 ms (0.965x)
+    --slp-min-reg-size=-4 -> 10717.2 ms (1.025x) <--
+    --slp-min-reg-size=0 -> 10892.7 ms (1.008x)
+    --slp-min-reg-size=5 -> 11091.5 ms (0.990x)
+    --slp-min-reg-size=10 -> 11402.2 ms (0.963x)
+    --slp-min-tree-size=8 -> 10877.4 ms (1.010x) <--
+    --slp-min-tree-size=16 -> 11050.1 ms (0.994x)
+    --slp-min-tree-size=32 -> 10679.4 ms (1.028x) <--
+    --slp-min-tree-size=64 -> 10934.9 ms (1.004x)
+    --slp-min-tree-size=128 -> 10897.5 ms (1.008x)
+    --slp-min-tree-size=256 -> 11129.5 ms (0.987x)
+    --slp-recursion-max-depth=8 -> 11032.8 ms (0.995x)
+    --slp-recursion-max-depth=16 -> 11003.1 ms (0.998x)
+    --slp-recursion-max-depth=32 -> 11110.5 ms (0.988x)
+    --slp-recursion-max-depth=64 -> 10909.3 ms (1.007x) <--
+    --slp-recursion-max-depth=128 -> 10901.6 ms (1.007x) <--
+    --slp-recursion-max-depth=256 -> 11070.0 ms (0.992x)
+    --gvn-hoist-max-chain-length=20 -> 11113.4 ms (0.988x)
+    --gvn-hoist-max-chain-length=40 -> 11055.4 ms (0.993x)
+    --gvn-hoist-max-chain-length=5 -> 11251.1 ms (0.976x)
+    --gvn-hoist-max-chain-length=-1 -> 11029.7 ms (0.996x)
+    --gvn-hoist-max-chain-length=-2 -> 10897.1 ms (1.008x) <--
+    --gvn-hoist-max-depth=200 -> 10701.2 ms (1.026x) <--
+    --gvn-hoist-max-depth=400 -> 11624.9 ms (0.945x)
+    --gvn-hoist-max-depth=50 -> 10941.0 ms (1.004x)
+    --gvn-hoist-max-depth=-1 -> 10957.1 ms (1.002x)
+    --gvn-hoist-max-depth=-2 -> 11042.3 ms (0.994x)
+    --gvn-max-hoisted=-1 -> 11614.7 ms (0.945x)
+    --gvn-max-hoisted=-2 -> 11064.4 ms (0.992x)
+    --gvn-max-hoisted=-4 -> 11241.6 ms (0.977x)
+    --gvn-max-hoisted=0 -> 10718.1 ms (1.025x) <--
+    --gvn-max-hoisted=5 -> 10681.3 ms (1.028x) <--
+    --gvn-max-hoisted=10 -> 10979.3 ms (1.000x)
+    --gvn-max-num-deps=200 -> 10925.1 ms (1.005x) <--
+    --gvn-max-num-deps=400 -> 10852.5 ms (1.012x) <--
+    --gvn-max-num-deps=800 -> 11043.0 ms (0.994x)
+    --gvn-max-num-deps=1600 -> 10954.3 ms (1.002x)
+    --gvn-max-recurse-depth=2000 -> 11220.5 ms (0.979x)
+    --gvn-max-recurse-depth=4000 -> 10865.8 ms (1.011x) <--
+    --gvn-max-recurse-depth=8000 -> 11078.2 ms (0.991x)
+    --gvn-max-recurse-depth=16000 -> 11092.6 ms (0.990x)
+    --pragma-vectorize-memory-check-threshold=8 -> 10970.6 ms (1.001x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 10606.6 ms (1.035x) <--
+    --pragma-vectorize-memory-check-threshold=32 -> 10798.5 ms (1.017x)
+    --pragma-vectorize-memory-check-threshold=64 -> 10614.1 ms (1.035x)
+    --pragma-vectorize-memory-check-threshold=128 -> 10556.1 ms (1.040x) <--
+    --pragma-vectorize-memory-check-threshold=256 -> 11628.4 ms (0.944x)
+    --pragma-vectorize-scev-check-threshold=8 -> 11251.3 ms (0.976x)
+    --pragma-vectorize-scev-check-threshold=16 -> 11089.3 ms (0.990x)
+    --pragma-vectorize-scev-check-threshold=32 -> 10961.2 ms (1.002x) <--
+    --pragma-vectorize-scev-check-threshold=64 -> 11050.3 ms (0.994x)
+    --pragma-vectorize-scev-check-threshold=128 -> 10913.1 ms (1.006x) <--
+    --pragma-vectorize-scev-check-threshold=256 -> 11450.5 ms (0.959x)
+    --vectorize-num-stores-pred=8 -> 11070.7 ms (0.992x)
+    --vectorize-num-stores-pred=16 -> 11341.5 ms (0.968x)
+    --vectorize-num-stores-pred=32 -> 11083.0 ms (0.991x)
 content empty, falling back to reasoning_content on attempt 1
+    --vectorize-num-stores-pred=64 -> 10715.4 ms (1.025x) <--
+    --vectorize-num-stores-pred=128 -> 10900.5 ms (1.007x)
+    --vectorize-num-stores-pred=256 -> 11255.7 ms (0.976x)
+    --vectorize-scev-check-threshold=8 -> 11199.4 ms (0.980x)
+    --vectorize-scev-check-threshold=16 -> 11005.4 ms (0.998x)
+    --vectorize-scev-check-threshold=32 -> 10661.0 ms (1.030x) <--
+    --vectorize-scev-check-threshold=64 -> 10825.0 ms (1.014x)
+    --vectorize-scev-check-threshold=128 -> 11169.4 ms (0.983x)
+    --vectorize-scev-check-threshold=256 -> 10973.6 ms (1.001x)
+    [joint-2] -mllvm --slp-look-ahead-users-budget=16 -mllvm --pragma-vectorize-memory-check-threshold=128 -> 0.983x
+    [joint-3] -mllvm --slp-look-ahead-users-budget=16 -mllvm --pragma-vectorize-memory-check-threshold=128 -mllvm -slp-threshold=-2 -> 0.968x
+  try_flags 最优: 1.044x  [flags: -mllvm --slp-look-ahead-users-budget=16]
+  步骤1: 1.044x  [flags: -mllvm --slp-look-ahead-users-budget=16]
+  *** 新最优: 1.044x  [flags: -mllvm --slp-look-ahead-users-budget=16] ***
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 2/5]
+  Querying LLM (step 2)...
+  Action: rewrite_source
+  Reasoning: 当前最优1.044x来自SLP参数调整，但性能提升有限。missed remarks显示内层k循环因依赖无法向量化，且table[i][j]被反复读写造成大量内存流量。通过标量替换（scalar accumulator）将table[i][j]的更新转为局部变量，可消除冗余load/store，减少缓存压力，并为后续可能的向量化创造机会。
+  ImprovementAnalysis: 历史最佳仅1.044x，瓶颈在于内层k循环的归约更新table[i][j]依赖循环本身，且频繁内存访问限制性能。通过源码重写手动进行标量替换，预期减少内存操作次数，提升ILP和缓存效率。
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## DIAGNOSIS
+  [重写实现] 根据分析生成优化代码...
+  rewrite_source（纯源码 -O3）: 1.090x  [将j循环中所有对table[i][j]的读写替换为局部变量acc。具体：在j循环开始时声明'DATA_TYPE acc = table[i][j];'，之后所有对table[i][j]的更新改为对acc的更新，并在j循环最后写回'table[i][j] = acc;'。包括三个if分支和内部的for k循环。这样可消除每次迭代对table[i][j]的两次内存访问，改善数据局部性。]
+  rewrite_source + [-mllvm --slp-look-ahead-users-budget=16]: 1.091x  ← 组合更优，保留参数
+  步骤2: 1.091x  [rewrite: 将j循环中所有对table[i][j]的读写替换为局部变量acc。具体：在j循环开始时声明'DATA_TYPE acc = table[i][j];'，之后所有对table[i][j]的更新改为对acc的更新，并在j循环最后写回'table[i][j] = acc;'。包括三个if分支和内部的for k循环。这样可消除每次迭代对table[i][j]的两次内存访问，改善数据局部性。]
+  快照: /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov/outputs/snapshots/nussinov/step_02_rewrite_source_ok.c
+  *** 新最优: 1.091x  [rewrite: 将j循环中所有对table[i][j]的读写替换为局部变量acc。具体：在j循环开始时声明'DATA_TYPE acc = table[i][j];'，之后所有对table[i][j]的更新改为对acc的更新，并在j循环最后写回'table[i][j] = acc;'。包括三个if分支和内部的for k循环。这样可消除每次迭代对table[i][j]的两次内存访问，改善数据局部性。] ***
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 3/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 3)...
+  Action: try_flags
+  Reasoning: 历史最优1.091x来自源码重写（acc标量替换）+ SLP参数调整（slp-look-ahead-users-budget=16）。但missed remarks显示SLP仍有5次未应用（其中2次cost=0 >= threshold=0），说明阈值过于保守；内层k循环因依赖无法向量化，但unroll可能辅助SLP。在重写后的源码上，IR结构改变，应重新搜索SLP和unroll参数以进一步挖掘向
+  ImprovementAnalysis: 当前改进仅1.091x，主要瓶颈仍是内层k循环的串行依赖（max_score归约）和SLP向量化覆盖不足。源码重写减少了table[i][j]的冗余内存访问，但未改变依赖链；SLP向量化仅部分应用（cost=0被拒绝），且unroll尚未充分调整。通过降低slp-threshold（负值）、调整slp-min-tree-size和增大unroll-threshold-aggressive，有望让更
+    -slp-threshold=0 -> 10330.3 ms (1.063x) <--
+    -slp-threshold=-1 -> 10165.5 ms (1.080x) <--
+    -slp-threshold=-2 -> 10237.5 ms (1.073x)
+    -slp-threshold=-4 -> 10179.3 ms (1.079x)
+    -slp-threshold=-8 -> 10111.3 ms (1.086x) <--
+    -slp-min-tree-size=1 -> 10689.1 ms (1.027x) <--
+    -slp-min-tree-size=2 -> 10221.6 ms (1.074x) <--
+    -slp-min-tree-size=3 -> 10440.6 ms (1.052x)
+    -slp-min-tree-size=4 -> 10431.7 ms (1.053x)
+    -slp-min-tree-size=8 -> 10548.6 ms (1.041x)
+    -unroll-threshold-aggressive=200 -> 10695.0 ms (1.027x) <--
+    -unroll-threshold-aggressive=300 -> 11066.6 ms (0.992x)
+    -unroll-threshold-aggressive=400 -> 10278.0 ms (1.068x) <--
+    -unroll-threshold-aggressive=500 -> 10448.8 ms (1.051x)
+    -unroll-threshold-aggressive=600 -> 10347.4 ms (1.061x)
+    --slp-look-ahead-users-budget=8 -> 9997.4 ms (1.098x) <--
+    --slp-look-ahead-users-budget=16 -> 10214.2 ms (1.075x)
+    --slp-look-ahead-users-budget=32 -> 10171.5 ms (1.080x)
+    --slp-look-ahead-users-budget=64 -> 10217.0 ms (1.075x)
+    --slp-look-ahead-users-budget=128 -> 10199.0 ms (1.077x)
+    --slp-look-ahead-users-budget=256 -> 10036.5 ms (1.094x)
+    --slp-max-look-ahead-depth=-1 -> 10294.8 ms (1.067x) <--
+    --slp-max-look-ahead-depth=-2 -> 10098.2 ms (1.087x) <--
+    --slp-max-look-ahead-depth=-4 -> 10020.9 ms (1.096x) <--
+    --slp-max-look-ahead-depth=0 -> 10643.9 ms (1.032x)
+    --slp-max-look-ahead-depth=5 -> 10498.5 ms (1.046x)
+    --slp-max-look-ahead-depth=10 -> 10201.8 ms (1.076x)
+    --slp-max-reg-size=-1 -> 10032.3 ms (1.095x) <--
+    --slp-max-reg-size=-2 -> 10396.3 ms (1.056x)
+    --slp-max-reg-size=-4 -> 10114.3 ms (1.086x)
+    --slp-max-reg-size=0 -> 10334.9 ms (1.063x)
+    --slp-max-reg-size=5 -> 9937.2 ms (1.105x) <--
+    --slp-max-reg-size=10 -> 10127.6 ms (1.084x)
+    --slp-max-store-lookup=-1 -> 10467.4 ms (1.049x) <--
+    --slp-max-store-lookup=-2 -> 10502.5 ms (1.046x)
+    --slp-max-store-lookup=-4 -> 10221.0 ms (1.074x) <--
+    --slp-max-store-lookup=0 -> 10122.4 ms (1.085x) <--
+    --slp-max-store-lookup=5 -> 10286.1 ms (1.068x)
+    --slp-max-store-lookup=10 -> 9932.3 ms (1.106x) <--
+    --slp-min-reg-size=-1 -> 9933.5 ms (1.105x) <--
+    --slp-min-reg-size=-2 -> 10436.2 ms (1.052x)
+    --slp-min-reg-size=-4 -> 10006.0 ms (1.097x)
+    --slp-min-reg-size=0 -> 10163.8 ms (1.080x)
+    --slp-min-reg-size=5 -> 10457.7 ms (1.050x)
+    --slp-min-reg-size=10 -> 10202.2 ms (1.076x)
+    --slp-recursion-max-depth=8 -> 10535.1 ms (1.042x) <--
+    --slp-recursion-max-depth=16 -> 10310.6 ms (1.065x) <--
+    --slp-recursion-max-depth=32 -> 10428.9 ms (1.053x)
+    --slp-recursion-max-depth=64 -> 10455.9 ms (1.050x)
+    --slp-recursion-max-depth=128 -> 10683.5 ms (1.028x)
+    --slp-recursion-max-depth=256 -> 10394.8 ms (1.056x)
+    --slp-schedule-budget=-1 -> 10538.4 ms (1.042x) <--
+    --slp-schedule-budget=-2 -> 10392.2 ms (1.057x) <--
+    --slp-schedule-budget=-4 -> 10221.3 ms (1.074x) <--
+    --slp-schedule-budget=0 -> 10384.0 ms (1.057x)
+    --slp-schedule-budget=5 -> 10566.4 ms (1.039x)
+    --slp-schedule-budget=10 -> 10409.6 ms (1.055x)
+    --gvn-hoist-max-bbs=8 -> 10115.2 ms (1.086x) <--
+    --gvn-hoist-max-bbs=16 -> 10045.6 ms (1.093x) <--
+    --gvn-hoist-max-bbs=2 -> 10212.1 ms (1.075x)
+    --gvn-hoist-max-bbs=-1 -> 10703.0 ms (1.026x)
+    --gvn-hoist-max-bbs=-2 -> 10920.0 ms (1.006x)
+    --gvn-hoist-max-chain-length=20 -> 10892.0 ms (1.008x) <--
+    --gvn-hoist-max-chain-length=40 -> 10541.3 ms (1.042x) <--
 content empty, falling back to reasoning_content on attempt 1
+    --gvn-hoist-max-chain-length=5 -> 10265.9 ms (1.070x) <--
+    --gvn-hoist-max-chain-length=-1 -> 10310.2 ms (1.065x)
+    --gvn-hoist-max-chain-length=-2 -> 10225.6 ms (1.074x) <--
+    --gvn-hoist-max-depth=200 -> 10466.5 ms (1.049x) <--
+    --gvn-hoist-max-depth=400 -> 10552.7 ms (1.041x)
+    --gvn-hoist-max-depth=50 -> 10411.4 ms (1.055x) <--
+    --gvn-hoist-max-depth=-1 -> 10305.2 ms (1.066x) <--
+    --gvn-hoist-max-depth=-2 -> 10234.8 ms (1.073x) <--
+    --gvn-max-hoisted=-1 -> 10182.7 ms (1.078x) <--
+    --gvn-max-hoisted=-2 -> 10266.0 ms (1.070x)
+    --gvn-max-hoisted=-4 -> 10465.6 ms (1.049x)
+    --gvn-max-hoisted=0 -> 10630.4 ms (1.033x)
+    --gvn-max-hoisted=5 -> 10406.4 ms (1.055x)
+    --gvn-max-hoisted=10 -> 10237.2 ms (1.073x)
+    --gvn-max-num-deps=200 -> 10356.4 ms (1.060x) <--
+    --gvn-max-num-deps=400 -> 10371.5 ms (1.059x)
+    --gvn-max-num-deps=800 -> 10512.8 ms (1.045x)
+    --gvn-max-num-deps=1600 -> 10523.7 ms (1.043x)
+    --gvn-max-recurse-depth=2000 -> 10327.7 ms (1.063x) <--
+    --gvn-max-recurse-depth=4000 -> 10470.1 ms (1.049x)
+    --gvn-max-recurse-depth=8000 -> 10603.8 ms (1.036x)
+    --gvn-max-recurse-depth=16000 -> 10190.8 ms (1.078x) <--
+    --pragma-vectorize-memory-check-threshold=8 -> 10464.2 ms (1.049x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 10069.6 ms (1.091x) <--
+    --pragma-vectorize-memory-check-threshold=32 -> 10059.0 ms (1.092x) <--
+    --pragma-vectorize-memory-check-threshold=64 -> 10067.6 ms (1.091x)
+    --pragma-vectorize-memory-check-threshold=128 -> 10216.0 ms (1.075x)
+    --pragma-vectorize-memory-check-threshold=256 -> 10505.5 ms (1.045x)
+    --pragma-vectorize-scev-check-threshold=8 -> 10325.4 ms (1.063x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 10049.7 ms (1.093x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 9906.0 ms (1.109x) <--
+    --pragma-vectorize-scev-check-threshold=64 -> 10046.5 ms (1.093x)
+    --pragma-vectorize-scev-check-threshold=128 -> 10171.3 ms (1.080x)
+    --pragma-vectorize-scev-check-threshold=256 -> 10460.2 ms (1.050x)
+    --vectorize-num-stores-pred=8 -> 10671.0 ms (1.029x) <--
+    --vectorize-num-stores-pred=16 -> 10192.2 ms (1.077x) <--
+    --vectorize-num-stores-pred=32 -> 10217.3 ms (1.075x)
+    --vectorize-num-stores-pred=64 -> 10234.8 ms (1.073x)
+    --vectorize-num-stores-pred=128 -> 10326.8 ms (1.063x)
+    --vectorize-num-stores-pred=256 -> 10526.2 ms (1.043x)
+    --vectorize-scev-check-threshold=8 -> 10211.5 ms (1.075x) <--
+    --vectorize-scev-check-threshold=16 -> 10343.3 ms (1.062x)
+    --vectorize-scev-check-threshold=32 -> 10675.3 ms (1.029x)
+    --vectorize-scev-check-threshold=64 -> 10388.3 ms (1.057x)
+    --vectorize-scev-check-threshold=128 -> 10195.8 ms (1.077x) <--
+    --vectorize-scev-check-threshold=256 -> 10642.0 ms (1.032x)
+    --vectorizer-min-trip-count=8 -> 10225.7 ms (1.074x) <--
+    --vectorizer-min-trip-count=16 -> 10438.9 ms (1.052x)
+    --vectorizer-min-trip-count=32 -> 10463.9 ms (1.049x)
+    --vectorizer-min-trip-count=64 -> 10033.3 ms (1.094x) <--
+    --vectorizer-min-trip-count=128 -> 10376.5 ms (1.058x)
+    --vectorizer-min-trip-count=256 -> 10184.6 ms (1.078x)
+    [joint-2] -mllvm --pragma-vectorize-scev-check-threshold=32 -mllvm --slp-max-store-lookup=10 -> 1.056x
+    [joint-3] -mllvm --pragma-vectorize-scev-check-threshold=32 -mllvm --slp-max-store-lookup=10 -mllvm --slp-min-reg-size=-1 -> 1.067x
+  try_flags 最优: 1.109x  [flags: -mllvm --pragma-vectorize-scev-check-threshold=32]
+  步骤3: 1.109x  [flags: -mllvm --pragma-vectorize-scev-check-threshold=32]
+  *** 新最优: 1.109x  [flags: -mllvm --pragma-vectorize-scev-check-threshold=32] ***
 
-    -loop-load-elimination-scev-check-threshold=2 → 468.2 ms (1.025x) ← best
-    -loop-load-elimination-scev-check-threshold=4 → 465.6 ms (1.031x) ← best
-    -loop-distribute-scev-check-threshold=16 → 479.9 ms (1.000x) ← best
-    -loop-distribute-scev-check-threshold=32 → 468.6 ms (1.024x) ← best
-    -loop-distribute-scev-check-threshold=64 → 509.6 ms (0.942x)
-    -instcombine-max-iterations=1 → 488.9 ms (0.982x)
-    -instcombine-max-iterations=3 → 472.9 ms (1.015x) ← best
-    -instcombine-max-iterations=6 → 488.4 ms (0.983x)
-  LLM refinement (Phase A → refined candidates)...
-  Refined: [('-pragma-vectorize-scev-check-threshold', [64, 128]), ('-licm-mssa-max-acc-promotion', [0, 8, 16]), ('-slp-look-ahead-users-budget', [8, 16])]
-  Phase B — joint search (best pairs):
-    -pragma-vectorize-scev-check-threshold=64, -licm-mssa-max-acc-promotion=0 → 483.3 ms (0.993x)
-    -pragma-vectorize-scev-check-threshold=64, -licm-mssa-max-acc-promotion=8 → 478.1 ms (1.004x)
-    -pragma-vectorize-scev-check-threshold=64, -licm-mssa-max-acc-promotion=16 → 488.6 ms (0.982x)
-    -pragma-vectorize-scev-check-threshold=128, -licm-mssa-max-acc-promotion=0 → 512.4 ms (0.937x)
-    -pragma-vectorize-scev-check-threshold=128, -licm-mssa-max-acc-promotion=8 → 477.8 ms (1.005x)
-    -pragma-vectorize-scev-check-threshold=128, -licm-mssa-max-acc-promotion=16 → 513.9 ms (0.934x)
-  Best: -mllvm -pragma-vectorize-scev-check-threshold=128  → 459.78 ms (1.044x)
-  Re-tuned flags: -mllvm -pragma-vectorize-scev-check-threshold=128
+────────────────────────────────────────────────────────────
+[Agent 步骤 4/5]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 4)...
+  Action: try_flags
+  Reasoning: 当前最优1.109x来自acc标量替换和pragma-vectorize-scev-check-threshold=32，但SLP仍有5次missed且2次因cost=0被拒，LoopVectorize内层k循环未向量化。降低slp-threshold可允许本非收益的向量化尝试，降低vectorizer-min-trip-count可允许短循环向量化，同时保留当前有效的向量化检查阈值。结合这些参数
+  ImprovementAnalysis: 历史改进已达1.109x，但主要瓶颈仍是内层k循环的串行归约依赖和SLP覆盖不足。标量替换已消除冗余内存访问，但循环自身依赖链无法突破，只能通过向量化优化开销。SLP的cost=0拒绝表明编译器认为无收益，但实际小开销可能因数据复用带来小幅加速；向量化短循环可能增加运行时检查开销，但若能向量化可提升吞吐。当前幅度已接近上限，下一步若参数调整无法超1.12x，则基本收敛。
+    --slp-threshold=-1 -> 10330.2 ms (1.063x) <--
+    --slp-threshold=0 -> 10616.2 ms (1.034x)
+    --slp-threshold=1 -> 10661.5 ms (1.030x)
+    --vectorizer-min-trip-count=1 -> 10463.8 ms (1.049x) <--
+    --vectorizer-min-trip-count=2 -> 10285.4 ms (1.068x) <--
+    --vectorizer-min-trip-count=3 -> 10608.9 ms (1.035x)
+    --vectorizer-min-trip-count=4 -> 10212.5 ms (1.075x) <--
+    --slp-look-ahead-users-budget=8 -> 10551.0 ms (1.041x) <--
+    --slp-look-ahead-users-budget=16 -> 10440.5 ms (1.052x) <--
+    --slp-look-ahead-users-budget=32 -> 10406.5 ms (1.055x) <--
+    --pragma-vectorize-scev-check-threshold=16 -> 10155.8 ms (1.081x) <--
+    --pragma-vectorize-scev-check-threshold=32 -> 10219.1 ms (1.075x)
+    --pragma-vectorize-scev-check-threshold=64 -> 10336.2 ms (1.062x)
+    --slp-max-look-ahead-depth=-1 -> 10219.7 ms (1.074x) <--
+    --slp-max-look-ahead-depth=-2 -> 10281.3 ms (1.068x)
+    --slp-max-look-ahead-depth=-4 -> 10303.8 ms (1.066x)
+    --slp-max-look-ahead-depth=0 -> 10049.0 ms (1.093x) <--
+    --slp-max-look-ahead-depth=5 -> 10042.3 ms (1.093x) <--
+    --slp-max-look-ahead-depth=10 -> 10334.4 ms (1.063x)
+    --slp-max-reg-size=-1 -> 10093.1 ms (1.088x) <--
+    --slp-max-reg-size=-2 -> 10044.4 ms (1.093x) <--
+    --slp-max-reg-size=-4 -> 10576.3 ms (1.038x)
+    --slp-max-reg-size=0 -> 10764.5 ms (1.020x)
+    --slp-max-reg-size=5 -> 10640.7 ms (1.032x)
+    --slp-max-reg-size=10 -> 10903.7 ms (1.007x)
+    --slp-max-store-lookup=-1 -> 10958.4 ms (1.002x) <--
+    --slp-max-store-lookup=-2 -> 10598.6 ms (1.036x) <--
+    --slp-max-store-lookup=-4 -> 10871.0 ms (1.010x)
+    --slp-max-store-lookup=0 -> 10565.0 ms (1.039x) <--
+    --slp-max-store-lookup=5 -> 10697.5 ms (1.026x)
+    --slp-max-store-lookup=10 -> 10431.5 ms (1.053x) <--
+    --slp-min-reg-size=-1 -> 10446.2 ms (1.051x) <--
+    --slp-min-reg-size=-2 -> 10655.0 ms (1.031x)
+    --slp-min-reg-size=-4 -> 10216.8 ms (1.075x) <--
+    --slp-min-reg-size=0 -> 10111.9 ms (1.086x) <--
+    --slp-min-reg-size=5 -> 10296.1 ms (1.067x)
+    --slp-min-reg-size=10 -> 10348.7 ms (1.061x)
+    --slp-min-tree-size=8 -> 10345.1 ms (1.061x) <--
+    --slp-min-tree-size=16 -> 10498.8 ms (1.046x)
+    --slp-min-tree-size=32 -> 10521.8 ms (1.044x)
+    --slp-min-tree-size=64 -> 10596.0 ms (1.036x)
+    --slp-min-tree-size=128 -> 10506.9 ms (1.045x)
+    --slp-min-tree-size=256 -> 10815.4 ms (1.015x)
+    --slp-recursion-max-depth=8 -> 10779.4 ms (1.019x) <--
+    --slp-recursion-max-depth=16 -> 10616.7 ms (1.034x) <--
+    --slp-recursion-max-depth=32 -> 10471.8 ms (1.049x) <--
+    --slp-recursion-max-depth=64 -> 10434.7 ms (1.052x) <--
+    --slp-recursion-max-depth=128 -> 10451.0 ms (1.051x)
+    --slp-recursion-max-depth=256 -> 10313.6 ms (1.065x) <--
+    --slp-schedule-budget=-1 -> 10419.6 ms (1.054x) <--
+    --slp-schedule-budget=-2 -> 10530.1 ms (1.043x)
+    --slp-schedule-budget=-4 -> 10705.2 ms (1.026x)
+    --slp-schedule-budget=0 -> 10480.9 ms (1.048x)
+    --slp-schedule-budget=5 -> 10785.1 ms (1.018x)
+    --slp-schedule-budget=10 -> 10549.6 ms (1.041x)
+    --gvn-hoist-max-bbs=8 -> 10381.1 ms (1.058x) <--
+    --gvn-hoist-max-bbs=16 -> 10532.3 ms (1.043x)
+    --gvn-hoist-max-bbs=2 -> 10539.4 ms (1.042x)
+    --gvn-hoist-max-bbs=-1 -> 10578.5 ms (1.038x)
+    --gvn-hoist-max-bbs=-2 -> 10185.5 ms (1.078x) <--
+    --gvn-hoist-max-chain-length=20 -> 10213.9 ms (1.075x) <--
+    --gvn-hoist-max-chain-length=40 -> 10146.7 ms (1.082x) <--
+    --gvn-hoist-max-chain-length=5 -> 9984.0 ms (1.100x) <--
+    --gvn-hoist-max-chain-length=-1 -> 10279.0 ms (1.068x)
+    --gvn-hoist-max-chain-length=-2 -> 10273.4 ms (1.069x)
+    --gvn-hoist-max-depth=200 -> 10885.4 ms (1.009x) <--
+    --gvn-hoist-max-depth=400 -> 10108.4 ms (1.086x) <--
+    --gvn-hoist-max-depth=50 -> 10100.9 ms (1.087x) <--
+    --gvn-hoist-max-depth=-1 -> 10412.0 ms (1.055x)
+    --gvn-hoist-max-depth=-2 -> 9957.3 ms (1.103x) <--
+    --gvn-max-hoisted=-1 -> 10090.8 ms (1.088x) <--
+    --gvn-max-hoisted=-2 -> 10416.9 ms (1.054x)
+    --gvn-max-hoisted=-4 -> 10267.1 ms (1.070x)
+    --gvn-max-hoisted=0 -> 10536.1 ms (1.042x)
+    --gvn-max-hoisted=5 -> 10209.4 ms (1.076x)
+    --gvn-max-hoisted=10 -> 10442.9 ms (1.052x)
+    --gvn-max-num-deps=200 -> 10156.8 ms (1.081x) <--
+    --gvn-max-num-deps=400 -> 10206.3 ms (1.076x)
+    --gvn-max-num-deps=800 -> 10365.9 ms (1.059x)
+    --gvn-max-num-deps=1600 -> 10105.8 ms (1.087x) <--
+    --gvn-max-recurse-depth=2000 -> 10168.6 ms (1.080x) <--
+    --gvn-max-recurse-depth=4000 -> 10461.1 ms (1.050x)
+    --gvn-max-recurse-depth=8000 -> 10210.7 ms (1.075x)
+    --gvn-max-recurse-depth=16000 -> 10216.0 ms (1.075x)
+    --pragma-vectorize-memory-check-threshold=8 -> 10074.1 ms (1.090x) <--
+    --pragma-vectorize-memory-check-threshold=16 -> 10130.9 ms (1.084x)
+    --pragma-vectorize-memory-check-threshold=32 -> 10402.3 ms (1.056x)
+    --pragma-vectorize-memory-check-threshold=64 -> 10573.3 ms (1.039x)
+    --pragma-vectorize-memory-check-threshold=128 -> 10372.1 ms (1.059x)
+    --pragma-vectorize-memory-check-threshold=256 -> 10109.6 ms (1.086x)
+    --vectorize-num-stores-pred=8 -> 10004.3 ms (1.098x) <--
+    --vectorize-num-stores-pred=16 -> 10129.7 ms (1.084x)
+    --vectorize-num-stores-pred=32 -> 10075.3 ms (1.090x)
+    --vectorize-num-stores-pred=64 -> 10420.5 ms (1.054x)
+    --vectorize-num-stores-pred=128 -> 10160.8 ms (1.081x)
+    --vectorize-num-stores-pred=256 -> 9958.4 ms (1.103x) <--
+    --vectorize-scev-check-threshold=8 -> 10024.3 ms (1.095x) <--
+    --vectorize-scev-check-threshold=16 -> 10042.4 ms (1.093x)
+    --vectorize-scev-check-threshold=32 -> 10177.2 ms (1.079x)
+    --vectorize-scev-check-threshold=64 -> 10297.6 ms (1.066x)
+    --vectorize-scev-check-threshold=128 -> 10541.6 ms (1.042x)
+    --vectorize-scev-check-threshold=256 -> 10503.7 ms (1.045x)
+    [joint-2] -mllvm --gvn-hoist-max-depth=-2 -mllvm --vectorize-num-stores-pred=256 -> 1.029x
+    [joint-3] -mllvm --gvn-hoist-max-depth=-2 -mllvm --vectorize-num-stores-pred=256 -mllvm --gvn-hoist-max-chain-length=5 -> 1.052x
+  try_flags 最优: 1.103x  [flags: -mllvm --gvn-hoist-max-depth=-2]
+  步骤4: 1.103x  [flags: -mllvm --gvn-hoist-max-depth=-2]
 
-[Source round 2/8]  (building on round 1 best)
-  Speedup: 11.925x (+1092.5%)  494.37 ms
-  → New best (11.925x)!
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: The pre-load loops (copying columns into VLAs) are memory-bandwidth-heavy and not vectorized, while the inner k-loop is already vectorized; dynamic stack allocation and streaming copies do...
-  Kernel 'kernel_nussinov': lines 79–143
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_nussinov
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: The major bottlenecks are SLP vectorization (22 missed opportunities due to cost model and unsupported vector types), GVN load elimination (12 missed loads), and LICM load hoisting (3 missed loads). Tuning thresholds for these passes can enable more vectorization and memory optimizations, improving performance.
-    -slp-threshold: [-4, -2, -1, 0]
-    -gvn-max-num-deps: [100, 200, 500, 1000]
-    -licm-max-num-uses-traversed: [8, 32, 128, 256]
-    -vectorizer-min-trip-count: [0, 1, 2]
-    -unroll-threshold: [150, 200, 300, 400]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 12
-  Baseline -O3: 488.60 ms
-  Phase A — independent flag search:
-    -slp-threshold=-4 → 491.6 ms (0.994x)
-    -slp-threshold=-2 → 494.1 ms (0.989x)
-    -slp-threshold=-1 → 489.3 ms (0.999x)
-    -slp-threshold=0 → 472.9 ms (1.033x) ← best
-    -gvn-max-num-deps=100 → 480.6 ms (1.017x) ← best
-    -gvn-max-num-deps=200 → 507.4 ms (0.963x)
-    -gvn-max-num-deps=500 → 481.8 ms (1.014x)
-    -gvn-max-num-deps=1000 → 482.2 ms (1.013x)
-    -licm-max-num-uses-traversed=8 → 506.3 ms (0.965x)
-    -licm-max-num-uses-traversed=32 → 493.7 ms (0.990x)
-    -licm-max-num-uses-traversed=128 → 480.6 ms (1.017x) ← best
-    -licm-max-num-uses-traversed=256 → 489.6 ms (0.998x)
-    -vectorizer-min-trip-count=0 → 483.1 ms (1.011x) ← best
-    -vectorizer-min-trip-count=1 → 530.7 ms (0.921x)
-    -vectorizer-min-trip-count=2 → 523.5 ms (0.933x)
-    -unroll-threshold=150 → 498.4 ms (0.980x)
-    -unroll-threshold=200 → 533.3 ms (0.916x)
-    -unroll-threshold=300 → 528.2 ms (0.925x)
-    -unroll-threshold=400 → 523.5 ms (0.933x)
-    -slp-look-ahead-users-budget=4 → 518.3 ms (0.943x)
-    -slp-look-ahead-users-budget=8 → 534.5 ms (0.914x)
-    -slp-look-ahead-users-budget=16 → 524.6 ms (0.931x)
-    -pragma-vectorize-scev-check-threshold=32 → 494.8 ms (0.987x)
-    -pragma-vectorize-scev-check-threshold=64 → 520.5 ms (0.939x)
-    -pragma-vectorize-scev-check-threshold=128 → 479.0 ms (1.020x) ← best
-    -gvn-hoist-max-bbs=5 → 522.6 ms (0.935x)
-    -gvn-hoist-max-bbs=10 → 530.2 ms (0.922x)
-    -gvn-hoist-max-bbs=20 → 490.9 ms (0.995x)
-    -amdgpu-unroll-threshold-if=150 → 481.6 ms (1.015x) ← best
-    -amdgpu-unroll-threshold-if=300 → 520.6 ms (0.939x)
-    -amdgpu-unroll-threshold-if=600 → 486.0 ms (1.005x)
-    -loop-load-elimination-scev-check-threshold=1 → 536.1 ms (0.911x)
-    -loop-load-elimination-scev-check-threshold=2 → 523.4 ms (0.934x)
-    -loop-load-elimination-scev-check-threshold=4 → 527.2 ms (0.927x)
-    -loop-distribute-scev-check-threshold=16 → 483.0 ms (1.012x) ← best
-    -loop-distribute-scev-check-threshold=32 → 511.6 ms (0.955x)
-    -loop-distribute-scev-check-threshold=64 → 483.3 ms (1.011x)
-    -instcombine-max-iterations=1 → 552.4 ms (0.885x)
-    -instcombine-max-iterations=3 → 468.2 ms (1.044x) ← best
-    -instcombine-max-iterations=6 → 475.4 ms (1.028x)
-  LLM refinement (Phase A → refined candidates)...
-  Refinement JSON parse failed, using original params
-  Phase B — joint search (best pairs):
-    -instcombine-max-iterations=1, -slp-threshold=-4 → 475.2 ms (1.028x)
-    -instcombine-max-iterations=1, -slp-threshold=-2 → 491.5 ms (0.994x)
-    -instcombine-max-iterations=1, -slp-threshold=-1 → 515.4 ms (0.948x)
-    -instcombine-max-iterations=1, -slp-threshold=0 → 496.5 ms (0.984x)
-    -instcombine-max-iterations=3, -slp-threshold=-4 → 479.6 ms (1.019x)
-    -instcombine-max-iterations=3, -slp-threshold=-2 → 496.4 ms (0.984x)
-    -instcombine-max-iterations=3, -slp-threshold=-1 → 483.1 ms (1.011x)
-    -instcombine-max-iterations=3, -slp-threshold=0 → 492.2 ms (0.993x)
-    -instcombine-max-iterations=6, -slp-threshold=-4 → 524.9 ms (0.931x)
-    -instcombine-max-iterations=6, -slp-threshold=-2 → 522.2 ms (0.936x)
-    -instcombine-max-iterations=6, -slp-threshold=-1 → 506.6 ms (0.964x)
-    -instcombine-max-iterations=6, -slp-threshold=0 → 523.1 ms (0.934x)
-  Best: -mllvm -instcombine-max-iterations=3  → 468.17 ms (1.044x)
-  Re-tuned flags: -mllvm -instcombine-max-iterations=3
+────────────────────────────────────────────────────────────
+[Agent 步骤 5/5]
+  [反重复] 'try_flags' 已连续 2 次，强制切换到 'rewrite_source'
+  Querying LLM (step 5)...
+  Action: rewrite_source
+  Reasoning: 当前最优1.109x来自标量替换和向量化检查阈值调整。内层k循环仍有SLP向量化missed和访存局部性问题：table[i][k]行步长1但table[k+1][j]跨行、列跨步访问，导致缓存未命中。对j和k维度进行循环分块可改善数据重用，且不改变依赖关系（标量acc保证正确性）。
+  ImprovementAnalysis: 历史改进已达1.109x，主要瓶颈是内层k循环的串行归约依赖和访存模式导致的缓存缺失。scalar accumulator已消除table[i][j]的冗余内存访问，但循环内仍频繁访问table[i][k]和table[k+1][j]，后者为跨步列访问，破坏缓存空间局部性。循环分块可将计算限制在缓存友好的子矩阵中，减少cache miss，同时保持数值一致性。预计可额外提升5-10%。
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## 诊断报告
+  [重写实现] 根据分析生成优化代码...
+  rewrite_source（纯源码 -O3）: 14.556x  [对j和k二维循环进行分块（tiling）：引入块大小参数TILE（如16或32），外层按j块循环，内层先按k块循环，在块内依次处理原始j、k顺序。具体：for (int jj = i+1; jj < N; jj+=TILE) { int j_end = min(jj+TILE, N); for (int kk = i+1; kk < j_end; kk+=TILE) { for (int j = jj; j < j_end; j++) { for (int k = kk; k < min(j, kk+TILE); k++) { acc = max_score(acc, table[i][k] + table[k+1][j]); } } } } 注意维持acc在j循环内部定义，并且k循环上限不能超过j-1。这样table[i][k]在块内连续访问，table[k+1][j]在块内列访问也部分局部化。]
+  rewrite_source + [-mllvm --pragma-vectorize-scev-check-threshold=32]: 14.088x  (比纯源码差，此版本不用参数)
+  步骤5: 14.556x  [rewrite: 对j和k二维循环进行分块（tiling）：引入块大小参数TILE（如16或32），外层按j块循环，内层先按k块循环，在块内依次处理原始j、k顺序。具体：for (int jj = i+1; jj < N; jj+=TILE) { int j_end = min(jj+TILE, N); for (int kk = i+1; kk < j_end; kk+=TILE) { for (int j = jj; j < j_end; j++) { for (int k = kk; k < min(j, kk+TILE); k++) { acc = max_score(acc, table[i][k] + table[k+1][j]); } } } } 注意维持acc在j循环内部定义，并且k循环上限不能超过j-1。这样table[i][k]在块内连续访问，table[k+1][j]在块内列访问也部分局部化。]
+  快照: /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov/outputs/snapshots/nussinov/step_05_rewrite_source_ok.c
+  *** 新最优: 14.556x  [rewrite: 对j和k二维循环进行分块（tiling）：引入块大小参数TILE（如16或32），外层按j块循环，内层先按k块循环，在块内依次处理原始j、k顺序。具体：for (int jj = i+1; jj < N; jj+=TILE) { int j_end = min(jj+TILE, N); for (int kk = i+1; kk < j_end; kk+=TILE) { for (int j = jj; j < j_end; j++) { for (int k = kk; k < min(j, kk+TILE); k++) { acc = max_score(acc, table[i][k] + table[k+1][j]); } } } } 注意维持acc在j循环内部定义，并且k循环上限不能超过j-1。这样table[i][k]在块内连续访问，table[k+1][j]在块内列访问也部分局部化。] ***
 
-[Source round 3/8]  (building on round 2 best)
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpdc1mn_h9/nussinov_opt.c:79:1: error: unknown type name 'We'
-We need
-  [Retry 2/3]
-  Speedup: 10.845x (+984.5%)  479.59 ms
-  No improvement over best (11.925x) — next round still builds on current best
-
-[Source round 4/8]  (building on round 3 best)
-  Speedup: 10.365x (+936.5%)  483.23 ms
-  No improvement over best (11.925x) — next round still builds on current best
-
-[Source round 5/8]  (building on round 4 best)
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmp8gvrfsb1/nussinov_opt.c:79:1: error: unknown type name 'We'
-We need
-  [Retry 2/3]
-  Attempt 2 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmp352iktft/nussinov_opt.c:79:1: error: unknown type name 'We'
-We need
-  [Retry 3/3]
-  Speedup: 11.951x (+1095.1%)  501.99 ms
-  → New best (11.951x)!
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: The kernel is memory bandwidth–bound because the preload loops read entire columns of the table matrix with stride N (row length), causing severe cache misses while the compute loop itself...
-  Kernel 'kernel_nussinov': lines 79–143
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-content empty, falling back to reasoning_content on attempt 1
-  41 unique passes ran on kernel_nussinov
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: SLP vectorization fails due to unsupported <8 x i32> type and cost model; LICM cannot hoist loop-invariant loads due to potential aliasing; GVN misses redundant i8 loads. Adjusting these thresholds may enable more vectorization, hoisting, and load elimination.
-    -slp-min-reg-size: [128, 256, 512]
-    -licm-versioning-invariant-threshold: [0.1, 0.3, 0.5, 0.8]
-    -gvn-max-num-deps: [100, 500, 1000]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
-    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 11
-  Baseline -O3: 532.79 ms
-  Phase A — independent flag search:
-    -slp-min-reg-size=128 → 488.9 ms (1.090x) ← best
-    -slp-min-reg-size=256 → 515.9 ms (1.033x)
-    -slp-min-reg-size=512 → 484.8 ms (1.099x) ← best
-    -licm-versioning-invariant-threshold=0.1 → 477.9 ms (1.115x) ← best
-    -licm-versioning-invariant-threshold=0.3 → 478.7 ms (1.113x)
-    -licm-versioning-invariant-threshold=0.5 → 479.8 ms (1.110x)
-    -licm-versioning-invariant-threshold=0.8 → 496.3 ms (1.073x)
-    -gvn-max-num-deps=100 → 522.3 ms (1.020x) ← best
-    -gvn-max-num-deps=500 → 524.1 ms (1.017x)
-    -gvn-max-num-deps=1000 → 524.0 ms (1.017x)
-    -slp-look-ahead-users-budget=4 → 526.7 ms (1.012x) ← best
-    -slp-look-ahead-users-budget=8 → 511.9 ms (1.041x) ← best
-    -slp-look-ahead-users-budget=16 → 510.8 ms (1.043x) ← best
-    -pragma-vectorize-scev-check-threshold=32 → 489.3 ms (1.089x) ← best
-    -pragma-vectorize-scev-check-threshold=64 → 494.4 ms (1.078x)
-    -pragma-vectorize-scev-check-threshold=128 → 483.6 ms (1.102x) ← best
-    -gvn-hoist-max-bbs=5 → 481.4 ms (1.107x) ← best
-    -gvn-hoist-max-bbs=10 → 482.8 ms (1.104x)
-    -gvn-hoist-max-bbs=20 → 491.8 ms (1.083x)
-    -licm-max-num-uses-traversed=16 → 481.1 ms (1.107x) ← best
-    -licm-max-num-uses-traversed=32 → 483.9 ms (1.101x)
-    -licm-max-num-uses-traversed=64 → 487.6 ms (1.093x)
-    -amdgpu-unroll-threshold-if=150 → 480.4 ms (1.109x) ← best
-    -amdgpu-unroll-threshold-if=300 → 477.9 ms (1.115x) ← best
-    -amdgpu-unroll-threshold-if=600 → 488.5 ms (1.091x)
-    -loop-load-elimination-scev-check-threshold=1 → 479.8 ms (1.110x) ← best
-    -loop-load-elimination-scev-check-threshold=2 → 491.1 ms (1.085x)
-    -loop-load-elimination-scev-check-threshold=4 → 485.4 ms (1.098x)
-    -loop-distribute-scev-check-threshold=16 → 490.0 ms (1.087x) ← best
-    -loop-distribute-scev-check-threshold=32 → 486.3 ms (1.096x) ← best
-    -loop-distribute-scev-check-threshold=64 → 531.4 ms (1.003x)
-    -instcombine-max-iterations=1 → 486.3 ms (1.096x) ← best
-    -instcombine-max-iterations=3 → 485.9 ms (1.096x) ← best
-    -instcombine-max-iterations=6 → 484.8 ms (1.099x) ← best
-  LLM refinement (Phase A → refined candidates)...
-  Refined: [('-licm-versioning-invariant-threshold', [0.1, 0.3]), ('-amdgpu-unroll-threshold-if', [150, 300, 600]), ('-gvn-hoist-max-bbs', [5, 10])]
-  Phase B — joint search (best pairs):
-    -amdgpu-unroll-threshold-if=150, -licm-versioning-invariant-threshold=0.1 → 526.2 ms (1.013x)
-    -amdgpu-unroll-threshold-if=150, -licm-versioning-invariant-threshold=0.3 → 530.2 ms (1.005x)
-    -amdgpu-unroll-threshold-if=300, -licm-versioning-invariant-threshold=0.1 → 518.4 ms (1.028x)
-    -amdgpu-unroll-threshold-if=300, -licm-versioning-invariant-threshold=0.3 → 530.4 ms (1.005x)
-    -amdgpu-unroll-threshold-if=600, -licm-versioning-invariant-threshold=0.1 → 502.9 ms (1.059x)
-    -amdgpu-unroll-threshold-if=600, -licm-versioning-invariant-threshold=0.3 → 514.6 ms (1.035x)
-  Best: -mllvm -amdgpu-unroll-threshold-if=300  → 477.85 ms (1.115x)
-  Re-tuned flags: -mllvm -amdgpu-unroll-threshold-if=300
-
-[Source round 6/8]  (building on round 5 best)
-  Speedup: 10.801x (+980.1%)  478.26 ms
-  No improvement over best (11.951x) — next round still builds on current best
-
-[Source round 7/8]  (building on round 6 best)
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpmu_o42kh/nussinov_opt.c:79:1: error: unknown type name 'We'
-We need
-  [Retry 2/3]
-  Speedup: 9.864x (+886.4%)  489.27 ms
-  No improvement over best (11.951x) — next round still builds on current best
-
-[Source round 8/8]  (building on round 7 best)
-  Attempt 1 failed (precision_error): PRECISION ERROR: Mismatch: 15592/16290 elements differ > epsilon=0.0001. First error at index 1: ref=0, opt=4.79771e+08,
-  [Retry 2/3]
-  Speedup: 12.533x (+1153.3%)  468.59 ms
-  → New best (12.533x)!
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: Column-major reads from the previous column (j-1) in the i-loop cause stride-N cache misses, dominating memory traffic despite tiling....
-  Kernel 'kernel_nussinov': lines 79–132
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_nussinov
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: The kernel has missed SLP vectorization for <8 x i32> types and fails to eliminate i8 loads and hoist loop-invariant loads. Adjusting SLP minimum register size, GVN hoist depth, and LICM traversal count may enable vectorization and reduce redundant memory operations.
-    --slp-min-reg-size: [128, 256, 512]
-    --gvn-hoist-max-depth: [100, 200, 500]
-    --licm-max-num-uses-traversed: [8, 32, 128]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
-    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 11
-  Baseline -O3: 498.09 ms
-  Phase A — independent flag search:
-    --slp-min-reg-size=128 → 503.4 ms (0.989x)
-    --slp-min-reg-size=256 → 495.0 ms (1.006x) ← best
-    --slp-min-reg-size=512 → 506.1 ms (0.984x)
-    --gvn-hoist-max-depth=100 → 503.7 ms (0.989x)
-    --gvn-hoist-max-depth=200 → 506.5 ms (0.983x)
-    --gvn-hoist-max-depth=500 → 456.1 ms (1.092x) ← best
-    --licm-max-num-uses-traversed=8 → 462.3 ms (1.077x) ← best
-    --licm-max-num-uses-traversed=32 → 456.2 ms (1.092x) ← best
-    --licm-max-num-uses-traversed=128 → 473.1 ms (1.053x)
-    -slp-look-ahead-users-budget=4 → 497.8 ms (1.001x) ← best
-    -slp-look-ahead-users-budget=8 → 503.7 ms (0.989x)
-    -slp-look-ahead-users-budget=16 → 505.9 ms (0.984x)
-    -pragma-vectorize-scev-check-threshold=32 → 500.5 ms (0.995x)
-    -pragma-vectorize-scev-check-threshold=64 → 495.3 ms (1.006x) ← best
-    -pragma-vectorize-scev-check-threshold=128 → 458.7 ms (1.086x) ← best
-    -gvn-hoist-max-bbs=5 → 457.1 ms (1.090x) ← best
-    -gvn-hoist-max-bbs=10 → 463.1 ms (1.076x)
-    -gvn-hoist-max-bbs=20 → 456.7 ms (1.091x) ← best
-    -licm-max-num-uses-traversed=16 → 455.4 ms (1.094x) ← best
-    -licm-max-num-uses-traversed=32 → 464.3 ms (1.073x)
-    -licm-max-num-uses-traversed=64 → 457.6 ms (1.089x)
-    -amdgpu-unroll-threshold-if=150 → 456.7 ms (1.091x) ← best
-    -amdgpu-unroll-threshold-if=300 → 504.2 ms (0.988x)
-    -amdgpu-unroll-threshold-if=600 → 486.9 ms (1.023x)
-    -loop-load-elimination-scev-check-threshold=1 → 505.9 ms (0.985x)
-    -loop-load-elimination-scev-check-threshold=2 → 509.9 ms (0.977x)
-    -loop-load-elimination-scev-check-threshold=4 → 509.4 ms (0.978x)
-    -loop-distribute-scev-check-threshold=16 → 513.4 ms (0.970x)
-    -loop-distribute-scev-check-threshold=32 → 501.6 ms (0.993x)
-    -loop-distribute-scev-check-threshold=64 → 500.5 ms (0.995x)
-    -instcombine-max-iterations=1 → 515.6 ms (0.966x)
-    -instcombine-max-iterations=3 → 503.6 ms (0.989x)
-    -instcombine-max-iterations=6 → 499.4 ms (0.997x)
-  LLM refinement (Phase A → refined candidates)...
-  Refined: [('--slp-min-reg-size', [128, 256, 512]), ('--gvn-hoist-max-depth', [200, 500]), ('--licm-max-num-uses-traversed', [8, 16, 32]), ('-pragma-vectorize-scev-check-threshold', [64, 128]), ('-gvn-hoist-max-bbs', [10, 20]), ('-amdgpu-unroll-threshold-if', [150, 300])]
-  Phase B — joint search (best pairs):
-    --gvn-hoist-max-depth=200, --licm-max-num-uses-traversed=8 → 464.1 ms (1.073x)
-    --gvn-hoist-max-depth=200, --licm-max-num-uses-traversed=16 → 473.8 ms (1.051x)
-    --gvn-hoist-max-depth=200, --licm-max-num-uses-traversed=32 → 468.0 ms (1.064x)
-    --gvn-hoist-max-depth=500, --licm-max-num-uses-traversed=8 → 477.0 ms (1.044x)
-    --gvn-hoist-max-depth=500, --licm-max-num-uses-traversed=16 → 503.2 ms (0.990x)
-    --gvn-hoist-max-depth=500, --licm-max-num-uses-traversed=32 → 499.5 ms (0.997x)
-  Best: -mllvm -licm-max-num-uses-traversed=16  → 455.38 ms (1.094x)
-  Re-tuned flags: -mllvm -licm-max-num-uses-traversed=16
+[最终确认] 交替测量 baseline/best 各 3 次以降低噪声偏差...
+  确认加速比: 14.2713x (IQR [14.0761, 14.9433], n=3, base_cv=2.8%, best_cv=0.4%)
 
 ============================================================
-Program:      nussinov
-Baseline -O3: 4871.76 ms
-Param flags:  -mllvm -instcombine-max-iterations=3  (1.028x)
-Source best:  12.533x (source + initial param flags)
-Retune flags: -mllvm -licm-max-num-uses-traversed=16 (applied to final best source)
-Saved:        outputs/nussinov_optimized.c
-To compile:   clang -O3 -march=native -mllvm -licm-max-num-uses-traversed=16 outputs/nussinov_optimized.c ...
+程序:            nussinov
+基线 -O3:        10980.96 ms
+已完成步骤:      5/5
+
+参数演化轨迹:
+  步骤 1 [try_flags]: 1.0444x  -mllvm --slp-look-ahead-users-budget=16
+  步骤 2 [rewrite_source] [+source]: 1.0912x  -mllvm --slp-look-ahead-users-budget=16
+  步骤 3 [try_flags]: 1.1085x  -mllvm --pragma-vectorize-scev-check-threshold=32
+  步骤 4 [try_flags]: 1.1028x  -mllvm --gvn-hoist-max-depth=-2
+
+最优源码:        /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov/outputs/nussinov_optimized.c
+最优参数组:      -mllvm --pragma-vectorize-scev-check-threshold=32
+最优加速比:      14.5556x (+1355.6%)
+
+编译命令:  clang -O3 -mllvm --pragma-vectorize-scev-check-threshold=32 /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov/outputs/nussinov_optimized.c ...
+快照目录:        /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov/outputs/snapshots/nussinov
+结果 JSON:       /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov/outputs/nussinov_agent_results.json
+Pass graph:   /home/hanning/comet/runs/2026-07-12_20-46-26_polybench_nussinov/outputs/kernel_nussinov_pass_graph.dot
 ============================================================

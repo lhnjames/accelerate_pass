@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 from pathlib import Path
 
 from src.config import COMETConfig
+from src.polybench_paths import find_polybench_utilities, POLYBENCH_DIR_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -14,20 +15,10 @@ class CompilerRunner:
     def __init__(self, config: COMETConfig, pass_database: dict = None):
         self.config = config.compiler if hasattr(config, 'compiler') else config
 
-    _POLYBENCH_DIR_NAMES = frozenset({
-        'PolyBenchC', 'PolyBenchC_no_rag', 'PolyBenchC_full',
-        'PolyBenchC_no_vtune', 'PolyBenchC_with_llm', 'polybench',
-    })
+    _POLYBENCH_DIR_NAMES = POLYBENCH_DIR_NAMES
 
     def _find_polybench_utilities(self, input_file: str) -> Optional[Path]:
-        p = Path(input_file).resolve().parent
-        while p != p.parent:
-            if p.name in self._POLYBENCH_DIR_NAMES:
-                util = p / 'utilities'
-                if util.exists():
-                    return util
-            p = p.parent
-        return None
+        return find_polybench_utilities(input_file)
 
     def extract_ir(self, input_file: str) -> Tuple[bool, Optional[str], Optional[str]]:
         """

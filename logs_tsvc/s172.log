@@ -1,0 +1,13 @@
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-14_00-37-16_tsvc_s172
+  Dataset type: tsvc
+============================================================
+COMET agent: s172  max_steps=5
+============================================================
+
+[Evidence collection -- one-time analysis]
+  IR extraction failed: Clang -emit-llvm failed: /home/hanning/comet/TSVC_shim/kernels/s172/s172.c:12:33: error: expected ';' after top level declarator
+int kernel_s172( int n1, int n3)
+                                ^
+                                ;
+/home/hanning/comet/TSVC_shim/kernels/s172/s172.c:56:38: error: too few arguments to function c
+Evidence collection failed (IR extraction error?)

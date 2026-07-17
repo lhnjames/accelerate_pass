@@ -1,7 +1,7 @@
 #!/bin/bash
 # Run full PolyBench suite: 3 parallel workers
 set -e
-cd /home/hanning/accelerate/comet
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 LOGDIR="logs"
 mkdir -p "$LOGDIR"
@@ -39,7 +39,7 @@ PROGS=(
   "PolyBenchC_no_rag/stencils/seidel-2d/seidel-2d.c"
 )
 
-CONCURRENCY=3
+CONCURRENCY=${CONCURRENCY:-3}
 pids=()
 
 run_one() {
@@ -48,7 +48,7 @@ run_one() {
   name=$(basename "$prog" .c)
   local log="$LOGDIR/${name}.log"
   echo "[$(date '+%H:%M:%S')] START $name"
-  python optimize.py --program "$prog" --rounds 9 --runs 3 > "$log" 2>&1
+  python optimize.py --program "$prog" --rounds 5 --runs 3 > "$log" 2>&1
   local code=$?
   if [ $code -eq 0 ]; then
     echo "[$(date '+%H:%M:%S')] DONE  $name"
@@ -76,16 +76,19 @@ echo "All 30 benchmarks complete."
 echo "========================================"
 echo ""
 echo "=== RESULTS SUMMARY ==="
-printf "%-22s  %-12s  %-8s  %-8s\n" "benchmark" "baseline(ms)" "param" "source"
-printf "%-22s  %-12s  %-8s  %-8s\n" "---------" "------------" "-----" "------"
+printf "%-22s  %-12s  %-10s  %s\n" "benchmark" "baseline(ms)" "best" "flags"
+printf "%-22s  %-12s  %-10s  %s\n" "---------" "------------" "----" "-----"
 for prog in "${PROGS[@]}"; do
   name=$(basename "$prog" .c)
   log="$LOGDIR/${name}.log"
   [ -f "$log" ] || continue
-  baseline=$(grep "Baseline -O3:" "$log" | tail -1 | awk '{print $3}')
-  param=$(grep "Param flags:" "$log" | tail -1 | grep -oP '\(\K[0-9.]+(?=x\))')
-  source=$(grep "Source best:" "$log" | tail -1 | grep -oP '^[0-9.]+(?=x)')
-  [ -z "$source" ] && source="none"
-  [ -z "$param"  ] && param="1.000"
-  printf "%-22s  %-12s  %-8s  %-8s\n" "$name" "$baseline" "${param}x" "${source}x"
+  # Current optimize.py log format uses Chinese labels:
+  #   基线 -O3:        <ms> ms
+  #   最优加速比: / 组合加速比:   <x>x (+..%)  [source-only vs source+flags]
+  #   最优参数组:      <flags>
+  baseline=$(grep "基线 -O3:" "$log" | tail -1 | awk '{print $3}')
+  best=$(grep -E "最优加速比:|组合加速比:" "$log" | tail -1 | awk '{print $2}')
+  [ -z "$best" ] && best="incomplete"
+  [ -z "$baseline" ] && baseline="?"
+  printf "%-22s  %-12s  %-10s\n" "$name" "$baseline" "$best"
 done

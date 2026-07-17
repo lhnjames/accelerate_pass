@@ -1,0 +1,2 @@
+/home/hanning/comet/SPEC_shim_root/mcf_r/SPEC_shim/kernels/mcf_r/mcf_r.c
+/home/hanning/comet/SPEC_shim_root/lbm_r/SPEC_shim/kernels/lbm_r/lbm_r.c

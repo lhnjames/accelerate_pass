@@ -20,7 +20,7 @@ Flow:
   8. Adaptive grid search: independent then joint
   9. Report best and save JSON
 """
-import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json
+import os, sys, re, argparse, subprocess, tempfile, itertools, json
 from collections import defaultdict
 from pathlib import Path
 
@@ -28,6 +28,8 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from src.config import ConfigLoader
 from src.compiler_manager import CompilerRunner
 from src.llm_client import LLMClient
+from src.polybench_paths import find_polybench_utilities
+from src.build_utils import run_timing, compile_c
 from src.remarks import (REMARK_PASS_MAP, make_noinline_src,
                          extract_rich_remarks_yaml,
                          format_rich_remarks_for_source_prompt as format_rich_remark_for_prompt)
@@ -134,19 +136,6 @@ BLACKLISTED_FLAGS = {
 
 
 # ── Helpers: discovery ────────────────────────────────────────────────────────
-
-_POLYBENCH_DIR_NAMES = {"PolyBenchC", "PolyBenchC_no_rag", "PolyBenchC_full",
-                        "PolyBenchC_no_vtune", "PolyBenchC_with_llm", "polybench"}
-
-def find_polybench_utilities(source: str) -> "Path | None":
-    p = Path(source).resolve().parent
-    while p != p.parent:
-        if p.name in _POLYBENCH_DIR_NAMES:
-            u = p / "utilities"
-            return u if u.exists() else None
-        p = p.parent
-    return None
-
 
 def get_kernel_line_range(src: str, kernel_name: str) -> tuple:
     """Return (first_line, last_line) of kernel function body (1-indexed)."""
@@ -270,7 +259,7 @@ def extract_remarks_by_pass(clang: str, src: str, utils: Path,
     """
     polybench_c = utils / "polybench.c"
     cmd = [
-        clang, "-O3", "-march=native", "-std=c99",
+        clang, "-O3", "-std=c99",
         f"-I{utils}", f"-I{source_dir}",
         "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
         "-Rpass=.*", "-Rpass-missed=.*", "-Rpass-analysis=.*",
@@ -324,7 +313,7 @@ def _gen_o3_ir(clang: str, src: str, utils: "Path", source_dir: "Path",
     fd, out_ir = tempfile.mkstemp(suffix=".ll")
     os.close(fd)
     cmd = [
-        clang, "-O3", "-march=native", "-S", "-emit-llvm", "-std=c99",
+        clang, "-O3", "-S", "-emit-llvm", "-std=c99",
         f"-I{utils}", f"-I{source_dir}",
         "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
         tmp_src, "-o", out_ir,
@@ -366,10 +355,10 @@ def extract_o3_passes_for_kernel(opt: str, ir_path: str,
 def get_ir_stats(clang: str, src: str, utils: Path, source_dir: Path,
                  kernel_name: str, extra_mllvm: list = None) -> dict:
     """
-    Compile with clang -O3 -march=native -mllvm <flags> -S -emit-llvm.
+    Compile with clang -O3 -mllvm <flags> -S -emit-llvm.
     To prevent the kernel from being inlined into main (which would hide it from IR),
     we write a temp copy with __attribute__((noinline)) prepended to the kernel definition.
-    This keeps the same O3 + march=native + mllvm-flags as real compilation.
+    This keeps the same O3 + mllvm-flags as real compilation.
     Returns: {vector_ops, fmul, fadd, total_instr, phi_nodes, vec_widths}
     """
     fd_src, tmp_src = tempfile.mkstemp(suffix=".c"); os.close(fd_src)
@@ -393,9 +382,9 @@ def get_ir_stats(clang: str, src: str, utils: Path, source_dir: Path,
         with open(tmp_src, "w") as f:
             f.write(patched)
 
-        # clang -O3 -march=native with mllvm flags — same as real build
+        # clang -O3 with mllvm flags — same as real build
         cmd = [
-            clang, "-O3", "-march=native", "-S", "-emit-llvm", "-std=c99",
+            clang, "-O3", "-S", "-emit-llvm", "-std=c99",
             f"-I{utils}", f"-I{source_dir}",
             "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
             tmp_src, "-o", out_ir,
@@ -495,41 +484,11 @@ def score_passes(kernel_passes: list, kernel_remarks: dict,
 
 # ── Helpers: timing ───────────────────────────────────────────────────────────
 
-def run_timing(bin_path: str, runs: int = 5, pin_cpu: "int | None" = None) -> float:
-    cmd = (["taskset", "-c", str(pin_cpu)] if pin_cpu is not None else []) + [bin_path]
-    try:
-        subprocess.run(cmd, capture_output=True, timeout=60)
-    except Exception:
-        pass
-    times = []
-    for _ in range(runs):
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=60,
-                                 errors="replace")
-            if res.returncode == 0:
-                out = (res.stdout.strip() or res.stderr.strip())
-                times.append(float(out.split()[-1]) * 1000.0)
-        except Exception:
-            pass
-    return statistics.median(times) if times else -1.0
-
-
 def compile_binary(clang, src, polybench_c, utils, source_dir, out_bin,
                    extra_flags=None, dataset="LARGE_DATASET", timeout=180):
-    cmd = [
-        clang, "-O3", "-march=native", "-std=c99",
-        f"-I{utils}", f"-I{source_dir}",
-        f"-D{dataset}", "-DPOLYBENCH_TIME",
-        src, str(polybench_c), "-o", str(out_bin), "-lm",
-    ]
-    if extra_flags:
-        cmd.extend(extra_flags)
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
-                           errors="replace")
-        return r.returncode == 0, r.stderr
-    except subprocess.TimeoutExpired:
-        return False, f"compile timeout after {timeout}s"
+    defines = [f"-D{dataset}", "-DPOLYBENCH_TIME"]
+    return compile_c(clang, [src, str(polybench_c)], [str(utils), str(source_dir)],
+                     defines, out_bin, extra_flags=extra_flags, timeout=timeout)
 
 
 # ── Clang driver flags (separate from -mllvm thresholds) ─────────────────────
@@ -802,7 +761,7 @@ def main():
     top_passes = scored[:args.top_k]
 
     # ── Step 6: IR stats before/after candidate flags ─────────────────────────
-    # Use clang -O3 -march=native -S -emit-llvm so AVX-512 target features are active
+    # Use clang -O3 -S -emit-llvm
     print("\n[Step 6] Measuring IR stats before/after candidate flag values...")
     baseline_stats = get_ir_stats(clang, src, utils, source_dir, kernel_name)
     print(f"  Baseline: {baseline_stats}")

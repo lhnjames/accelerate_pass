@@ -2,7 +2,7 @@
 Run Logger: structured logging for COMET optimization runs.
 
 Every run is saved to:
-  /home/hanning/accelerate/runs/{YYYY-MM-DD_HH-MM-SS}_{program_name}/
+  <project_root>/runs/{YYYY-MM-DD_HH-MM-SS}_{program_name}/
     full.log          — complete stdout (all prints, pass info, timing)
     llm_calls.jsonl   — each LLM call: role/content prompt + full response
     results.json      — final speedup, best flags, best source
@@ -24,7 +24,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-RUNS_ROOT = Path("/home/hanning/accelerate/runs")
+# src/run_logger.py -> src/ -> <project_root>/runs
+RUNS_ROOT = Path(__file__).resolve().parent.parent / "runs"
 
 
 class RunLogger:

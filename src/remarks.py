@@ -67,7 +67,7 @@ def extract_rich_remarks_yaml(clang: str, src: str,
     tmp_src = make_noinline_src(src, kernel_name)
 
     cmd = [
-        clang, "-O3", "-march=native", "-std=c99", "-g", "-c",
+        clang, "-O3", "-std=c99", "-g", "-c",
         f"-I{utils}", f"-I{source_dir}",
         "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
         "-fsave-optimization-record=yaml",

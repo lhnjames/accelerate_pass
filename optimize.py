@@ -28,7 +28,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from src.config import ConfigLoader
-from src.llm_client import LLMClient
+from src.llm_client import LLMClient, strip_json_fences
 from src.compiler_manager import CompilerRunner
 from src.pass_graph import generate_pass_graph
 from src.datasets import detect_dataset_type
@@ -692,32 +692,11 @@ def collect_all_evidence(src: str, config, runner: CompilerRunner,
 
 # ── Unified LLM prompt builder ────────────────────────────────────────────────
 
-def _build_agent_prompt(kernel_name: str, ev: dict,
-                        cpu_info: str, cpu_cache: str,
-                        history: "OptimizationHistory",
-                        current_best_source: "str | None",
-                        current_best_flags:  list,
-                        step_num: int, max_steps: int,
-                        forced_action: "str | None" = None) -> str:
+def _build_remarks_and_targeted_passes(ev: dict) -> dict:
     """
-    构建 agent 模式的 LLM 决策提示。
-
-    设计原则：
-    1. 逆向推断：perf 瓶颈 → 对应 O3 pass → 参数调整
-    2. 只展示有 missed remarks 且有可调参数的 pass（过滤噪声）
-    3. 上下文压缩：有 token 预算，超出则截断
-    4. 历史 perf 趋势：让 LLM 看到每步后指标如何变化
-    5. 中文引导，英文数值和代码
+    编译器 remarks 摘要 + 逆向推断可调 pass 表（瓶颈 → 精准 pass 参数）。
+    纯只读计算：从 ev 中提取 missed/passed remarks 和 targeted-pass 展示文本。
     """
-    # ── 上下文压缩 ──────────────────────────────────────────────────────────
-    # 估算 token（1 token ≈ 4 chars），总输入预算 32000 tokens = 128000 chars
-    TOKEN_BUDGET = 28000  # 留 4000 给输出
-
-    pg_summary = ev.get("pass_graph", {}).get("summary", "")
-    if not pg_summary:
-        pg_summary = f"{len(ev['kernel_passes'])} passes ran on {kernel_name}."
-
-    # ── 编译器 remarks（只显示 missed，按 miss 数量降序，最多 5 个 pass）──
     missed_lines = []
     missed_sorted = sorted(
         [(pname, entries) for pname, entries in ev["kernel_remarks"].items()
@@ -736,10 +715,8 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
         if ps:
             passed_lines.append(f"  {pname}: {len(ps)} 次成功")
 
-    # ── 逆向推断 + 可调 pass（核心：瓶颈 → 精准 pass 参数）─────────────────
     targeted = ev.get("targeted_passes", [])
     baseline_perf = ev.get("baseline_perf", {})
-    bottleneck_hints = baseline_perf.get("bottleneck_hints", ["unknown"])
 
     try:
         from src.perf_analysis import format_perf_summary, format_targeted_passes
@@ -760,29 +737,19 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
                     mllvm_lines.append(f"  {o['flag']}=<{o['type']}>  -- {o['desc']}")
         targeted_pass_str = "\n".join(mllvm_lines) if mllvm_lines else "  无可调参数（需源码重写）"
 
-    # ── pragma 参考 ──────────────────────────────────────────────────────────
-    pragma_lines = []
-    for ph in PRAGMA_LOOP_HINTS:
-        pragma_lines.append(f"  [{ph['group']}] {ph['pragma']}  -- {ph['desc']}")
+    return {
+        "missed_lines":      missed_lines,
+        "passed_str":        "\n".join(passed_lines) if passed_lines else "  (无记录)",
+        "perf_summary_str":  perf_summary_str,
+        "targeted_pass_str": targeted_pass_str,
+        "baseline_perf":     baseline_perf,
+    }
 
-    # ── 当前最优状态 ──────────────────────────────────────────────────────────
-    best_sp   = history.best_speedup
-    best_desc = history.best_combo
-    flags_str = " ".join(current_best_flags) if current_best_flags else "(无)"
-    # Extract current best kernel for display
-    current_best_kernel = ""
-    if current_best_source:
-        _cbk, _, _ = extract_kernel_function(current_best_source, kernel_name)
-        current_best_kernel = _cbk or ""
-        source_note = ("当前最优是经过源码重写的版本（见下方 Current Best Kernel）。"
-                       "可用 base=\"current_best\" 在此基础上继续，或 base=\"original\" 重新开始。")
-    else:
-        source_note = "尚无源码重写（仅 -mllvm flags 被测试过）。"
 
-    # ── history 部分 ─────────────────────────────────────────────────────────
-    history_section = history.to_prompt_section()
-
-    # ── 步骤引导语 ────────────────────────────────────────────────────────────
+def _build_step_guidance(step_num: int, max_steps: int, forced_action: "str | None",
+                         best_sp: float, best_desc: str, bottleneck_hints: list,
+                         history: "OptimizationHistory") -> str:
+    """构建步骤引导语：根据强制阶段/历史完成情况告诉 LLM 这一步该做什么。"""
     remaining = max_steps - step_num + 1
 
     # Check whether each mandatory phase has been done successfully (with speedup)
@@ -852,6 +819,11 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
     if remaining <= 2:
         guidance += f"  仅剩 {remaining} 步——请集中在成功率最高的操作。"
 
+    return guidance
+
+
+def _build_evidence_sections(ev: dict, baseline_perf: dict, missed_lines: list) -> dict:
+    """构建 IR 文本、富 remarks、VTune、IR-diff、静态分析段——均为只读展示文本。"""
     # ── IR：只显示 kernel 函数部分，限 80 行 ─────────────────────────────────
     ir_lines = (ev.get("kernel_ir", "") or "").split("\n")
     ir_was_truncated = len(ir_lines) > 80
@@ -898,9 +870,90 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
     # ── 静态分析段（无 polybench 数据时替换 perf 段）────────────────────────
     static_summary = ev.get("static_summary", "")
     is_static = ev.get("is_static_fallback", False)
+    static_note_str = (f"【注意：无 PolyBench 运行时数据，以下为静态分析推断】\n{static_summary}"
+                       if is_static else "")
+
+    return {
+        "ir_lines":         ir_lines,
+        "ir_text":          ir_text,
+        "rich_missed_str":  rich_missed_str,
+        "vtune_section":    vtune_section,
+        "ir_diff_pass_str": ir_diff_pass_str,
+        "static_summary":   static_summary,
+        "is_static":        is_static,
+        "static_note_str":  static_note_str,
+    }
+
+
+def _build_agent_prompt(kernel_name: str, ev: dict,
+                        cpu_info: str, cpu_cache: str,
+                        history: "OptimizationHistory",
+                        current_best_source: "str | None",
+                        current_best_flags:  list,
+                        step_num: int, max_steps: int,
+                        forced_action: "str | None" = None) -> str:
+    """
+    构建 agent 模式的 LLM 决策提示。
+
+    设计原则：
+    1. 逆向推断：perf 瓶颈 → 对应 O3 pass → 参数调整
+    2. 只展示有 missed remarks 且有可调参数的 pass（过滤噪声）
+    3. 上下文压缩：有 token 预算，超出则截断
+    4. 历史 perf 趋势：让 LLM 看到每步后指标如何变化
+    5. 中文引导，英文数值和代码
+    """
+    # ── 上下文压缩 ──────────────────────────────────────────────────────────
+    # 估算 token（1 token ≈ 4 chars），总输入预算 32000 tokens = 128000 chars
+    TOKEN_BUDGET = 28000  # 留 4000 给输出
+
+    pg_summary = ev.get("pass_graph", {}).get("summary", "")
+    if not pg_summary:
+        pg_summary = f"{len(ev['kernel_passes'])} passes ran on {kernel_name}."
+
+    remarks_info      = _build_remarks_and_targeted_passes(ev)
+    missed_lines      = remarks_info["missed_lines"]
+    passed_str        = remarks_info["passed_str"]
+    perf_summary_str  = remarks_info["perf_summary_str"]
+    targeted_pass_str = remarks_info["targeted_pass_str"]
+    baseline_perf     = remarks_info["baseline_perf"]
+    bottleneck_hints  = baseline_perf.get("bottleneck_hints", ["unknown"])
+
+    # ── pragma 参考 ──────────────────────────────────────────────────────────
+    pragma_lines = []
+    for ph in PRAGMA_LOOP_HINTS:
+        pragma_lines.append(f"  [{ph['group']}] {ph['pragma']}  -- {ph['desc']}")
+
+    # ── 当前最优状态 ──────────────────────────────────────────────────────────
+    best_sp   = history.best_speedup
+    best_desc = history.best_combo
+    flags_str = " ".join(current_best_flags) if current_best_flags else "(无)"
+    # Extract current best kernel for display
+    current_best_kernel = ""
+    if current_best_source:
+        _cbk, _, _ = extract_kernel_function(current_best_source, kernel_name)
+        current_best_kernel = _cbk or ""
+        source_note = ("当前最优是经过源码重写的版本（见下方 Current Best Kernel）。"
+                       "可用 base=\"current_best\" 在此基础上继续，或 base=\"original\" 重新开始。")
+    else:
+        source_note = "尚无源码重写（仅 -mllvm flags 被测试过）。"
+
+    # ── history 部分 ─────────────────────────────────────────────────────────
+    history_section = history.to_prompt_section()
+
+    guidance = _build_step_guidance(step_num, max_steps, forced_action,
+                                    best_sp, best_desc, bottleneck_hints, history)
+
+    evidence          = _build_evidence_sections(ev, baseline_perf, missed_lines)
+    ir_lines          = evidence["ir_lines"]
+    ir_text           = evidence["ir_text"]
+    rich_missed_str   = evidence["rich_missed_str"]
+    vtune_section     = evidence["vtune_section"]
+    ir_diff_pass_str  = evidence["ir_diff_pass_str"]
+    static_summary    = evidence["static_summary"]
+    is_static         = evidence["is_static"]
+    static_note_str   = evidence["static_note_str"]
 
     # 组装各部分字符串
-    passed_str   = "\n".join(passed_lines)   if passed_lines   else "  (无记录)"
     pragma_str   = "\n".join(pragma_lines)
     ir_diff_str  = ("\n".join(ev['ir_diff_info'])
                     if ev.get('ir_diff_info') else "  (无探针 IR 变化)")
@@ -909,7 +962,7 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
     prompt = f"""你是一名专业的 LLVM 编译器优化工程师，以 agent 模式运行。
 
 目标：通过调整 LLVM O3 内部 pass 参数和/或重写 kernel 源码，
-提升 `{kernel_name}` 相对于 -O3 -march=native baseline 的运行时性能。
+提升 `{kernel_name}` 相对于 -O3 baseline 的运行时性能。
 
 约束：
 - 只能调整 O3 pipeline 中已经运行过的 pass 的 cost-model 参数（-mllvm 标志）
@@ -927,7 +980,7 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
 ══════════════════════════════════════════════════════════════
 ## ② 性能计数器基线（perf stat{"+ VTune Top-Down" if vtune_section else ""}）
 {perf_summary_str}{vtune_section}
-{"【注意：无 PolyBench 运行时数据，以下为静态分析推断】\\n" + static_summary if is_static else ""}
+{static_note_str}
 
 【逆向推断】根据以上瓶颈，以下 O3 pass 最值得优先调整：
 （只列出：① 确实在 O3 pipeline 中运行过，② 有 missed remarks，③ 有可调 cost-model 参数）
@@ -963,7 +1016,7 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
 {passed_str}
 
 ══════════════════════════════════════════════════════════════
-## ⑥ IR 统计 (-O3 -march=native)
+## ⑥ IR 统计 (-O3)
 {ev['baseline_stats']}
 
 探针值 IR 变化（修改某 flag 后 vector_ops/instr 的变化量）:
@@ -1424,13 +1477,7 @@ Valid action names: try_flags, rewrite_source, try_pragma"""
         )
         if not resp:
             return []
-        clean = resp.strip()
-        for fence in ("```json", "```"):
-            if clean.startswith(fence):
-                clean = clean[len(fence):]
-        if clean.endswith("```"):
-            clean = clean[:-3]
-        parsed = json.loads(clean.strip())
+        parsed = json.loads(strip_json_fences(resp))
         raw_plan = parsed.get("plan", [])
         valid = [a if isinstance(a, str) else a.get("action", "")
                  for a in raw_plan]
@@ -1915,14 +1962,8 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
         return {"action": "error", "speedup": 1.0, "error": "no LLM response",
                 "reasoning": "", "strategy": "", "flags": [], "source": None}
 
-    clean = resp.strip()
-    for fence in ("```json", "```"):
-        if clean.startswith(fence):
-            clean = clean[len(fence):]
-    if clean.endswith("```"):
-        clean = clean[:-3]
     try:
-        plan = json.loads(clean.strip())
+        plan = json.loads(strip_json_fences(resp))
     except Exception as e:
         return {"action": "error", "speedup": 1.0, "error": f"JSON parse: {e}",
                 "reasoning": "", "strategy": "", "flags": [], "source": None}
@@ -1969,7 +2010,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
         tmpdir = Path(tmpdir)
 
         # ── try_flags ─────────────────────────────────────────────────────────
-        if action == "try_flags":
+        def _do_try_flags() -> dict:
             flag_specs = list(plan.get("flags", []))
 
             # ── Auto-supplement: add targeted_passes params not already in LLM suggestions ──
@@ -2153,7 +2194,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     "perf_stats": best_perf}
 
         # ── try_pragma ────────────────────────────────────────────────────────
-        elif action == "try_pragma":
+        def _do_try_pragma() -> dict:
             hints      = plan.get("pragma_hints", [])
             also_flags = plan.get("also_flags", [])
             if not hints:
@@ -2201,10 +2242,10 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     "perf_stats": res.get("perf_stats", {}), "snapshot_path": snap}
 
         # ── rewrite_source ────────────────────────────────────────────────────
-        elif action == "rewrite_source":
+        def _do_rewrite_source() -> dict:
             strategy   = plan.get("strategy", "")
             also_flags = plan.get("also_flags", [])
-            # base_src_text and base_choice already resolved above (line ~1612)
+            # base_src_text and base_choice already resolved above (see base_choice = plan.get("base", ...))
 
             # ── Phase 1: Analysis LLM — diagnose bottleneck before writing code ──
             print(f"  [重写分析] 运行瓶颈诊断 LLM...")
@@ -2360,6 +2401,13 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     "speedup_src_only": sp_src_only,
                     "speedup_with_flags": sp_with_flags}
 
+        # ── dispatch ──────────────────────────────────────────────────────────
+        if action == "try_flags":
+            return _do_try_flags()
+        elif action == "try_pragma":
+            return _do_try_pragma()
+        elif action == "rewrite_source":
+            return _do_rewrite_source()
         else:
             return {"action": action, "speedup": 1.0, "error": f"未知 action: {action}",
                     "reasoning": reasoning, "improvement_analysis": improvement_analysis,
@@ -2427,7 +2475,7 @@ def run_param_round(src: str, config, llm: LLMClient,
     top_passes = scored[:top_k]
 
     # Step 6: IR stats before/after candidate probe values
-    # Use clang -O3 -march=native (same as real build) so AVX-512 features are active
+    # Use clang -O3 (same as real build)
     print("  Measuring IR stats before/after probe values...")
     try:
         os.unlink(o0_ir)
@@ -2529,14 +2577,8 @@ Output strict JSON (no markdown):
     if not resp:
         print("  LLM no response"); return {}
 
-    clean = resp.strip()
-    for fence in ("```json", "```"):
-        if clean.startswith(fence):
-            clean = clean[len(fence):]
-    if clean.endswith("```"):
-        clean = clean[:-3]
     try:
-        parsed = json.loads(clean.strip())
+        parsed = json.loads(strip_json_fences(resp))
     except Exception as e:
         print(f"  JSON parse error: {e}"); return {}
 
@@ -2663,14 +2705,8 @@ Output strict JSON:
         ])
         refined_params = params  # fallback to original
         if resp2:
-            clean2 = resp2.strip()
-            for fence in ("```json", "```"):
-                if clean2.startswith(fence):
-                    clean2 = clean2[len(fence):]
-            if clean2.endswith("```"):
-                clean2 = clean2[:-3]
             try:
-                p2 = json.loads(clean2.strip())
+                p2 = json.loads(strip_json_fences(resp2))
                 if p2.get("parameters"):
                     refined_params = p2["parameters"]
                     analysis = p2.get("analysis", analysis)
@@ -2953,7 +2989,7 @@ def run_source_round(rewrite_src: str, ref_src: str, config, llm: LLMClient,
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
-def main():
+def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="COMET agent optimizer")
     parser.add_argument("--program",       required=True)
     parser.add_argument("--config",        default="configs")
@@ -2969,7 +3005,7 @@ def main():
     parser.add_argument("--dataset",       default="auto",
                         help="Dataset type: auto|polybench|tsvc|cbench (default=auto)")
     parser.add_argument("--no-log",        action="store_true",
-                        help="Disable run logger (no /accelerate/runs/ directory)")
+                        help="Disable run logger (no runs/ directory)")
     # Mode flags
     parser.add_argument("--unified-only",  action="store_true",
                         help="Run only the agent optimization (skip legacy param/source)")
@@ -2978,7 +3014,11 @@ def main():
     # Legacy mode flags (kept for backwards-compat)
     parser.add_argument("--param-only",    action="store_true")
     parser.add_argument("--source-only",   action="store_true")
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = _build_arg_parser().parse_args()
 
     max_steps = args.rounds if args.rounds is not None else args.max_steps
 
@@ -3180,7 +3220,10 @@ def main():
                 if llc is not None:
                     perf_str += f" LLC_miss={llc:.1f}%"
 
-            print(f"  步骤{step}: {sp:.3f}x  [{strat}]{perf_str}")
+            if err:
+                print(f"  步骤{step}: 失败 [{action}] {err[:300]}")
+            else:
+                print(f"  步骤{step}: {sp:.3f}x  [{strat}]{perf_str}")
             if snap:
                 print(f"  快照: {snap}")
 
@@ -3299,11 +3342,11 @@ def main():
 
         print()
         if best_source and best_flags:
-            print(f"编译命令:  clang -O3 -march=native {' '.join(best_flags)} {out_file} ...")
+            print(f"编译命令:  clang -O3 {' '.join(best_flags)} {out_file} ...")
         elif best_source:
-            print(f"编译命令:  clang -O3 -march=native {out_file} ...")
+            print(f"编译命令:  clang -O3 {out_file} ...")
         elif best_flags:
-            print(f"编译命令:  clang -O3 -march=native {' '.join(best_flags)} {src} ...")
+            print(f"编译命令:  clang -O3 {' '.join(best_flags)} {src} ...")
         else:
             print("未找到有效优化（无源码改进，无有效参数）。")
 
@@ -3400,7 +3443,9 @@ def main():
         return analysis
 
     def _retune(source_text: str) -> tuple:
-        tmp = Path(src).parent / f"_{name}_retune_tmp.c"
+        fd, tmp_name = tempfile.mkstemp(prefix=f"{name}_retune_", suffix=".c")
+        os.close(fd)
+        tmp = Path(tmp_name)
         try:
             tmp.write_text(source_text)
             res = run_param_round(str(tmp), config, llm, args.runs, pin_cpu, args.top_k,
@@ -3418,7 +3463,7 @@ def main():
             return param_extra_flags[:], " ".join(param_extra_flags)
         finally:
             try: tmp.unlink()
-            except: pass
+            except Exception: pass
 
     with open(src) as _f:
         _orig_text = _f.read()
@@ -3498,7 +3543,9 @@ def main():
                     best_speedup = sp
                     best_source  = result["source"]
                     print(f"  → New best ({sp:.3f}x)!")
-                    tmp_path = Path(src).parent / f"_{name}_round{idx}_tmp.c"
+                    fd, _tmp_name = tempfile.mkstemp(prefix=f"{name}_round{idx}_", suffix=".c")
+                    os.close(fd)
+                    tmp_path = Path(_tmp_name)
                     tmp_path.write_text(best_source)
                     round_tmp_files.append(tmp_path)
                     current_rewrite = str(tmp_path)
@@ -3517,8 +3564,16 @@ def main():
     finally:
         for f in round_tmp_files:
             try: f.unlink()
-            except: pass
+            except Exception: pass
 
+    _print_legacy_summary(name, param_result, best_source, best_speedup,
+                          best_retune_str, best_retune_flags)
+
+
+def _print_legacy_summary(name: str, param_result: dict, best_source: "str | None",
+                          best_speedup: float, best_retune_str: str,
+                          best_retune_flags: list) -> None:
+    """Print the final summary for the legacy --param-only/--source-only path."""
     print("\n" + "=" * 60)
     print(f"Program:      {name}")
     if param_result.get("baseline_ms"):
@@ -3535,7 +3590,7 @@ def main():
             f.write(best_source)
         print(f"Saved:        {out_file}")
         if best_retune_flags:
-            print(f"To compile:   clang -O3 -march=native "
+            print(f"To compile:   clang -O3 "
                   f"{' '.join(best_retune_flags)} {out_file} ...")
     else:
         print("Source:       no verified improvement")

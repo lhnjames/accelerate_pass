@@ -1,5 +1,0 @@
-digraph "CFG for 'test' function" {
-	label="CFG for 'test' function";
-
-	Node0x10a8310 [shape=record,color="#b70d28ff", style=filled, fillcolor="#b70d2870",label="{%0:\l  ret i32 %a\l}"];
-}

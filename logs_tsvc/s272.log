@@ -1,0 +1,13 @@
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-14_22-03-07_tsvc_s272
+  Dataset type: tsvc
+============================================================
+COMET agent: s272  max_steps=5
+============================================================
+
+[Evidence collection -- one-time analysis]
+  IR extraction failed: Clang -emit-llvm failed: /home/hanning/comet/TSVC_shim/kernels/s272/s272.c:12:26: error: expected ';' after top level declarator
+int kernel_s272(real_t t)
+                         ^
+                         ;
+/home/hanning/comet/TSVC_shim/kernels/s272/s272.c:58:28: error: passing 'struct args_t *' to parameter of incompatib
+Evidence collection failed (IR extraction error?)

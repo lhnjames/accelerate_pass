@@ -1,201 +1,581 @@
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-07_23-13-22_polybench_gemm
+  Dataset type: polybench
+============================================================
+COMET agent: gemm  max_steps=9
+============================================================
+
+[Evidence collection -- one-time analysis]
+  提取富 YAML remarks（含代码位置、向量化因子等）...
+  富 remarks: 6 passes, 10 missed
+  检查每个 pass 的 IR 修改情况（前20个）...
+  IR diff: 4 passes FIRED, 4 no-op
+  Pass graph → /home/hanning/comet/runs/2026-07-07_23-13-22_polybench_gemm/outputs/kernel_gemm_pass_graph.dot
+  收集基线硬件计数器（perf stat + VTune）...
+  瓶颈推断: unknown
+  VTune: vtune binary not found or not functional
+  逆向推断: 瓶颈=['unknown'] → 优先pass: LICMPass, SLPVectorizerPass, GVN
+  检测正确性验证模式...
+  正确性验证模式: polybench_dump
+  53 passes in pipeline, 41 ran on kernel_gemm
+  基线 -O3: 472.64 ms
+  快照目录: /home/hanning/comet/runs/2026-07-07_23-13-22_polybench_gemm/outputs/snapshots/gemm
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 1/9]
+  Querying LLM (step 1)...
+  Action: try_flags
+  Reasoning: perf baseline显示vector_ops=34，SLP有5次missed因cost>=threshold，但调整SLP可能改变FP顺序导致数值不一致。探针中partial-unrolling-threshold=300大幅增加vec_ops和指令数，表明循环展开可释放更多向量化机会。但需要更细粒度搜索最优阈值。同时调整unroll-threshold-aggressive可允许更大展开。
+  ImprovementAnalysis: 当前baseline仅使用O3默认参数，循环展开和SLP向量化均因cost model保守未充分触发。探针显示展开阈值影响巨大，但需平衡代码膨胀和数据局部性。由于FP顺序约束，SLP参数暂不调整。先通过展开参数探索前端效果。
+    -partial-unrolling-threshold=50 -> 433.8 ms (1.089x) <--
+    -partial-unrolling-threshold=100 -> 431.2 ms (1.096x) <--
+    -partial-unrolling-threshold=200 -> 431.7 ms (1.095x)
+    -partial-unrolling-threshold=300 -> 431.7 ms (1.095x)
+    -partial-unrolling-threshold=400 -> 431.8 ms (1.095x)
+    -partial-unrolling-threshold=800 -> 542.1 ms (0.872x)
+    -partial-unrolling-threshold=1000 -> 542.5 ms (0.871x)
+    -partial-unrolling-threshold=2000 -> 542.9 ms (0.871x)
+    -unroll-threshold-aggressive=20 -> 472.8 ms (1.000x)
+    -unroll-threshold-aggressive=40 -> 471.5 ms (1.002x) <--
+    -unroll-threshold-aggressive=80 -> 471.5 ms (1.002x) <--
+    -unroll-threshold-aggressive=160 -> 472.6 ms (1.000x)
+    -unroll-threshold-aggressive=320 -> 471.8 ms (1.002x)
+    -unroll-threshold-aggressive=640 -> 471.3 ms (1.003x) <--
+    -unroll-threshold-aggressive=1280 -> 472.6 ms (1.000x)
+    --slp-look-ahead-users-budget=8 -> 471.3 ms (1.003x) <--
+    --slp-look-ahead-users-budget=16 -> 474.3 ms (0.997x)
+    --slp-look-ahead-users-budget=32 -> 473.8 ms (0.998x)
+    --slp-look-ahead-users-budget=64 -> 470.7 ms (1.004x) <--
+    --slp-look-ahead-users-budget=128 -> 471.0 ms (1.004x)
+    --slp-look-ahead-users-budget=256 -> 471.3 ms (1.003x)
+    --slp-max-look-ahead-depth=-1 -> 473.5 ms (0.998x)
+    --slp-max-look-ahead-depth=-2 -> 475.2 ms (0.995x)
+    --slp-max-look-ahead-depth=-4 -> 472.3 ms (1.001x) <--
+    --slp-max-look-ahead-depth=0 -> 473.5 ms (0.998x)
+    --slp-max-look-ahead-depth=5 -> 471.6 ms (1.002x) <--
+    --slp-max-look-ahead-depth=10 -> 474.1 ms (0.997x)
+    --slp-max-reg-size=-1 -> 473.7 ms (0.998x)
+    --slp-max-reg-size=-2 -> 472.7 ms (1.000x)
+    --slp-max-reg-size=-4 -> 472.7 ms (1.000x)
+    --slp-max-reg-size=0 -> 471.6 ms (1.002x) <--
+    --slp-max-reg-size=5 -> 472.4 ms (1.001x)
+    --slp-max-reg-size=10 -> 472.4 ms (1.001x)
+    --slp-max-store-lookup=-1 -> 472.3 ms (1.001x) <--
+    --slp-max-store-lookup=-2 -> 471.7 ms (1.002x) <--
+    --slp-max-store-lookup=-4 -> 472.8 ms (1.000x)
+    --slp-max-store-lookup=0 -> 471.7 ms (1.002x)
+    --slp-max-store-lookup=5 -> 473.0 ms (0.999x)
+    --slp-max-store-lookup=10 -> 471.9 ms (1.002x)
+    --slp-min-reg-size=-1 -> 473.4 ms (0.998x)
+    --slp-min-reg-size=-2 -> 473.9 ms (0.997x)
+    --slp-min-reg-size=-4 -> 474.3 ms (0.997x)
+    --slp-min-reg-size=0 -> 473.9 ms (0.997x)
+    --slp-min-reg-size=5 -> 472.8 ms (1.000x)
+    --slp-min-reg-size=10 -> 472.4 ms (1.000x) <--
+    --slp-min-tree-size=8 -> 472.0 ms (1.001x) <--
+    --slp-min-tree-size=16 -> 471.7 ms (1.002x) <--
+    --slp-min-tree-size=32 -> 471.5 ms (1.002x) <--
+    --slp-min-tree-size=64 -> 472.3 ms (1.001x)
+    --slp-min-tree-size=128 -> 472.7 ms (1.000x)
+    --slp-min-tree-size=256 -> 473.6 ms (0.998x)
+    --slp-recursion-max-depth=8 -> 473.9 ms (0.997x)
+    --slp-recursion-max-depth=16 -> 471.4 ms (1.003x) <--
+    --slp-recursion-max-depth=32 -> 472.5 ms (1.000x)
+    --slp-recursion-max-depth=64 -> 472.2 ms (1.001x)
+    --slp-recursion-max-depth=128 -> 473.5 ms (0.998x)
+    --slp-recursion-max-depth=256 -> 472.8 ms (1.000x)
+    --slp-schedule-budget=-1 -> 475.7 ms (0.994x)
+    --slp-schedule-budget=-2 -> 475.1 ms (0.995x)
+    --slp-schedule-budget=-4 -> 476.9 ms (0.991x)
+    --slp-schedule-budget=0 -> 473.1 ms (0.999x)
+    --slp-schedule-budget=5 -> 472.1 ms (1.001x) <--
+    --slp-schedule-budget=10 -> 473.2 ms (0.999x)
+    --slp-threshold=-1 -> 475.8 ms (0.993x)
+    --slp-threshold=-2 -> 471.8 ms (1.002x) <--
+    --slp-threshold=-4 -> 472.4 ms (1.000x)
+    --slp-threshold=0 -> 472.5 ms (1.000x)
+    --slp-threshold=5 -> 473.0 ms (0.999x)
+    --slp-threshold=10 -> 472.5 ms (1.000x)
+    --gvn-hoist-max-bbs=8 -> 473.7 ms (0.998x)
+    --gvn-hoist-max-bbs=16 -> 472.3 ms (1.001x) <--
+    --gvn-hoist-max-bbs=2 -> 472.7 ms (1.000x)
+    --gvn-hoist-max-bbs=-1 -> 472.4 ms (1.001x)
+    --gvn-hoist-max-bbs=-2 -> 472.4 ms (1.000x)
+    --gvn-hoist-max-chain-length=20 -> 471.7 ms (1.002x) <--
+    --gvn-hoist-max-chain-length=40 -> 472.5 ms (1.000x)
+    --gvn-hoist-max-chain-length=5 -> 473.6 ms (0.998x)
+    --gvn-hoist-max-chain-length=-1 -> 476.2 ms (0.992x)
+    --gvn-hoist-max-chain-length=-2 -> 473.1 ms (0.999x)
+    --gvn-hoist-max-depth=200 -> 475.9 ms (0.993x)
+    --gvn-hoist-max-depth=400 -> 472.5 ms (1.000x) <--
+    --gvn-hoist-max-depth=50 -> 472.0 ms (1.001x) <--
+    --gvn-hoist-max-depth=-1 -> 471.8 ms (1.002x) <--
+    --gvn-hoist-max-depth=-2 -> 472.5 ms (1.000x)
+    --gvn-max-hoisted=-1 -> 472.4 ms (1.001x) <--
+    --gvn-max-hoisted=-2 -> 472.3 ms (1.001x) <--
+    --gvn-max-hoisted=-4 -> 472.4 ms (1.001x)
+    --gvn-max-hoisted=0 -> 472.3 ms (1.001x)
+    --gvn-max-hoisted=5 -> 473.3 ms (0.999x)
+    --gvn-max-hoisted=10 -> 473.2 ms (0.999x)
+    --gvn-max-num-deps=200 -> 472.7 ms (1.000x)
+    --gvn-max-num-deps=400 -> 472.5 ms (1.000x) <--
+    --gvn-max-num-deps=800 -> 473.1 ms (0.999x)
+    --gvn-max-num-deps=1600 -> 472.3 ms (1.001x) <--
+    --gvn-max-recurse-depth=2000 -> 473.6 ms (0.998x)
+    --gvn-max-recurse-depth=4000 -> 472.4 ms (1.000x) <--
+    --gvn-max-recurse-depth=8000 -> 471.5 ms (1.002x) <--
+    --gvn-max-recurse-depth=16000 -> 473.1 ms (0.999x)
+    [joint-2] -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=64 -> 1.096x
+    [joint-3] -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=64 -mllvm -unroll-threshold-aggressive=640 -> 1.093x
+  try_flags 最优: 1.096x  [flags: -mllvm -partial-unrolling-threshold=100]
+  步骤1: 1.096x  [flags: -mllvm -partial-unrolling-threshold=100]
+  *** 新最优: 1.096x  [flags: -mllvm -partial-unrolling-threshold=100] ***
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 2/9]
+  Querying LLM (step 2)...
+  Action: rewrite_source
 content empty, falling back to reasoning_content on attempt 1
+content empty, falling back to reasoning_content on attempt 1
+  Reasoning: 当前优化主要通过unroll-threshold提升内层循环的指令级并行度，但内存访问模式仍是瓶颈：内层j循环每次迭代都读写C[i][j]，且A[i][k]的加载无法被LICM提升（由于保守别名分析）。循环交换为i-j-k后，将k循环移至最内层，可对每个(i,j)使用标量累加器累积约化结果，从而将C[i][j]的写回次数从NK次降为1次，同时消除独立的beta缩放循环。这种变换缓存友好且数值等价（
+  ImprovementAnalysis: 当前1.096x的提升来自部分展开减少循环控制开销，但内存带宽仍未被充分利用：每次k迭代都读写C[i][j]导致写覆盖和读依赖，且A[i][k]的重复加载无法被LICM消除（保守原因）。标量累加器配合循环交换可将C的访问缩减为1次读+1次写，同时使A[i][k]自然变为循环不变（被j循环外提），B[k][j]呈现连续访存。此变换预期显著降低内存瓶颈，并为后续向量化（SLP或LoopVectoriz
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## Step 1 — Memory access pattern
+  [重写实现] 根据分析生成优化代码...
+  rewrite_source（纯源码 -O3）: 0.065x  [将循环顺序从 i-k-j 交换为 i-j-k，使得最内层循环为k（约化维度）。对每个(i,j)，在j循环内使用一个局部标量变量acc，初始化为beta * C[i][j]（当前C数组中原始值），然后对k循环，累加alpha * A[i][k] * B[k][j]到acc，最后将acc写回C[i][j]。此变换消除了原始代码中独立的beta缩放循环，并利用寄存器累加器减少对C数组的写回次数，提升内存性能和向量化潜力。]
+  rewrite_source + [-mllvm -partial-unrolling-threshold=100]: 0.061x  (比纯源码差，此版本不用参数)
+  ⚠ 灾难性退化: 0.065x << 当前最优 1.096x (阈值 20%)，自动回退到 1.096x 状态
+  步骤2: 0.065x  [rewrite: 将循环顺序从 i-k-j 交换为 i-j-k，使得最内层循环为k（约化维度）。对每个(i,j)，在j循环内使用一个局部标量变量acc，初始化为beta * C[i][j]（当前C数组中原始值），然后对k循环，累加alpha * A[i][k] * B[k][j]到acc，最后将acc写回C[i][j]。此变换消除了原始代码中独立的beta缩放循环，并利用寄存器累加器减少对C数组的写回次数，提升内存性能和向量化潜力。]
+  快照: /home/hanning/comet/runs/2026-07-07_23-13-22_polybench_gemm/outputs/snapshots/gemm/step_02_rewrite_source_ok.c
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 3/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 3)...
+  Action: rewrite_source
+  Reasoning: 当前最优1.096x来自部分展开，但LICM和GVN的missed remarks表明编译器因指针别名分析保守，无法将A[i][k]的加载提升到j循环外，也无法消除C[i][j]的冗余加载。添加restrict限定符可打破别名假设，使LICM提升循环不变加载、GVN消除冗余，同时为后续向量化提供更优IR，有望显著提升性能。此策略未在历史中使用，且不改变FP计算顺序，保证数值一致。
+  ImprovementAnalysis: 1.096x的提升仅来自减少循环控制开销，但内存瓶颈未解决：A[i][k]在j循环内重复加载（每次j迭代都读），且C[i][j]在beta缩放的store与累加load之间形成冗余。添加restrict后，LICM可将A[i][k]提升到j循环外，GVN可消除C[i][j]的重复load，预计减少内存带宽消耗并提高向量化效率。当前数据集规模下，内存延迟可能占主导，restrict能直接缓解该瓶颈，
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## Diagnosis
+  [重写实现] 根据分析生成优化代码...
+  rewrite_source（纯源码 -O3）: 1.080x  [在kernel_gemm函数的指针参数A、B、C上添加`__restrict`关键字，指明三者不重叠；同时将`alpha`和`beta`在函数起始处拷贝为局部`const DATA_TYPE`变量，避免循环内重复加载。保持原始的i-k-j循环顺序和累加方式不变，仅通过别名信息消除帮助编译器优化。]
+  rewrite_source + [-mllvm -partial-unrolling-threshold=100]: 1.002x  (比纯源码差，此版本不用参数)
+  步骤3: 1.080x  [rewrite: 在kernel_gemm函数的指针参数A、B、C上添加`__restrict`关键字，指明三者不重叠；同时将`alpha`和`beta`在函数起始处拷贝为局部`const DATA_TYPE`变量，避免循环内重复加载。保持原始的i-k-j循环顺序和累加方式不变，仅通过别名信息消除帮助编译器优化。]
+  快照: /home/hanning/comet/runs/2026-07-07_23-13-22_polybench_gemm/outputs/snapshots/gemm/step_03_rewrite_source_ok.c
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 4/9]
+  [反重复] 'rewrite_source' 已连续 2 次，强制切换到 'try_pragma'
+  Querying LLM (step 4)...
+  [forced] LLM chose 'try_flags', overriding to 'try_pragma'
+  Action: try_pragma
+  Reasoning: 当前最优1.096x来自partial-unrolling-threshold=100，探针显示400%的向量操作增幅，但仅测试了一个点。步骤3的restrict源码（1.080x）虽然略低，但可能为展开提供更好的别名环境，因此以current_best源码为基础，系统搜索partial-unrolling-threshold和unroll-threshold-aggressive的更多候选，有望
+  ImprovementAnalysis: 1.096x的提升主要来自减少循环控制开销，但内存带宽瓶颈未完全解除：LICM仍有3次missed（A[i][k]未提升），GVN有1次missed（C[i][j]冗余load未消除）。restrict虽然部分缓解别名问题，但未配合最优展开阈值。更广泛的阈值搜索可以同时改善指令级并行和向量化覆盖率，克服当前仅靠单一阈值无法充分挖掘ILP的局限。
+  步骤4: 1.000x  []
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 5/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 5)...
+  Action: try_flags
+  Reasoning: 当前最优1.096x来自partial-unrolling-threshold=100，但SLP和GVN仍有大量missed，且SLP的cost==threshold正好卡在边界，降低slp-threshold可触发向量化；GVN的load PRE因hoist限制未消除冗余，增大gvn-max-hoisted和gvn-hoist-max-bbs可提升。另外unroll-threshold-aggr
+  ImprovementAnalysis: 1.096x的提升仅来自循环展开减少控制开销，但内存瓶颈和向量化未充分利用。SLP有5次missed（2次cost=0等于阈值，3次别名问题），降低slp-threshold到负值可突破0阈值触发SLP向量化；GVN有10次missed（load PRE因clobber store未消除），增大gvn-hoist参数可提升冗余消除；unroll-threshold-aggressive扩大可允许更
+    -partial-unrolling-threshold=100 -> 430.3 ms (1.098x) <--
+    -partial-unrolling-threshold=200 -> 430.9 ms (1.097x)
+    -partial-unrolling-threshold=400 -> 432.6 ms (1.093x)
+    -partial-unrolling-threshold=50 -> 431.3 ms (1.096x)
+    -slp-threshold=-1 -> 473.4 ms (0.998x)
+    -slp-threshold=-2 -> 473.1 ms (0.999x)
+    -slp-threshold=-4 -> 473.1 ms (0.999x)
+    -slp-threshold=0 -> 472.3 ms (1.001x) <--
+    -gvn-max-hoisted=-1 -> 471.9 ms (1.002x) <--
+    -gvn-max-hoisted=200 -> 472.5 ms (1.000x)
+    -gvn-max-hoisted=500 -> 472.7 ms (1.000x)
+    -gvn-hoist-max-bbs=-1 -> 473.0 ms (0.999x)
+    -gvn-hoist-max-bbs=10 -> 471.2 ms (1.003x) <--
+    -gvn-hoist-max-bbs=20 -> 471.1 ms (1.003x) <--
+    --slp-look-ahead-users-budget=8 -> 471.1 ms (1.003x) <--
+    --slp-look-ahead-users-budget=16 -> 470.7 ms (1.004x) <--
+    --slp-look-ahead-users-budget=32 -> 470.9 ms (1.004x)
+    --slp-look-ahead-users-budget=64 -> 471.8 ms (1.002x)
+    --slp-look-ahead-users-budget=128 -> 471.4 ms (1.003x)
+    --slp-look-ahead-users-budget=256 -> 470.9 ms (1.004x)
+content empty, falling back to reasoning_content on attempt 1
+    --slp-max-look-ahead-depth=-1 -> 471.6 ms (1.002x) <--
+    --slp-max-look-ahead-depth=-2 -> 470.8 ms (1.004x) <--
+    --slp-max-look-ahead-depth=-4 -> 470.9 ms (1.004x)
+    --slp-max-look-ahead-depth=0 -> 472.1 ms (1.001x)
+    --slp-max-look-ahead-depth=5 -> 470.7 ms (1.004x) <--
+    --slp-max-look-ahead-depth=10 -> 471.2 ms (1.003x)
+    --slp-max-reg-size=-1 -> 470.9 ms (1.004x) <--
+    --slp-max-reg-size=-2 -> 470.9 ms (1.004x)
+    --slp-max-reg-size=-4 -> 471.7 ms (1.002x)
+    --slp-max-reg-size=0 -> 471.2 ms (1.003x)
+    --slp-max-reg-size=5 -> 471.3 ms (1.003x)
+    --slp-max-reg-size=10 -> 472.4 ms (1.000x)
+    --slp-max-store-lookup=-1 -> 471.4 ms (1.003x) <--
+    --slp-max-store-lookup=-2 -> 471.8 ms (1.002x)
+    --slp-max-store-lookup=-4 -> 474.0 ms (0.997x)
+    --slp-max-store-lookup=0 -> 472.1 ms (1.001x)
+    --slp-max-store-lookup=5 -> 471.2 ms (1.003x) <--
+    --slp-max-store-lookup=10 -> 470.8 ms (1.004x) <--
+    --slp-min-reg-size=-1 -> 472.0 ms (1.001x) <--
+    --slp-min-reg-size=-2 -> 470.8 ms (1.004x) <--
+    --slp-min-reg-size=-4 -> 473.7 ms (0.998x)
+    --slp-min-reg-size=0 -> 472.0 ms (1.001x)
+    --slp-min-reg-size=5 -> 473.1 ms (0.999x)
+    --slp-min-reg-size=10 -> 472.0 ms (1.001x)
+    --slp-min-tree-size=8 -> 471.1 ms (1.003x) <--
+    --slp-min-tree-size=16 -> 473.4 ms (0.998x)
+    --slp-min-tree-size=32 -> 472.6 ms (1.000x)
+    --slp-min-tree-size=64 -> 474.9 ms (0.995x)
+    --slp-min-tree-size=128 -> 471.3 ms (1.003x)
+    --slp-min-tree-size=256 -> 471.8 ms (1.002x)
+    --slp-recursion-max-depth=8 -> 472.7 ms (1.000x)
+    --slp-recursion-max-depth=16 -> 473.3 ms (0.999x)
+    --slp-recursion-max-depth=32 -> 474.7 ms (0.996x)
+    --slp-recursion-max-depth=64 -> 472.7 ms (1.000x)
+    --slp-recursion-max-depth=128 -> 472.0 ms (1.001x) <--
+    --slp-recursion-max-depth=256 -> 475.6 ms (0.994x)
+    --slp-schedule-budget=-1 -> 476.6 ms (0.992x)
+    --slp-schedule-budget=-2 -> 479.6 ms (0.985x)
+    --slp-schedule-budget=-4 -> 472.5 ms (1.000x) <--
+    --slp-schedule-budget=0 -> 473.3 ms (0.999x)
+    --slp-schedule-budget=5 -> 474.0 ms (0.997x)
+    --slp-schedule-budget=10 -> 470.8 ms (1.004x) <--
+    --gvn-hoist-max-chain-length=20 -> 471.3 ms (1.003x) <--
+    --gvn-hoist-max-chain-length=40 -> 471.2 ms (1.003x) <--
+    --gvn-hoist-max-chain-length=5 -> 471.9 ms (1.002x)
+    --gvn-hoist-max-chain-length=-1 -> 472.2 ms (1.001x)
+    --gvn-hoist-max-chain-length=-2 -> 470.9 ms (1.004x) <--
+    --gvn-hoist-max-depth=200 -> 471.0 ms (1.003x) <--
+    --gvn-hoist-max-depth=400 -> 471.5 ms (1.002x)
+    --gvn-hoist-max-depth=50 -> 471.2 ms (1.003x)
+    --gvn-hoist-max-depth=-1 -> 472.7 ms (1.000x)
+    --gvn-hoist-max-depth=-2 -> 471.8 ms (1.002x)
+    --gvn-max-num-deps=200 -> 471.8 ms (1.002x) <--
+    --gvn-max-num-deps=400 -> 471.3 ms (1.003x) <--
+    --gvn-max-num-deps=800 -> 471.8 ms (1.002x)
+    --gvn-max-num-deps=1600 -> 471.7 ms (1.002x)
+    --gvn-max-recurse-depth=2000 -> 471.7 ms (1.002x) <--
+    --gvn-max-recurse-depth=4000 -> 471.5 ms (1.002x) <--
+    --gvn-max-recurse-depth=8000 -> 471.4 ms (1.003x) <--
+    --gvn-max-recurse-depth=16000 -> 472.5 ms (1.000x)
+    [joint-2] -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -> 1.099x
+    [joint-3] -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -mllvm --slp-max-look-ahead-depth=5 -> 1.099x
+  try_flags 最优: 1.099x  [flags: -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -mllvm --slp-max-look-ahead-depth=5]
+  步骤5: 1.099x  [flags: -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -mllvm --slp-max-look-ahead-depth=5]
+  *** 新最优: 1.099x  [flags: -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -mllvm --slp-max-look-ahead-depth=5] ***
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 6/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 6)...
+  Action: try_flags
+  Reasoning: 当前最优1.099x来自部分展开和SLP look-ahead参数，但SLP仍有5次missed且cost=0等于threshold=0，使得向量化未被触发。将slp-threshold降低为负值可突破cost barrier，使原本卡在边界的向量化机会变为有益，从而提升向量化覆盖率。GVN的missed是因store clobber，调整hoist参数可能无效。LICM的3次missed也需考虑
+  ImprovementAnalysis: 历史中唯一成功的源码重写(restrict)仅1.080x，低于flags组合。当前最佳的1.099x相对baseline提升有限，主要因为SLP向量化仍未触发。通过降低slp-threshold到负值，预期可激活SLP对gemm内层循环的向量化，增加向量操作数并减少指令数。此外，结合已启用的look-ahead参数，向量化质量可能更高。此参数调整不改变FP运算顺序，确保数值一致。若成功，有望获得
+    --slp-threshold=0 -> 470.5 ms (1.004x) <--
+    --slp-threshold=-1 -> 471.7 ms (1.002x)
+    --slp-threshold=-2 -> 471.0 ms (1.004x)
+    --slp-threshold=-5 -> 472.3 ms (1.001x)
+    --slp-look-ahead-users-budget=8 -> 472.5 ms (1.000x) <--
+    --slp-look-ahead-users-budget=16 -> 472.0 ms (1.001x) <--
+    --slp-look-ahead-users-budget=32 -> 471.7 ms (1.002x) <--
+    --slp-look-ahead-users-budget=64 -> 471.0 ms (1.003x) <--
+    --slp-look-ahead-users-budget=128 -> 471.8 ms (1.002x)
+    --slp-look-ahead-users-budget=256 -> 473.1 ms (0.999x)
+    --slp-max-look-ahead-depth=-1 -> 473.3 ms (0.999x)
+    --slp-max-look-ahead-depth=-2 -> 473.0 ms (0.999x)
+    --slp-max-look-ahead-depth=-4 -> 474.5 ms (0.996x)
+    --slp-max-look-ahead-depth=0 -> 471.8 ms (1.002x) <--
+    --slp-max-look-ahead-depth=5 -> 471.0 ms (1.003x) <--
+    --slp-max-look-ahead-depth=10 -> 471.8 ms (1.002x)
+    --slp-max-reg-size=-1 -> 470.5 ms (1.005x) <--
+    --slp-max-reg-size=-2 -> 472.4 ms (1.001x)
+    --slp-max-reg-size=-4 -> 472.5 ms (1.000x)
+    --slp-max-reg-size=0 -> 472.3 ms (1.001x)
+    --slp-max-reg-size=5 -> 472.2 ms (1.001x)
+    --slp-max-reg-size=10 -> 471.2 ms (1.003x)
+    --slp-max-store-lookup=-1 -> 471.3 ms (1.003x) <--
+    --slp-max-store-lookup=-2 -> 471.0 ms (1.004x) <--
+    --slp-max-store-lookup=-4 -> 472.0 ms (1.001x)
+    --slp-max-store-lookup=0 -> 471.5 ms (1.002x)
+    --slp-max-store-lookup=5 -> 471.4 ms (1.003x)
+    --slp-max-store-lookup=10 -> 471.6 ms (1.002x)
+    --slp-min-reg-size=-1 -> 471.5 ms (1.002x) <--
+    --slp-min-reg-size=-2 -> 473.2 ms (0.999x)
+    --slp-min-reg-size=-4 -> 471.4 ms (1.003x) <--
+    --slp-min-reg-size=0 -> 471.4 ms (1.003x)
+    --slp-min-reg-size=5 -> 472.4 ms (1.001x)
+    --slp-min-reg-size=10 -> 472.5 ms (1.000x)
+    --slp-min-tree-size=8 -> 471.4 ms (1.003x) <--
+    --slp-min-tree-size=16 -> 471.7 ms (1.002x)
+    --slp-min-tree-size=32 -> 470.6 ms (1.004x) <--
+    --slp-min-tree-size=64 -> 471.5 ms (1.002x)
+    --slp-min-tree-size=128 -> 471.7 ms (1.002x)
+    --slp-min-tree-size=256 -> 472.1 ms (1.001x)
+    --slp-recursion-max-depth=8 -> 471.5 ms (1.002x) <--
+    --slp-recursion-max-depth=16 -> 471.1 ms (1.003x) <--
+    --slp-recursion-max-depth=32 -> 472.3 ms (1.001x)
+    --slp-recursion-max-depth=64 -> 471.4 ms (1.003x)
+    --slp-recursion-max-depth=128 -> 471.9 ms (1.002x)
+    --slp-recursion-max-depth=256 -> 471.5 ms (1.002x)
+    --slp-schedule-budget=-1 -> 472.6 ms (1.000x) <--
+    --slp-schedule-budget=-2 -> 473.0 ms (0.999x)
+    --slp-schedule-budget=-4 -> 474.1 ms (0.997x)
+    --slp-schedule-budget=0 -> 471.7 ms (1.002x) <--
+    --slp-schedule-budget=5 -> 472.8 ms (1.000x)
+    --slp-schedule-budget=10 -> 472.7 ms (1.000x)
+    --gvn-hoist-max-bbs=8 -> 472.9 ms (0.999x)
+    --gvn-hoist-max-bbs=16 -> 472.0 ms (1.001x) <--
+    --gvn-hoist-max-bbs=2 -> 471.1 ms (1.003x) <--
+    --gvn-hoist-max-bbs=-1 -> 471.3 ms (1.003x)
+    --gvn-hoist-max-bbs=-2 -> 471.0 ms (1.004x) <--
+    --gvn-hoist-max-chain-length=20 -> 471.3 ms (1.003x) <--
+    --gvn-hoist-max-chain-length=40 -> 472.5 ms (1.000x)
+    --gvn-hoist-max-chain-length=5 -> 472.3 ms (1.001x)
+content empty, falling back to reasoning_content on attempt 1
+    --gvn-hoist-max-chain-length=-1 -> 472.1 ms (1.001x)
+    --gvn-hoist-max-chain-length=-2 -> 472.6 ms (1.000x)
+    --gvn-hoist-max-depth=200 -> 472.7 ms (1.000x)
+    --gvn-hoist-max-depth=400 -> 472.0 ms (1.001x) <--
+    --gvn-hoist-max-depth=50 -> 471.6 ms (1.002x) <--
+    --gvn-hoist-max-depth=-1 -> 472.6 ms (1.000x)
+    --gvn-hoist-max-depth=-2 -> 472.3 ms (1.001x)
+    --gvn-max-hoisted=-1 -> 471.2 ms (1.003x) <--
+    --gvn-max-hoisted=-2 -> 471.8 ms (1.002x)
+    --gvn-max-hoisted=-4 -> 471.6 ms (1.002x)
+    --gvn-max-hoisted=0 -> 472.6 ms (1.000x)
+    --gvn-max-hoisted=5 -> 473.3 ms (0.999x)
+    --gvn-max-hoisted=10 -> 472.0 ms (1.001x)
+    --gvn-max-num-deps=200 -> 471.2 ms (1.003x) <--
+    --gvn-max-num-deps=400 -> 471.9 ms (1.002x)
+    --gvn-max-num-deps=800 -> 473.6 ms (0.998x)
+    --gvn-max-num-deps=1600 -> 474.6 ms (0.996x)
+    --gvn-max-recurse-depth=2000 -> 472.6 ms (1.000x) <--
+    --gvn-max-recurse-depth=4000 -> 471.8 ms (1.002x) <--
+    --gvn-max-recurse-depth=8000 -> 472.9 ms (0.999x)
+    --gvn-max-recurse-depth=16000 -> 478.5 ms (0.988x)
+    [joint-2] -mllvm --slp-max-reg-size=-1 -mllvm --slp-threshold=0 -> 0.998x
+    [joint-3] -mllvm --slp-max-reg-size=-1 -mllvm --slp-threshold=0 -mllvm --slp-min-tree-size=32 -> 0.999x
+  try_flags 最优: 1.005x  [flags: -mllvm --slp-max-reg-size=-1]
+  步骤6: 1.005x  [flags: -mllvm --slp-max-reg-size=-1]
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 7/9]
+  [反重复] 'try_flags' 已连续 2 次，强制切换到 'rewrite_source'
+  Querying LLM (step 7)...
+  Action: rewrite_source
+  Reasoning: 当前最优1.099x来自部分展开和SLP look-ahead参数，但LICM仍因别名保守未提升A[i][k]，GVN因store clobber未消除C[i][j]冗余load，内存带宽未充分利用。历史中restrict+flags组合未测试，且内层j循环短步长启用了向量化但仍有大量store。手动展开j循环并使用标量累加器可减少C的load/store次数（每4个元素写一次），同时复用A[i]
+  ImprovementAnalysis: 当前1.099x提升主要来自减少循环控制开销和轻度SLP向量化，但本质瓶颈——C数组的反复读写和A[i][k]的冗余加载——未被解决。每次内层j迭代都读写C[i][j]，导致大量store和load依赖，且编译器因别名保守无法提升A[i][k]。手动展开+标量累加器将C的store减少4倍，并复用A[i][k]的load，直接缓解内存带宽瓶颈。加上restrict后LICM可将A[i][k]提升到
+  [重写分析] 运行瓶颈诊断 LLM...
+  [分析结论] ## 诊断报告
+  [重写实现] 根据分析生成优化代码...
+  rewrite_source（纯源码 -O3）: 0.210x  [在原始i-k-j循环结构基础上，对最内层j循环进行循环展开（展开因子为4），并使用标量寄存器累加器。具体：在外层i循环中，对于每个i，先对j循环（步长为4）进行展开，对于每个展开块，加载C[i][j..j+3]乘以beta作为初始累加值acc0..acc3，然后进入k循环，在k循环内部，对于每个k，加载A[i][k]到临时变量a_val，然后加载B[k][j..j+3]分别与a_val*alpha相乘，累加到对应的acc上。最后将acc0..acc3写回C[i][j..j+3]。剩余不足4的尾循环单独处理。此变换通过减少C的load/store次数和重用寄存器中的A[i][k]值，有效提升内存带宽利用率和指令级并行度，且不改变累加顺序，保证数值一致。同时，在函数参数A、B、C上添加__restrict关键字，以帮助编译器消除别名依赖，使LICM能将A[i][k]的加载提升到j循环外（尽管手动展开已部分实现），进一步减少冗余加载。]
+  rewrite_source + [-mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -mllvm --slp-max-look-ahead-depth=5]: 0.217x  ← 组合更优，保留参数
+  ⚠ 灾难性退化: 0.217x << 当前最优 1.099x (阈值 20%)，自动回退到 1.099x 状态
+  步骤7: 0.217x  [rewrite: 在原始i-k-j循环结构基础上，对最内层j循环进行循环展开（展开因子为4），并使用标量寄存器累加器。具体：在外层i循环中，对于每个i，先对j循环（步长为4）进行展开，对于每个展开块，加载C[i][j..j+3]乘以beta作为初始累加值acc0..acc3，然后进入k循环，在k循环内部，对于每个k，加载A[i][k]到临时变量a_val，然后加载B[k][j..j+3]分别与a_val*alpha相乘，累加到对应的acc上。最后将acc0..acc3写回C[i][j..j+3]。剩余不足4的尾循环单独处理。此变换通过减少C的load/store次数和重用寄存器中的A[i][k]值，有效提升内存带宽利用率和指令级并行度，且不改变累加顺序，保证数值一致。同时，在函数参数A、B、C上添加__restrict关键字，以帮助编译器消除别名依赖，使LICM能将A[i][k]的加载提升到j循环外（尽管手动展开已部分实现），进一步减少冗余加载。]
+  快照: /home/hanning/comet/runs/2026-07-07_23-13-22_polybench_gemm/outputs/snapshots/gemm/step_07_rewrite_source_ok.c
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 8/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 8)...
+  Action: try_flags
+  Reasoning: 当前最优1.099x来自partial-unrolling-threshold=100和SLP look-ahead参数，但SLP仍有5次missed，其中2次cost=0>=threshold=0。降低slp-threshold到负值可以突破这个0成本壁垒，触发SLP向量化，增加向量操作数，进一步提升性能。此外，GVN的10次missed中涉及load PRE被store clobber，但调整
+  ImprovementAnalysis: 当前的1.099x提升主要来自循环展开减少控制开销和SLP局部优化，但核心内存瓶颈（C数组反复读写、A[i][k]加载未被LICM提升）仍未解决，因为编译器受保守别名分析限制。添加restrict曾得到1.080x，但不如flags组合。SLP向量化未能触发的主要原因是cost barrier恰好为0，降低阈值可以直接释放这部分向量化潜力，有望额外提升10-20%。
+    --slp-threshold=-1 -> 476.2 ms (0.992x)
+    --slp-threshold=-2 -> 475.0 ms (0.995x)
+    --slp-threshold=-4 -> 476.1 ms (0.993x)
+    --slp-threshold=-8 -> 475.9 ms (0.993x)
+    --slp-look-ahead-users-budget=8 -> 472.9 ms (0.999x)
+    --slp-look-ahead-users-budget=16 -> 471.4 ms (1.003x) <--
+    --slp-look-ahead-users-budget=32 -> 472.0 ms (1.001x)
+    --slp-look-ahead-users-budget=64 -> 472.1 ms (1.001x)
+    --slp-look-ahead-users-budget=128 -> 471.4 ms (1.003x)
+    --slp-look-ahead-users-budget=256 -> 471.1 ms (1.003x) <--
+    --slp-max-look-ahead-depth=-1 -> 472.6 ms (1.000x) <--
+    --slp-max-look-ahead-depth=-2 -> 476.2 ms (0.993x)
+    --slp-max-look-ahead-depth=-4 -> 472.1 ms (1.001x) <--
+    --slp-max-look-ahead-depth=0 -> 474.3 ms (0.997x)
+    --slp-max-look-ahead-depth=5 -> 473.7 ms (0.998x)
+    --slp-max-look-ahead-depth=10 -> 471.1 ms (1.003x) <--
+    --slp-max-reg-size=-1 -> 470.8 ms (1.004x) <--
+    --slp-max-reg-size=-2 -> 471.1 ms (1.003x)
+    --slp-max-reg-size=-4 -> 474.3 ms (0.996x)
+    --slp-max-reg-size=0 -> 474.5 ms (0.996x)
+    --slp-max-reg-size=5 -> 478.7 ms (0.987x)
+    --slp-max-reg-size=10 -> 473.2 ms (0.999x)
+    --slp-max-store-lookup=-1 -> 471.3 ms (1.003x) <--
+    --slp-max-store-lookup=-2 -> 471.3 ms (1.003x)
+    --slp-max-store-lookup=-4 -> 476.8 ms (0.991x)
+    --slp-max-store-lookup=0 -> 471.2 ms (1.003x) <--
+    --slp-max-store-lookup=5 -> 472.8 ms (1.000x)
+    --slp-max-store-lookup=10 -> 472.8 ms (1.000x)
+    --slp-min-reg-size=-1 -> 472.5 ms (1.000x) <--
+    --slp-min-reg-size=-2 -> 473.7 ms (0.998x)
+    --slp-min-reg-size=-4 -> 475.4 ms (0.994x)
+    --slp-min-reg-size=0 -> 499.1 ms (0.947x)
+    --slp-min-reg-size=5 -> 506.0 ms (0.934x)
+    --slp-min-reg-size=10 -> 520.7 ms (0.908x)
+    --slp-min-tree-size=8 -> 554.3 ms (0.853x)
+    --slp-min-tree-size=16 -> 508.4 ms (0.930x)
+    --slp-min-tree-size=32 -> 493.3 ms (0.958x)
+content empty, falling back to reasoning_content on attempt 1
+    --slp-min-tree-size=64 -> 514.2 ms (0.919x)
+    --slp-min-tree-size=128 -> 476.3 ms (0.992x)
+    --slp-min-tree-size=256 -> 478.0 ms (0.989x)
+    --slp-recursion-max-depth=8 -> 482.0 ms (0.981x)
+    --slp-recursion-max-depth=16 -> 476.1 ms (0.993x)
+    --slp-recursion-max-depth=32 -> 477.5 ms (0.990x)
+    --slp-recursion-max-depth=64 -> 473.7 ms (0.998x)
+    --slp-recursion-max-depth=128 -> 473.8 ms (0.997x)
+    --slp-recursion-max-depth=256 -> 471.2 ms (1.003x) <--
+    --slp-schedule-budget=-1 -> 472.0 ms (1.001x) <--
+    --slp-schedule-budget=-2 -> 471.5 ms (1.002x) <--
+    --slp-schedule-budget=-4 -> 471.9 ms (1.002x)
+    --slp-schedule-budget=0 -> 472.1 ms (1.001x)
+    --slp-schedule-budget=5 -> 471.9 ms (1.002x)
+    --slp-schedule-budget=10 -> 473.7 ms (0.998x)
+    --gvn-hoist-max-bbs=8 -> 473.8 ms (0.998x)
+    --gvn-hoist-max-bbs=16 -> 472.8 ms (1.000x)
+    --gvn-hoist-max-bbs=2 -> 472.4 ms (1.000x) <--
+    --gvn-hoist-max-bbs=-1 -> 472.1 ms (1.001x) <--
+    --gvn-hoist-max-bbs=-2 -> 470.7 ms (1.004x) <--
+    --gvn-hoist-max-chain-length=20 -> 471.6 ms (1.002x) <--
+    --gvn-hoist-max-chain-length=40 -> 471.1 ms (1.003x) <--
+    --gvn-hoist-max-chain-length=5 -> 471.5 ms (1.002x)
+    --gvn-hoist-max-chain-length=-1 -> 471.1 ms (1.003x) <--
+    --gvn-hoist-max-chain-length=-2 -> 470.9 ms (1.004x) <--
+    --gvn-hoist-max-depth=200 -> 471.9 ms (1.002x) <--
+    --gvn-hoist-max-depth=400 -> 471.4 ms (1.003x) <--
+    --gvn-hoist-max-depth=50 -> 472.5 ms (1.000x)
+    --gvn-hoist-max-depth=-1 -> 472.1 ms (1.001x)
+    --gvn-hoist-max-depth=-2 -> 471.3 ms (1.003x) <--
+    --gvn-max-hoisted=-1 -> 471.4 ms (1.003x) <--
+    --gvn-max-hoisted=-2 -> 472.1 ms (1.001x)
+    --gvn-max-hoisted=-4 -> 472.1 ms (1.001x)
+    --gvn-max-hoisted=0 -> 471.3 ms (1.003x) <--
+    --gvn-max-hoisted=5 -> 471.6 ms (1.002x)
+    --gvn-max-hoisted=10 -> 471.3 ms (1.003x)
+    --gvn-max-num-deps=200 -> 471.1 ms (1.003x) <--
+    --gvn-max-num-deps=400 -> 472.1 ms (1.001x)
+    --gvn-max-num-deps=800 -> 471.4 ms (1.003x)
+    --gvn-max-num-deps=1600 -> 471.5 ms (1.002x)
+    --gvn-max-recurse-depth=2000 -> 471.8 ms (1.002x) <--
+    --gvn-max-recurse-depth=4000 -> 475.3 ms (0.994x)
+    --gvn-max-recurse-depth=8000 -> 472.3 ms (1.001x)
+    --gvn-max-recurse-depth=16000 -> 473.1 ms (0.999x)
+    [joint-2] -mllvm --gvn-hoist-max-bbs=-2 -mllvm --slp-max-reg-size=-1 -> 1.002x
+    [joint-3] -mllvm --gvn-hoist-max-bbs=-2 -mllvm --slp-max-reg-size=-1 -mllvm --gvn-hoist-max-chain-length=-2 -> 1.001x
+  try_flags 最优: 1.004x  [flags: -mllvm --gvn-hoist-max-bbs=-2]
+  步骤8: 1.004x  [flags: -mllvm --gvn-hoist-max-bbs=-2]
+
+────────────────────────────────────────────────────────────
+[Agent 步骤 9/9]
+  [Planner] 规划失败（非致命）: Expecting value: line 1 column 1 (char 0)
+  Querying LLM (step 9)...
+  Action: try_flags
+  Reasoning: SLP向量化有2次missed因cost=0等于默认阈值0，降低slp-threshold到负值可直接突破cost barrier触发向量化，增加向量操作数。当前1.099x已依赖partial-unrolling和SLP look-ahead，保留它们并仅探索slp-threshold负值，是成功率最高的操作。
+  ImprovementAnalysis: 当前1.099x提升主要来自循环展开减少控制开销和SLP look-ahead优化，但SLP向量化仍未触发，missed remarks显示cost恰好等于阈值。降低slp-threshold可激活SLP向量化内层j循环，预期增加向量操作数30-50%，减少标量指令，有望额外提升10-20%。其他瓶颈如LICM/GVN因别名分析限制，短期内难以通过flags突破，故专注此参数。
+    -partial-unrolling-threshold=100 -> 430.3 ms (1.098x) <--
+    --slp-look-ahead-users-budget=16 -> 470.9 ms (1.004x) <--
+    --slp-max-look-ahead-depth=5 -> 470.4 ms (1.005x) <--
+    --slp-threshold=-10 -> 438.2 ms (1.079x) <--
+    --slp-threshold=-5 -> 470.8 ms (1.004x)
+    --slp-threshold=-2 -> 470.9 ms (1.004x)
+    --slp-threshold=-1 -> 471.1 ms (1.003x)
+    --slp-threshold=0 -> 470.7 ms (1.004x)
+    --slp-max-reg-size=-1 -> 471.4 ms (1.003x) <--
+    --slp-max-reg-size=-2 -> 470.9 ms (1.004x) <--
+    --slp-max-reg-size=-4 -> 474.0 ms (0.997x)
+    --slp-max-reg-size=0 -> 474.4 ms (0.996x)
+    --slp-max-reg-size=5 -> 475.6 ms (0.994x)
+    --slp-max-reg-size=10 -> 476.2 ms (0.992x)
+    --slp-max-store-lookup=-1 -> 472.6 ms (1.000x) <--
+    --slp-max-store-lookup=-2 -> 471.9 ms (1.001x) <--
+    --slp-max-store-lookup=-4 -> 474.1 ms (0.997x)
+    --slp-max-store-lookup=0 -> 474.7 ms (0.996x)
+    --slp-max-store-lookup=5 -> 475.7 ms (0.994x)
+    --slp-max-store-lookup=10 -> 474.1 ms (0.997x)
+    --slp-min-reg-size=-1 -> 473.3 ms (0.999x)
+    --slp-min-reg-size=-2 -> 472.7 ms (1.000x)
+    --slp-min-reg-size=-4 -> 471.9 ms (1.002x) <--
+    --slp-min-reg-size=0 -> 472.7 ms (1.000x)
+    --slp-min-reg-size=5 -> 471.8 ms (1.002x) <--
+    --slp-min-reg-size=10 -> 472.3 ms (1.001x)
+    --slp-min-tree-size=8 -> 470.9 ms (1.004x) <--
+    --slp-min-tree-size=16 -> 472.2 ms (1.001x)
+    --slp-min-tree-size=32 -> 472.3 ms (1.001x)
+    --slp-min-tree-size=64 -> 471.8 ms (1.002x)
+    --slp-min-tree-size=128 -> 475.5 ms (0.994x)
+    --slp-min-tree-size=256 -> 474.9 ms (0.995x)
+    --slp-recursion-max-depth=8 -> 475.5 ms (0.994x)
+    --slp-recursion-max-depth=16 -> 474.9 ms (0.995x)
+    --slp-recursion-max-depth=32 -> 472.8 ms (1.000x)
+    --slp-recursion-max-depth=64 -> 472.0 ms (1.001x) <--
+    --slp-recursion-max-depth=128 -> 471.6 ms (1.002x) <--
+    --slp-recursion-max-depth=256 -> 471.0 ms (1.003x) <--
+    --slp-schedule-budget=-1 -> 470.7 ms (1.004x) <--
+    --slp-schedule-budget=-2 -> 473.7 ms (0.998x)
+    --slp-schedule-budget=-4 -> 473.2 ms (0.999x)
+    --slp-schedule-budget=0 -> 472.6 ms (1.000x)
+    --slp-schedule-budget=5 -> 472.0 ms (1.001x)
+    --slp-schedule-budget=10 -> 472.0 ms (1.001x)
+    --gvn-hoist-max-bbs=8 -> 472.5 ms (1.000x) <--
+    --gvn-hoist-max-bbs=16 -> 471.2 ms (1.003x) <--
+    --gvn-hoist-max-bbs=2 -> 471.1 ms (1.003x) <--
+    --gvn-hoist-max-bbs=-1 -> 471.0 ms (1.004x) <--
+    --gvn-hoist-max-bbs=-2 -> 470.6 ms (1.004x) <--
+    --gvn-hoist-max-chain-length=20 -> 471.4 ms (1.003x) <--
+    --gvn-hoist-max-chain-length=40 -> 473.0 ms (0.999x)
+    --gvn-hoist-max-chain-length=5 -> 473.0 ms (0.999x)
+    --gvn-hoist-max-chain-length=-1 -> 470.9 ms (1.004x) <--
+    --gvn-hoist-max-chain-length=-2 -> 471.6 ms (1.002x)
+    --gvn-hoist-max-depth=200 -> 470.8 ms (1.004x) <--
+    --gvn-hoist-max-depth=400 -> 472.7 ms (1.000x)
+    --gvn-hoist-max-depth=50 -> 472.0 ms (1.001x)
+    --gvn-hoist-max-depth=-1 -> 472.1 ms (1.001x)
+    --gvn-hoist-max-depth=-2 -> 472.0 ms (1.001x)
+    --gvn-max-hoisted=-1 -> 471.7 ms (1.002x) <--
+    --gvn-max-hoisted=-2 -> 471.3 ms (1.003x) <--
+    --gvn-max-hoisted=-4 -> 472.3 ms (1.001x)
+    --gvn-max-hoisted=0 -> 471.6 ms (1.002x)
+    --gvn-max-hoisted=5 -> 471.2 ms (1.003x) <--
+    --gvn-max-hoisted=10 -> 472.4 ms (1.001x)
+    --gvn-max-num-deps=200 -> 472.0 ms (1.001x) <--
+    --gvn-max-num-deps=400 -> 471.7 ms (1.002x) <--
+    --gvn-max-num-deps=800 -> 473.5 ms (0.998x)
+    --gvn-max-num-deps=1600 -> 474.1 ms (0.997x)
+    --gvn-max-recurse-depth=2000 -> 472.3 ms (1.001x) <--
+    --gvn-max-recurse-depth=4000 -> 473.1 ms (0.999x)
+    --gvn-max-recurse-depth=8000 -> 472.7 ms (1.000x)
+    --gvn-max-recurse-depth=16000 -> 474.0 ms (0.997x)
+    [joint-2] -mllvm -partial-unrolling-threshold=100 -mllvm --slp-threshold=-10 -> 1.095x
+    [joint-3] -mllvm -partial-unrolling-threshold=100 -mllvm --slp-threshold=-10 -mllvm --slp-max-look-ahead-depth=5 -> 1.094x
+  try_flags 最优: 1.098x  [flags: -mllvm -partial-unrolling-threshold=100]
+  步骤9: 1.098x  [flags: -mllvm -partial-unrolling-threshold=100]
+
+[最终确认] 交替测量 baseline/best 各 3 次以降低噪声偏差...
+  确认加速比: 1.0909x (IQR [1.0879, 1.0932], n=3, base_cv=0.1%, best_cv=0.2%)
+
 ============================================================
-COMET: gemm  rounds=9
-============================================================
-Collecting vectorization remarks for source rounds...
-  21 remarks collected
+程序:            gemm
+基线 -O3:        472.64 ms
+已完成步骤:      9/9
 
-[Param round]
-  Kernel 'kernel_gemm': lines 72–99
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_gemm
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: SLP vectorization is blocked by a cost threshold of 0, LICM fails to hoist loop-invariant loads due to limited traversal, and GVN cannot eliminate redundant loads due to insufficient dependence analysis; lowering slp-threshold negative, increasing licm-max-num-uses-traversed, and raising gvn-max-num-deps will unlock these optimizations.
-    -slp-threshold: [-4, -2, -1, 0]
-    -licm-max-num-uses-traversed: [8, 16, 32, 64]
-    -gvn-max-num-deps: [100, 200, 500, 1000]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 10
-  Baseline -O3: 423.12 ms
-  Phase A — independent flag search:
-    -slp-threshold=-4 → 415.3 ms (1.019x) ← best
-    -slp-threshold=-2 → 414.1 ms (1.022x) ← best
-    -slp-threshold=-1 → 418.0 ms (1.012x)
-    -slp-threshold=0 → 424.1 ms (0.998x)
-    -licm-max-num-uses-traversed=8 → 415.8 ms (1.018x) ← best
-    -licm-max-num-uses-traversed=16 → 411.6 ms (1.028x) ← best
-    -licm-max-num-uses-traversed=32 → 422.4 ms (1.002x)
-    -licm-max-num-uses-traversed=64 → 424.9 ms (0.996x)
-    -gvn-max-num-deps=100 → 422.3 ms (1.002x) ← best
-    -gvn-max-num-deps=200 → 423.8 ms (0.998x)
-    -gvn-max-num-deps=500 → 411.1 ms (1.029x) ← best
-    -gvn-max-num-deps=1000 → 416.5 ms (1.016x)
-    -slp-look-ahead-users-budget=4 → 421.3 ms (1.004x) ← best
-    -slp-look-ahead-users-budget=8 → 414.5 ms (1.021x) ← best
-    -slp-look-ahead-users-budget=16 → 418.8 ms (1.010x)
-    -gvn-hoist-max-bbs=5 → 426.2 ms (0.993x)
-    -gvn-hoist-max-bbs=10 → 419.3 ms (1.009x) ← best
-    -gvn-hoist-max-bbs=20 → 410.6 ms (1.031x) ← best
-    -pragma-vectorize-scev-check-threshold=32 → 412.3 ms (1.026x) ← best
-    -pragma-vectorize-scev-check-threshold=64 → 412.3 ms (1.026x) ← best
-    -pragma-vectorize-scev-check-threshold=128 → 419.6 ms (1.008x)
-    -amdgpu-unroll-threshold-if=150 → 419.7 ms (1.008x) ← best
-    -amdgpu-unroll-threshold-if=300 → 418.1 ms (1.012x) ← best
-    -amdgpu-unroll-threshold-if=600 → 414.5 ms (1.021x) ← best
-    -loop-load-elimination-scev-check-threshold=1 → 417.7 ms (1.013x) ← best
-    -loop-load-elimination-scev-check-threshold=2 → 416.9 ms (1.015x) ← best
-    -loop-load-elimination-scev-check-threshold=4 → 412.7 ms (1.025x) ← best
-    -loop-distribute-scev-check-threshold=16 → 419.1 ms (1.010x) ← best
-    -loop-distribute-scev-check-threshold=32 → 417.8 ms (1.013x) ← best
-    -loop-distribute-scev-check-threshold=64 → 411.5 ms (1.028x) ← best
-    -instcombine-max-iterations=1 → 416.9 ms (1.015x) ← best
-    -instcombine-max-iterations=3 → 421.6 ms (1.004x)
-    -instcombine-max-iterations=6 → 433.8 ms (0.975x)
-  LLM refinement (Phase A → refined candidates)...
-  Refinement JSON parse failed, using original params
-  Phase B — joint search (best pairs):
-    -gvn-hoist-max-bbs=5, -gvn-max-num-deps=100 → 416.7 ms (1.015x)
-    -gvn-hoist-max-bbs=5, -gvn-max-num-deps=200 → 417.8 ms (1.013x)
-    -gvn-hoist-max-bbs=5, -gvn-max-num-deps=500 → 426.3 ms (0.993x)
-    -gvn-hoist-max-bbs=5, -gvn-max-num-deps=1000 → 420.5 ms (1.006x)
-    -gvn-hoist-max-bbs=10, -gvn-max-num-deps=100 → 424.1 ms (0.998x)
-    -gvn-hoist-max-bbs=10, -gvn-max-num-deps=200 → 413.6 ms (1.023x)
-    -gvn-hoist-max-bbs=10, -gvn-max-num-deps=500 → 413.9 ms (1.022x)
-    -gvn-hoist-max-bbs=10, -gvn-max-num-deps=1000 → 418.4 ms (1.011x)
-    -gvn-hoist-max-bbs=20, -gvn-max-num-deps=100 → 411.5 ms (1.028x)
-    -gvn-hoist-max-bbs=20, -gvn-max-num-deps=200 → 416.3 ms (1.016x)
-    -gvn-hoist-max-bbs=20, -gvn-max-num-deps=500 → 414.3 ms (1.021x)
-    -gvn-hoist-max-bbs=20, -gvn-max-num-deps=1000 → 412.6 ms (1.025x)
-  Best: -mllvm -gvn-hoist-max-bbs=20  → 410.57 ms (1.031x)
-  Param flags for source rounds: -mllvm -gvn-hoist-max-bbs=20
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: Memory bandwidth limited by lack of cache tiling, causing B to be reloaded from DRAM for each outer i iteration....
+参数演化轨迹:
+  步骤 1 [try_flags]: 1.0961x  -mllvm -partial-unrolling-threshold=100
+  步骤 5 [try_flags]: 1.0991x  -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -mllvm --slp-max-look-ahead-depth=5
+  步骤 6 [try_flags]: 1.0046x  -mllvm --slp-max-reg-size=-1
+  步骤 7 [rewrite_source] [+source]: 0.2172x  -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -mllvm --slp-max-look-ahead-depth=5
+  步骤 8 [try_flags]: 1.0040x  -mllvm --gvn-hoist-max-bbs=-2
+  步骤 9 [try_flags]: 1.0984x  -mllvm -partial-unrolling-threshold=100
 
-[Source round 1/8]
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpgkyk3182/gemm_opt.c:86:1: error: expected expression
-int main(int a
-  [Retry 2/3]
-  Speedup: 1.352x (+35.2%)  301.85 ms
-  → New best (1.352x)!
-  Analyzing kernel optimization patterns...
-  Analysis preview: BOTTLENECK: The current loop order (k,i,j) forces non-unit-stride access to array A, causing frequent cache misses and underutilizing memory bandwidth....
-  Kernel 'kernel_gemm': lines 71–107
-  Collecting optimization remarks (filtered to kernel lines)...
-  Extracting O3 passes via -debug-pass-manager...
-  41 unique passes ran on kernel_gemm
-  Discovering tunable options from opt --help-hidden...
-  Measuring IR stats before/after probe values...
-  Querying LLM for flag selection...
-  Analysis: SLPVectorizerPass misses indicate vectorization is blocked by cost threshold (cost 0 >= 0), so lowering -slp-threshold to negative values is crucial. GVN fails to eliminate loads due to insufficient dependence tracking, so increasing -gvn-max-num-deps can help PRE remove redundant memory operations. Adding -unroll-threshold allows more aggressive loop unrolling to expose additional vectorization and reduce loop overhead.
-    -slp-threshold: [-4, -2, -1, 0]
-    -gvn-max-num-deps: [100, 200, 500, 1000]
-    -unroll-threshold: [150, 300, 600, 900]
-    [auto] -slp-look-ahead-users-budget: [4, 8, 16]
-    [auto] -gvn-hoist-max-bbs: [5, 10, 20]
-    [auto] -pragma-vectorize-scev-check-threshold: [32, 64, 128]
-    [auto] -amdgpu-unroll-threshold-if: [150, 300, 600]
-    [auto] -loop-load-elimination-scev-check-threshold: [1, 2, 4]
-    [auto] -licm-max-num-uses-traversed: [16, 32, 64]
-    [auto] -loop-distribute-scev-check-threshold: [16, 32, 64]
-    [auto] -instcombine-max-iterations: [1, 3, 6]
-  Total flags to search: 11
-  Baseline -O3: 407.31 ms
-  Phase A — independent flag search:
-    -slp-threshold=-4 → 345.5 ms (1.179x) ← best
-    -slp-threshold=-2 → 295.5 ms (1.378x) ← best
-    -slp-threshold=-1 → 359.6 ms (1.133x)
-    -slp-threshold=0 → 360.7 ms (1.129x)
-    -gvn-max-num-deps=100 → 349.6 ms (1.165x) ← best
-    -gvn-max-num-deps=200 → 303.9 ms (1.340x) ← best
-    -gvn-max-num-deps=500 → 293.6 ms (1.387x) ← best
-    -gvn-max-num-deps=1000 → 292.8 ms (1.391x) ← best
-    -unroll-threshold=150 → 294.2 ms (1.385x) ← best
-    -unroll-threshold=300 → 316.5 ms (1.287x)
-    -unroll-threshold=600 → 313.0 ms (1.301x)
-    -unroll-threshold=900 → 292.5 ms (1.392x) ← best
-    -slp-look-ahead-users-budget=4 → 309.8 ms (1.315x) ← best
-    -slp-look-ahead-users-budget=8 → 301.4 ms (1.351x) ← best
-    -slp-look-ahead-users-budget=16 → 293.4 ms (1.388x) ← best
-    -gvn-hoist-max-bbs=5 → 293.0 ms (1.390x) ← best
-    -gvn-hoist-max-bbs=10 → 294.5 ms (1.383x)
-    -gvn-hoist-max-bbs=20 → 294.0 ms (1.385x)
-    -pragma-vectorize-scev-check-threshold=32 → 299.5 ms (1.360x) ← best
-    -pragma-vectorize-scev-check-threshold=64 → 304.7 ms (1.337x)
-    -pragma-vectorize-scev-check-threshold=128 → 301.2 ms (1.352x)
-    -amdgpu-unroll-threshold-if=150 → 292.9 ms (1.391x) ← best
-    -amdgpu-unroll-threshold-if=300 → 289.6 ms (1.407x) ← best
-    -amdgpu-unroll-threshold-if=600 → 303.4 ms (1.342x)
-    -loop-load-elimination-scev-check-threshold=1 → 296.9 ms (1.372x) ← best
-    -loop-load-elimination-scev-check-threshold=2 → 328.1 ms (1.241x)
-    -loop-load-elimination-scev-check-threshold=4 → 294.8 ms (1.382x) ← best
-    -licm-max-num-uses-traversed=16 → 306.2 ms (1.330x) ← best
-    -licm-max-num-uses-traversed=32 → 295.7 ms (1.378x) ← best
-    -licm-max-num-uses-traversed=64 → 295.3 ms (1.379x) ← best
-    -loop-distribute-scev-check-threshold=16 → 309.0 ms (1.318x) ← best
-    -loop-distribute-scev-check-threshold=32 → 302.3 ms (1.347x) ← best
-    -loop-distribute-scev-check-threshold=64 → 307.9 ms (1.323x)
-    -instcombine-max-iterations=1 → 301.5 ms (1.351x) ← best
-    -instcombine-max-iterations=3 → 315.5 ms (1.291x)
-    -instcombine-max-iterations=6 → 297.5 ms (1.369x) ← best
-  LLM refinement (Phase A → refined candidates)...
-  Refined: [('-slp-threshold', [-4, -2, -1]), ('-gvn-max-num-deps', [500, 1000]), ('-unroll-threshold', [600, 900]), ('-slp-look-ahead-users-budget', [8, 16]), ('-gvn-hoist-max-bbs', [5, 10]), ('-pragma-vectorize-scev-check-threshold', [32, 64]), ('-amdgpu-unroll-threshold-if', [150, 300, 600]), ('-loop-load-elimination-scev-check-threshold', [2, 4]), ('-licm-max-num-uses-traversed', [32, 64]), ('-loop-distribute-scev-check-threshold', [16, 32, 64]), ('-instcombine-max-iterations', [3, 6])]
-  Phase B — joint search (best pairs):
-    -amdgpu-unroll-threshold-if=150, -unroll-threshold=600 → 323.7 ms (1.258x)
-    -amdgpu-unroll-threshold-if=150, -unroll-threshold=900 → 280.9 ms (1.450x) ← BEST
-    -amdgpu-unroll-threshold-if=300, -unroll-threshold=600 → 274.0 ms (1.487x) ← BEST
-    -amdgpu-unroll-threshold-if=300, -unroll-threshold=900 → 304.5 ms (1.337x)
-    -amdgpu-unroll-threshold-if=600, -unroll-threshold=600 → 302.5 ms (1.347x)
-    -amdgpu-unroll-threshold-if=600, -unroll-threshold=900 → 316.4 ms (1.287x)
-  Best: -mllvm -amdgpu-unroll-threshold-if=300 -mllvm -unroll-threshold=600  → 273.98 ms (1.487x)
-  Re-tuned flags: -mllvm -amdgpu-unroll-threshold-if=300 -mllvm -unroll-threshold=600
+最优参数组:      -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -mllvm --slp-max-look-ahead-depth=5
+最优加速比:      1.0991x (+9.9%)
 
-[Source round 2/8]  (building on round 1 best)
-  Speedup: 1.337x (+33.7%)  310.80 ms
-  No improvement over best (1.352x) — next round still builds on current best
-
-[Source round 3/8]  (building on round 2 best)
-  Speedup: 1.272x (+27.2%)  326.98 ms
-  No improvement over best (1.352x) — next round still builds on current best
-
-[Source round 4/8]  (building on round 3 best)
-  Attempt 1 failed (compile_error): COMPILE ERROR:
-/home/hanning/accelerate/comet/tmp/tmpx0mevc7h/gemm_opt.c:94:99: error: invalid argument; expected 'enabl
-  [Retry 2/3]
-  Speedup: 1.194x (+19.4%)  347.44 ms
-  No improvement over best (1.352x) — next round still builds on current best
-
-[Source round 5/8]  (building on round 4 best)
-  Speedup: 1.140x (+14.0%)  366.93 ms
-  No improvement over best (1.352x) — next round still builds on current best
-
-[Source round 6/8]  (building on round 5 best)
-  Speedup: 1.222x (+22.2%)  336.13 ms
-  No improvement over best (1.352x) — next round still builds on current best
-
-[Source round 7/8]  (building on round 6 best)
-  Speedup: 1.262x (+26.2%)  323.84 ms
-  No improvement over best (1.352x) — next round still builds on current best
-
-[Source round 8/8]  (building on round 7 best)
-  Speedup: 1.271x (+27.1%)  335.89 ms
-  No improvement over best (1.352x) — next round still builds on current best
-
-============================================================
-Program:      gemm
-Baseline -O3: 423.12 ms
-Param flags:  -mllvm -gvn-hoist-max-bbs=20  (1.031x)
-Source best:  1.352x (source + initial param flags)
-Retune flags: -mllvm -amdgpu-unroll-threshold-if=300 -mllvm -unroll-threshold=600 (applied to final best source)
-Saved:        outputs/gemm_optimized.c
-To compile:   clang -O3 -march=native -mllvm -amdgpu-unroll-threshold-if=300 -mllvm -unroll-threshold=600 outputs/gemm_optimized.c ...
+编译命令:  clang -O3 -mllvm -partial-unrolling-threshold=100 -mllvm --slp-look-ahead-users-budget=16 -mllvm --slp-max-look-ahead-depth=5 PolyBenchC_no_rag/linear-algebra/blas/gemm/gemm.c ...
+快照目录:        /home/hanning/comet/runs/2026-07-07_23-13-22_polybench_gemm/outputs/snapshots/gemm
+结果 JSON:       /home/hanning/comet/runs/2026-07-07_23-13-22_polybench_gemm/outputs/gemm_agent_results.json
+Pass graph:   /home/hanning/comet/runs/2026-07-07_23-13-22_polybench_gemm/outputs/kernel_gemm_pass_graph.dot
 ============================================================

@@ -1,0 +1,13 @@
+[RunLogger] 运行日志目录: /home/hanning/comet/runs/2026-07-14_00-37-11_tsvc_s171
+  Dataset type: tsvc
+============================================================
+COMET agent: s171  max_steps=5
+============================================================
+
+[Evidence collection -- one-time analysis]
+  IR extraction failed: Clang -emit-llvm failed: /home/hanning/comet/TSVC_shim/kernels/s171/s171.c:12:25: error: expected ';' after top level declarator
+int kernel_s171(int inc)
+                        ^
+                        ;
+/home/hanning/comet/TSVC_shim/kernels/s171/s171.c:55:28: warning: incompatible pointer to integer conversion passing 's
+Evidence collection failed (IR extraction error?)

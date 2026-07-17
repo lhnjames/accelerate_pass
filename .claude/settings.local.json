@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m 'refactor: 清理项目，只保留完整的 MCTS+LLM 框架 *)",
+      "Bash(git commit -m 'docs: 添加 PROJECT_STRUCTURE.md - 完整的 MCTS+LLM 框架文档 *)",
+      "Bash(python3 *)",
+      "Bash(tee results/jacobi-2d_mcts_full.log)",
+      "Bash(tee results/jacobi-2d-validation.log)",
+      "Bash(tee results/3mm-validation.log)",
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(opt-11 -passes=help)",
+      "Bash(opt-11 -help)",
+      "Bash(opt-11 -passes='mem2reg' /dev/null)",
+      "Bash(opt-11 -passes='basic-aa' /dev/null)",
+      "Bash(opt-11 -passes='mem2reg' /tmp/test.ll -o /tmp/out.ll)",
+      "Bash(opt-11 *)",
+      "Bash(pkill -f \"run_comet_full.py\")",
+      "Bash(tee results/jacobi-2d-final.log)",
+      "Bash(tee results/3mm-final.log)",
+      "Bash(tee ./results/3mm-comet-test.log)",
+      "Bash(tee ./results/3mm-llm-guided-v2.log)",
+      "Bash(tee ./results/3mm-dynamic-passes.log)",
+      "Bash(pkill -f \"python3 run_comet_full.py\")",
+      "Bash(tee ./results/3mm-quick-test.log)",
+      "Bash(tee ./results/3mm-final-quick.log)",
+      "Bash(tee ./results/3mm-final-v3.log)",
+      "Bash(tee ./results/3mm-final-v4.log)",
+      "Bash(tee ./results/3mm-final-v5.log)",
+      "Bash(tee results/3mm_graph_aware_test.log)",
+      "Bash(tee results/3mm_graph_aware_test_v2.log)",
+      "Bash(jobs -l)",
+      "Bash(tee results/3mm_mcts_search_test.log)",
+      "Bash(tee results/3mm_progressive_optimization.log)",
+      "Bash(tmux ls *)",
+      "Bash(tmux capture-pane *)"
+    ]
+  }
+}
