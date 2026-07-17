@@ -55,7 +55,6 @@ ALL_PROGS=("${SPEC_PROGS[@]}" "${POLYBENCH_PROGS[@]}" "${CBENCH_PROGS[@]}")
 # `CONCURRENCY=N bash run_full_validation.sh` if you want to trade
 # accuracy for wall-clock time.
 CONCURRENCY=${CONCURRENCY:-2}
-pids=()
 
 run_one() {
   local prog="$1"
@@ -79,16 +78,17 @@ echo "========================================"
 
 for prog in "${ALL_PROGS[@]}"; do
   [ -n "$prog" ] || continue
+  # `wait -n` frees a slot as soon as ANY running job finishes, not just
+  # the first one queued -- kernels here range from ~1min (small PolyBench)
+  # to 1hr+ (mcf_r), so waiting on a fixed pid (as the original
+  # run_polybench.sh pattern does) can leave a free CPU idle for a long
+  # time behind a slow kernel that just happens to be first in the queue.
+  while [ "$(jobs -rp | wc -l)" -ge "$CONCURRENCY" ]; do
+    wait -n
+  done
   run_one "$prog" &
-  pids+=($!)
-  if [ ${#pids[@]} -ge "$CONCURRENCY" ]; then
-    wait "${pids[0]}"
-    pids=("${pids[@]:1}")
-  fi
 done
-for pid in "${pids[@]}"; do
-  wait "$pid"
-done
+wait
 
 echo ""
 echo "========================================"
