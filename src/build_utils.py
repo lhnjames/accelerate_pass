@@ -6,27 +6,37 @@ kernel with clang and time the resulting binary the same way.
 from __future__ import annotations
 import statistics
 import subprocess
+import time
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, Union
 
 
 def run_timing(bin_path: str, runs: int = 5, pin_cpu: "int | None" = None) -> float:
-    """Run a compiled benchmark binary `runs` times (+1 warmup), return median ms."""
+    """Run a compiled benchmark binary `runs` times (+1 warmup), return median ms.
+
+    Pure external wall-clock timing (time.monotonic() wrapped around the
+    subprocess) -- the binary's own stdout is not parsed for a self-reported
+    time value. This means the target program does NOT need to call any
+    instrumentation macros (e.g. PolyBench's polybench_start/stop/
+    print_instruments) to be timeable; see docs/GENERIC_HARNESS_DESIGN.md.
+    Kernels that still print a self-timed line (existing PolyBench kernels)
+    keep working unmodified -- that line is just unused stdout now.
+    """
     cmd = (["taskset", "-c", str(pin_cpu)] if pin_cpu is not None else []) + [bin_path]
     try:
-        subprocess.run(cmd, capture_output=True, timeout=60)
+        subprocess.run(cmd, capture_output=True, timeout=60)  # warmup, discarded
     except Exception:
         pass
     times = []
     for _ in range(runs):
+        t0 = time.monotonic()
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=60,
-                                 errors="replace")
-            if res.returncode == 0:
-                out = res.stdout.strip() or res.stderr.strip()
-                times.append(float(out.split()[-1]) * 1000.0)
+            res = subprocess.run(cmd, capture_output=True, timeout=60)
         except Exception:
-            pass
+            continue
+        elapsed_ms = (time.monotonic() - t0) * 1000.0
+        if res.returncode == 0:
+            times.append(elapsed_ms)
     return statistics.median(times) if times else -1.0
 
 

@@ -20,22 +20,18 @@ no uniform schema to auto-parse):
     copy -- a unity build of exactly the non-entry files, same trick
     gen_cbench_kernels.py uses for multi-file cBench programs.
   - SPEC's own harness always compiles with -DSPEC -DNDEBUG (see
-    benchspec/Makefile.defaults: CPUFLAGS = -DSPEC -DNDEBUG). Since
-    compile_binary()/compile_c() call sites are fixed to exactly two
-    defines ([[dataset]], -DPOLYBENCH_TIME) and we don't want to touch the
-    shared harness, we bake these into a tiny spec_defines.h that is
-    #include'd first by both TUs instead.
+    benchspec/Makefile.defaults: CPUFLAGS = -DSPEC -DNDEBUG); we bake these
+    into a tiny spec_defines.h that is #include'd first.
   - the driver is called directly with a hardcoded argv built from the
     benchmark's "test" workload (data/test/input/...), resolved to
     absolute paths so no chdir is required. Args below were read directly
     out of each benchmark's Spec/object.pm invoke() sub and its
     data/test/input/* files.
-  - correctness check: like cBench, we don't diff real output
-    element-by-element -- capture the driver's stdout (redirected around
-    the call, exactly like gen_cbench_kernels.py's WRAPPER_TEMPLATE, so it
-    doesn't collide with polybench_print_instruments' own stdout print)
-    and dump a checksum of it via POLYBENCH_DUMP_*, matching PolyBench's
-    own convention (compare_outputs on the dumped numbers).
+  - no polybench.h, no timing/dump macros, no stdout redirect: the wrapper
+    just calls the renamed entry point and returns. Timing is external
+    wall-clock (src/build_utils.py::run_timing) and correctness is checked
+    against the program's own real stdout (src/correctness.py numeric/hash
+    tiers) -- see docs/GENERIC_HARNESS_DESIGN.md for why.
 
 Each generated kernel is actually test-compiled with clang-11 and only
 kept in the manifest if it succeeds.
@@ -128,57 +124,30 @@ def rename_entry_all(text: str, entry: str, new_name: str) -> str:
     return "".join(out)
 
 
+# Generic wrapper -- no polybench.h, no dump macros, no stdout redirect.
+# Timing is done externally (wall-clock around the whole process, see
+# src/build_utils.py::run_timing), and correctness is checked against the
+# program's OWN real stdout (see src/correctness.py) instead of a
+# manufactured checksum. Earlier this redirected the kernel's real stdout
+# to a fixed per-kernel-name tmp file and only put a checksum on the
+# process's actual stdout -- besides needing polybench.h just for that
+# checksum's dump macros, that fixed path is a race: two runs of the same
+# kernel (reference vs. candidate, or a future concurrent evaluator) can
+# clobber each other's file mid-read. Piping the kernel's real output
+# straight through the process's own stdout is race-free by construction
+# -- each subprocess gets its own private pipe -- and is exactly what
+# subprocess.run(capture_output=True) already captures with zero extra
+# plumbing.
 WRAPPER_TEMPLATE = '''{spec_defines}
-#include <polybench.h>
-#include <unistd.h>
-#include <fcntl.h>
-
 {body}
-
-static double _checksum_file(const char* path)
-{{
-  FILE* f = fopen(path, "rb");
-  if (!f) return -1.0;
-  double sum = 0.0;
-  long i = 0;
-  int c;
-  while ((c = fgetc(f)) != EOF) {{ sum += (double)c * (1.0 + (double)(i % 97)); i++; }}
-  fclose(f);
-  return sum;
-}}
-
-static void _print_checksum(double chk)
-{{
-  POLYBENCH_DUMP_START;
-  POLYBENCH_DUMP_BEGIN("checksum");
-  fprintf(POLYBENCH_DUMP_TARGET, "%.6f", chk);
-  POLYBENCH_DUMP_END("checksum");
-  POLYBENCH_DUMP_FINISH;
-}}
 
 int main(int argc, char** argv)
 {{
   (void)argc; (void)argv;
   char* fargv[] = {{ {argv_list} , NULL }};
   int fargc = {argc};
-  const char* out_path = "{out_path}";
 
-  fflush(stdout);
-  int _saved_stdout = dup(1);
-  int _out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-  if (_out_fd >= 0) {{ dup2(_out_fd, 1); close(_out_fd); }}
-
-  polybench_start_instruments;
   kernel_{name}(fargc, fargv);
-  fflush(stdout);
-  polybench_stop_instruments;
-
-  dup2(_saved_stdout, 1);
-  close(_saved_stdout);
-  polybench_print_instruments;
-
-  double chk = _checksum_file(out_path);
-  polybench_prevent_dce(_print_checksum(chk));
   return 0;
 }}
 '''
@@ -213,11 +182,10 @@ def gen_one(kname: str, cfg: dict):
 
     argv = cfg["argv"](bdir)
     argv_list = ", ".join(f'"{a}"' for a in argv)
-    out_path = TMP_DIR / f"{kname}_stdout.tmp"
 
     wrapper = WRAPPER_TEMPLATE.format(
         spec_defines=SPEC_DEFINES_H, body=entry_text, argv_list=argv_list,
-        argc=len(argv), out_path=out_path, name=kname,
+        argc=len(argv), name=kname,
     )
     (kdir / f"{kname}.c").write_text(wrapper)
 
@@ -238,7 +206,7 @@ def try_compile(kernel_c: Path) -> tuple:
     out_bin = Path("/tmp") / f"spectest_{kernel_c.stem}"
     cmd = [CLANG, "-O3", "-std=gnu99", "-w",
            f"-I{udir}", f"-I{kdir}",
-           "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
+           "-DLARGE_DATASET",
            str(kernel_c), str(udir / "polybench.c"),
            "-o", str(out_bin), "-lm"]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=180, errors="replace")

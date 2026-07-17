@@ -76,6 +76,7 @@ from src.remarks import (
     format_rich_remarks_for_source_prompt,
 )
 from src.diagnostics import clean_clang_diagnostics
+from src.correctness import detect_correctness_mode, check_correctness
 
 
 # ── Single-shot timing (for interleaved confirmation runs) ───────────────────
@@ -1619,167 +1620,103 @@ Start immediately with `static void {kernel_name}(` or `void {kernel_name}(`.
 """
 
 
+# Old mode names kept as accepted aliases so every existing call site
+# (many hardcode mode="polybench_dump"/"stdout_compare") keeps working
+# unchanged after the switch to the generic, marker-free correctness tiers
+# in src/correctness.py. See docs/GENERIC_HARNESS_DESIGN.md.
+_MODE_ALIASES = {
+    "polybench_dump": "numeric",
+    "stdout_compare": "numeric",
+    "numeric": "numeric",
+    "hash": "hash",
+    "exit_only": "exit_only",
+}
+
+
+def _extra_link_sources(utils: "Path | None") -> list:
+    """Extra .c files a multi-file kernel needs linked (e.g. SPEC mcf_r's
+    algorithm split across implicit.c/psimplex.c/... unity-built into
+    utils/polybench.c by the shim generator, or TSVC's common.c/dummy.c).
+    Purely a "does this kernel need more than one translation unit" build
+    concern -- unrelated to whether the kernel uses any PolyBench macros."""
+    if not utils:
+        return []
+    pc = utils / "polybench.c"
+    return [str(pc)] if pc.exists() else []
+
+
 def _detect_polybench_mode(clang: str, src_path: str, utils: Path,
                            source_dir: Path, tmpdir: Path) -> str:
     """
-    自动检测 benchmark 的正确性验证模式。
-    返回：
-      "polybench_dump"  — 有 polybench.c 且支持 POLYBENCH_DUMP_ARRAYS
-      "stdout_compare"  — 程序有 stdout 输出但不是 PolyBench（通用模式）
-      "exit_only"       — 只能检查是否正常退出（无输出可比较）
+    自动检测 benchmark 的正确性验证模式（返回值见 src/correctness.py 的
+    三档：numeric > hash > exit_only）。不再要求目标程序 #include
+    <polybench.h> 或调用任何 DUMP/instrument 宏——直接编译一个普通二进制，
+    跑起来看它的原生输出里有没有能提取的数值、是否确定性即可。
     """
-    polybench_c = utils / "polybench.c" if utils else None
-
-    if polybench_c and polybench_c.exists():
-        # 尝试用 POLYBENCH_DUMP_ARRAYS + SMALL_DATASET 编译
-        test_bin = tmpdir / "_detect_test"
-        include_dirs = [utils, source_dir]
-        ok, _ = compile_c(
-            clang, [src_path, str(polybench_c)], include_dirs,
-            ["-DPOLYBENCH_DUMP_ARRAYS", "-DSMALL_DATASET"], test_bin
-        )
-        if ok:
-            return "polybench_dump"
-
-    # 尝试直接编译（可能有 main 函数）；多文件 benchmark 的实现散落在
-    # utils/polybench.c 里（同上），检测阶段也要带上，否则会把能跑
-    # stdout_compare 的多文件 kernel 误判成 exit_only。
-    test_bin2 = tmpdir / "_detect_test2"
-    _pc2 = utils / "polybench.c" if utils else None
-    _extra_src2 = [str(_pc2)] if _pc2 and _pc2.exists() else []
-    ok2, _ = compile_c(clang, [src_path] + _extra_src2, [source_dir], [], test_bin2)
-    if ok2:
-        try:
-            r = subprocess.run([str(test_bin2)], capture_output=True, timeout=10)
-            if r.stdout or r.stderr:
-                return "stdout_compare"
-        except Exception:
-            pass
-    return "exit_only"
+    include_dirs = [utils, source_dir] if utils else [source_dir]
+    extra_src = _extra_link_sources(utils)
+    test_bin = tmpdir / "_detect_test"
+    ok, _ = compile_c(clang, [src_path] + extra_src, include_dirs,
+                      ["-DSMALL_DATASET"], test_bin)
+    if not ok:
+        return "exit_only"
+    return detect_correctness_mode(str(test_bin), timeout=20)
 
 
 def _correctness_check(clang: str, src_path: str, ref_src: str,
                        dataset_flag: str, tmpdir: Path, tag: str,
                        utils: Path, source_dir: Path,
                        epsilon: float, timeout: int = 60,
-                       mode: str = "polybench_dump",
+                       mode: str = "numeric",
                        extra_flags: "list | None" = None) -> Tuple[bool, str]:
     """
-    多模式正确性检查，适配不同 benchmark 框架。
-
-    mode:
-      "polybench_dump"  — PolyBench DUMP_ARRAYS 数值对比（最严格）
-      "stdout_compare"  — 比较 stdout 文本输出（通用）
-      "exit_only"       — 只检查程序能正常退出无 crash（最宽松）
+    通用正确性检查——编译 ref/候选 两个二进制，跑起来交给
+    src/correctness.py 按 mode 对比（numeric 数值容差 / hash 精确哈希 /
+    exit_only 仅退出码）。不要求目标程序包含任何特定头文件或宏；`utils`
+    仍然是多文件 kernel 需要一起链接的额外 .c 来源（跟是否用 PolyBench
+    无关，纯粹是"这个 kernel 有几个翻译单元"的构建问题）。
 
     返回 (passed, error_msg)。
     """
+    mode = _MODE_ALIASES.get(mode, "numeric")
     include_dirs = [utils, source_dir] if utils else [source_dir]
+    extra_src = _extra_link_sources(utils)
 
-    if mode == "polybench_dump":
-        polybench_c = utils / "polybench.c"
-
-        # 编译 ref
-        ref_bin = tmpdir / f"{tag}_ref_{dataset_flag}"
-        ok, err = compile_c(clang, [ref_src, str(polybench_c)], include_dirs,
-                            ["-DPOLYBENCH_DUMP_ARRAYS", f"-D{dataset_flag}"], ref_bin)
-        if not ok:
-            # dataset_flag 不存在时降级到 MINI_DATASET
-            if dataset_flag == "STANDARD_DATASET":
-                return _correctness_check(
-                    clang, src_path, ref_src, "MINI_DATASET",
-                    tmpdir, tag + "_mini", utils, source_dir,
-                    epsilon, timeout=30, mode=mode, extra_flags=extra_flags)
-            return False, f"ref 编译失败 ({dataset_flag}): {clean_clang_diagnostics(err, max_diagnostics=3)}"
-        try:
-            ref_out = subprocess.run([str(ref_bin)], capture_output=True,
-                                     text=True, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            # STANDARD 超时 → 降级到 MINI
-            if dataset_flag == "STANDARD_DATASET":
-                return _correctness_check(
-                    clang, src_path, ref_src, "MINI_DATASET",
-                    tmpdir, tag + "_mini", utils, source_dir,
-                    epsilon, timeout=30, mode=mode, extra_flags=extra_flags)
-            return False, f"ref 运行超时 ({dataset_flag})"
-        ref_nums = extract_numbers_from_dump(
-            (ref_out.stdout or "") + (ref_out.stderr or ""))
-        if not ref_nums:
-            # 没有数值输出 → 降级
+    ref_bin = tmpdir / f"{tag}_ref_{dataset_flag}"
+    ok, err = compile_c(clang, [ref_src] + extra_src, include_dirs,
+                        [f"-D{dataset_flag}"], ref_bin)
+    if not ok:
+        # dataset_flag 不存在时降级到 MINI_DATASET
+        if dataset_flag == "STANDARD_DATASET":
             return _correctness_check(
-                clang, src_path, ref_src, dataset_flag,
-                tmpdir, tag, utils, source_dir, epsilon, timeout,
-                mode="exit_only", extra_flags=extra_flags)
+                clang, src_path, ref_src, "MINI_DATASET",
+                tmpdir, tag + "_mini", utils, source_dir,
+                epsilon, timeout=30, mode=mode, extra_flags=extra_flags)
+        return False, f"ref 编译失败 ({dataset_flag}): {clean_clang_diagnostics(err, max_diagnostics=3)}"
 
-        # 编译 opt（携带候选 -mllvm flags，确保验证的是实际会被计时的同一组 flags）
-        opt_bin = tmpdir / f"{tag}_opt_{dataset_flag}"
-        ok, cerr = compile_c(clang, [src_path, str(polybench_c)], include_dirs,
-                             ["-DPOLYBENCH_DUMP_ARRAYS", f"-D{dataset_flag}"], opt_bin,
-                             extra_flags=extra_flags)
-        if not ok:
-            return False, f"优化版编译失败 ({dataset_flag}): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
-        try:
-            opt_out = subprocess.run([str(opt_bin)], capture_output=True,
-                                     text=True, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            return False, f"优化版运行超时 ({dataset_flag})"
-        opt_nums = extract_numbers_from_dump(
-            (opt_out.stdout or "") + (opt_out.stderr or ""))
+    opt_bin = tmpdir / f"{tag}_opt_{dataset_flag}"
+    ok, cerr = compile_c(clang, [src_path] + extra_src, include_dirs,
+                         [f"-D{dataset_flag}"], opt_bin, extra_flags=extra_flags)
+    if not ok:
+        return False, f"优化版编译失败 ({dataset_flag}): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
 
-        ok_eq, msg = compare_outputs(ref_nums, opt_nums, epsilon=epsilon)
-        if not ok_eq:
-            return False, (f"[{dataset_flag}] 数值不一致: {msg}\n"
-                           f"{_diagnose_precision_error(msg)}")
-        return True, ""
-
-    elif mode == "stdout_compare":
-        # 通用模式：比较 stdout 输出文本
-        # 多文件 benchmark（如 SPEC/CBench shim）的实现分散在 utils/polybench.c
-        # 里（见 gen_spec_kernels.py 的 unity-build 打包），必须和 polybench_dump
-        # 分支一样把它一起编译进来，否则调用了那些函数的 kernel 会链接失败。
-        _pc = utils / "polybench.c" if utils else None
-        _extra_src = [str(_pc)] if _pc and _pc.exists() else []
-        ref_bin = tmpdir / f"{tag}_ref_stdout"
-        ok, err = compile_c(clang, [ref_src] + _extra_src, include_dirs, [], ref_bin)
-        if not ok:
-            return False, f"ref 编译失败 (stdout): {clean_clang_diagnostics(err, max_diagnostics=3)}"
-        opt_bin = tmpdir / f"{tag}_opt_stdout"
-        ok, cerr = compile_c(clang, [src_path] + _extra_src, include_dirs, [], opt_bin,
-                             extra_flags=extra_flags)
-        if not ok:
-            return False, f"优化版编译失败 (stdout): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
-        try:
-            ref_out = subprocess.run([str(ref_bin)], capture_output=True,
-                                     text=True, timeout=timeout)
-            opt_out = subprocess.run([str(opt_bin)], capture_output=True,
-                                     text=True, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            return False, "stdout 比较超时"
-        ref_nums = extract_numbers_from_dump(ref_out.stdout or "")
-        opt_nums = extract_numbers_from_dump(opt_out.stdout or "")
-        if ref_nums:
-            ok_eq, msg = compare_outputs(ref_nums, opt_nums, epsilon=epsilon)
-            if not ok_eq:
-                return False, f"stdout 数值不一致: {msg}"
-        elif ref_out.stdout != opt_out.stdout:
-            return False, "stdout 文本输出不一致"
-        return True, ""
-
-    else:  # exit_only
-        _pc = utils / "polybench.c" if utils else None
-        _extra_src = [str(_pc)] if _pc and _pc.exists() else []
-        opt_bin = tmpdir / f"{tag}_opt_exit"
-        ok, cerr = compile_c(clang, [src_path] + _extra_src, include_dirs, [], opt_bin,
-                             extra_flags=extra_flags)
-        if not ok:
-            return False, f"编译失败 (exit_only): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
-        try:
-            r = subprocess.run([str(opt_bin)], capture_output=True, timeout=timeout)
-            if r.returncode != 0:
-                return False, f"运行时返回非零退出码 {r.returncode}"
-        except subprocess.TimeoutExpired:
-            return False, "运行超时"
-        return True, ""
+    passed, msg = check_correctness(str(ref_bin), str(opt_bin), mode,
+                                    epsilon=epsilon, timeout=timeout)
+    if not passed and "timed out" in msg and dataset_flag == "STANDARD_DATASET":
+        # STANDARD 超时 → 降级到 MINI
+        return _correctness_check(
+            clang, src_path, ref_src, "MINI_DATASET",
+            tmpdir, tag + "_mini", utils, source_dir,
+            epsilon, timeout=30, mode=mode, extra_flags=extra_flags)
+    if not passed and mode == "numeric" and "empty" in msg:
+        # 没有可提取的数值输出 → 降级到 exit_only（跟旧版行为一致）
+        return _correctness_check(
+            clang, src_path, ref_src, dataset_flag,
+            tmpdir, tag, utils, source_dir, epsilon, timeout,
+            mode="exit_only", extra_flags=extra_flags)
+    if not passed and mode == "numeric":
+        return False, f"[{dataset_flag}] {msg}\n{_diagnose_precision_error(msg)}"
+    return passed, msg
 
 
 def _save_snapshot(src_text: str, snapshot_dir: Path, step_num: int,
