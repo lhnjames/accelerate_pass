@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """
-Generate one self-contained PolyBench-shaped kernel file per TSVC loop.
+Generate one self-contained kernel file per TSVC loop.
 
 Each TSVC loop (s000, s111, s1111, ...) becomes:
   TSVC_shim/kernels/<loop>/<loop>.c
 
 containing a `kernel_<loop>(struct args_t *)` function (the real loop body,
 renamed, __func__ dispatch calls fixed to use the loop's real name) plus a
-`main()` that follows the exact PolyBench convention (polybench_start/stop/
-print_instruments for timing, POLYBENCH_DUMP_* for correctness via the loop's
-checksum). This lets the existing COMET harness (compile_binary/run_timing/
-_correctness_check/collect_all_evidence — none of it touched) treat every
-TSVC loop exactly like a PolyBench kernel, because find_polybench_utilities
-resolves TSVC_shim/utilities/ (a private copy of polybench.c/h with TSVC's
-common.c + dummy.c + global array storage appended — see
-TSVC_shim/utilities/polybench.c) for any kernel path under TSVC_shim/.
+plain `main()` that calls it and prints the checksum TSVC's own loop
+function already computes and returns -- no framework header, no
+instrumentation macros. Timing is external wall-clock
+(src/build_utils.py::run_timing) and correctness is checked against this
+printed checksum via src/correctness.py's marker-free numeric tier; see
+docs/GENERIC_HARNESS_DESIGN.md. find_polybench_utilities() still resolves
+TSVC_shim/utilities/ (a private copy of TSVC's common.c + dummy.c + global
+array storage, unrelated to PolyBench despite the historical directory/file
+naming) for any kernel path under TSVC_shim/ -- that's a "does this kernel
+need extra translation units linked" build concern, not a framework
+coupling.
 
 Does not modify optimize.py / tune_param.py / tune_source.py's algorithm.
 """
@@ -32,20 +35,10 @@ MAIN_TEMPLATE = '''\
 #include <sys/time.h>
 #include <malloc.h>
 
-#include <polybench.h>
 #include "common.h"
 #include "array_defs.h"
 
 {kernel_body}
-
-static void print_checksum(real_t chk)
-{{
-  POLYBENCH_DUMP_START;
-  POLYBENCH_DUMP_BEGIN("checksum");
-  fprintf(POLYBENCH_DUMP_TARGET, "%.6f", chk);
-  POLYBENCH_DUMP_END("checksum");
-  POLYBENCH_DUMP_FINISH;
-}}
 
 int main(int argc, char** argv)
 {{
@@ -57,12 +50,8 @@ int main(int argc, char** argv)
 
   struct args_t func_args = {{.arg_info = {arg_info}}};
 
-  polybench_start_instruments;
   real_t chk = kernel_{loop}(&func_args);
-  polybench_stop_instruments;
-  polybench_print_instruments;
-
-  polybench_prevent_dce(print_checksum(chk));
+  printf("checksum: %.6f\\n", chk);
 
   free(ip);
   return 0;

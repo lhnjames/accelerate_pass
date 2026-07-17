@@ -53,7 +53,13 @@ def compile_c(clang_path: str, sources: Sequence[str],
     if isinstance(include_dirs, (str, Path)):
         include_dirs = [include_dirs]
     inc_flags = [f"-I{d}" for d in include_dirs]
-    cmd = ([clang_path, "-O3", "-std=c99"]
+    # gnu99, not strict c99: some CBench sources use BSD/POSIX typedefs
+    # (e.g. libtiff's u_long) that only strict c99 hides. gnu99 is a strict
+    # superset of c99 -- every kernel that compiled under c99 still does --
+    # and matches what the CBench shim generator already test-compiles
+    # with (scripts/gen_cbench_kernels.py's try_compile()), so a kernel
+    # that's in the manifest at all is guaranteed compilable here too.
+    cmd = ([clang_path, "-O3", "-std=gnu99"]
            + inc_flags + defines + list(sources) + ["-o", str(output_bin), "-lm"])
     if extra_flags:
         cmd.extend(extra_flags)

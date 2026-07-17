@@ -144,21 +144,73 @@ is kept as-is functionally — it's a directory-lookup convention (find a
 `utilities/` folder holding extra `.c` files a multi-file kernel needs
 linked), not a macro/header coupling. Not touched in this phase.
 
-## 4. Synthetic shim generators — full rewrite (deferred to a follow-up pass)
+## 4. Synthetic shim generators — done
 
 `scripts/gen_spec_kernels.py`, `gen_tsvc_kernels.py`, `gen_cbench_kernels.py`
-currently hand-wrap non-PolyBench source in a fake PolyBench `main()`
-(`WRAPPER_TEMPLATE` / `MAIN_TEMPLATE`) that includes `<polybench.h>` and
-calls its macros purely to satisfy the old harness's requirements. Once the
-harness no longer requires that, these templates simplify to: call the
-renamed entry point directly, let it print/return however it naturally
-would, done. No header, no macros, no manufactured checksum wrapper needed
-unless the target genuinely has no stdout output of its own (rare — kept as
-an opt-in fallback, not the default).
+all previously hand-wrapped non-PolyBench source in a fake PolyBench
+`main()` (`WRAPPER_TEMPLATE` / `MAIN_TEMPLATE`) that included
+`<polybench.h>` and called its macros purely to satisfy the old harness's
+requirements. All three are now simplified: no header, no macros, no
+manufactured checksum. Each just calls the renamed entry point and lets it
+print/return however it naturally would; that real output goes straight to
+the process's own stdout, captured directly and process-isolated by
+`subprocess.run(capture_output=True)`.
 
-This full regeneration (all 4 shim families, re-verified end to end) is
-scoped as a separate follow-up pass once the core module lands and is
-validated — today's slice is: core module implemented + wired into
-`optimize.py`, validated against SPEC's `mcf_r` (a good test case since its
-actual algorithm has nothing to do with PolyBench; only its current
-generator-added wrapper does).
+- **SPEC** (`gen_spec_kernels.py`): dropped the old `#include <polybench.h>`,
+  `POLYBENCH_DUMP_*` checksum wrapper, and the stdout-to-fixed-tmp-file
+  redirect (`dup`/`dup2`) that only existed to keep the kernel's real
+  output from colliding with `polybench_print_instruments`' own print --
+  unnecessary once timing is external. mcf_r's real solve output
+  (`objective value: ...`) now flows straight through. Regenerated and
+  validated: mode auto-detects "numeric" (previously silently degraded to
+  a no-op "hash of two empty strings" because the checksum print was dead
+  code without the old macro defined).
+- **TSVC** (`gen_tsvc_kernels.py`): every TSVC loop function already
+  computes and *returns* its own checksum (`real_t`) as part of the
+  upstream TSVC convention -- the wrapper now just `printf`s it directly,
+  no macros needed at all. Regenerated (151 kernels) and validated across
+  s000/s1111/s162/s151.
+- **CBench** (`gen_cbench_kernels.py`): most cBench programs (dijkstra,
+  bzip2 -c, adpcm-c/d, crc32, sha, qsort1, patricia, ...) already write
+  their real product straight to stdout -- nothing extra needed. A handful
+  (tiff2bw/tiff2dither/tiff2median/tiff2rgba, consumer-jpeg-c) take an
+  explicit output-*file* argv token and write there instead; for those the
+  wrapper reads that file back and streams it onto its own stdout right
+  after the call, so the harness only ever looks in one place regardless
+  of which convention the underlying program uses. That path is
+  `getpid()`-namespaced (`{kname}_out_%d.tmp`) so a reference run and a
+  candidate run can never collide on the same file -- resolving the exact
+  race the file-based approach was originally flagged for. Regenerated (19
+  of ~25 kernels; the rest fail on pre-existing, unrelated unity-build
+  symbol collisions from concatenating multiple programs' `.c` files, not
+  from anything in this pass) and validated on both a stdout-based kernel
+  (bzip2_encode, dijkstra) and a file-output-based one (tiff2bw).
+
+## 5. Bugs this surfaced along the way
+
+- **`extract_numbers()` word-boundary bug**: a bare `\d+`-style regex also
+  matches digits embedded in an identifier printed as diagnostic text --
+  e.g. TSVC's `initialise_arrays()` prints the loop's own name ("s1111")
+  before the checksum, and a naive scan extracted a spurious `1111.0` out
+  of it. A single-character lookbehind isn't enough to prevent this (it
+  still lets a match start mid-digit-run, since the preceding character
+  there is another digit, not a letter). Fixed by tokenizing into
+  "identifier" or "number" alternatives (identifier tried first), so the
+  scanner's position jumps past the whole identifier in one match instead
+  of ever considering a start position inside it.
+- **Lossy stdout capture**: `_run_capture` originally used
+  `subprocess.run(..., text=True, errors="replace")`, which is fine for
+  text output but corrupts binary output (CBench's compressed/image/audio
+  bytes) -- two genuinely different binary outputs can both contain
+  invalid UTF-8 sequences that collapse to the same replacement character,
+  making the `hash` tier falsely see them as equal. Fixed by capturing raw
+  bytes and only decoding (losslessly, via `latin1`) when the `numeric`
+  tier needs a `str` to regex-scan; the `hash` tier hashes the raw bytes
+  directly.
+- **`compile_c()`'s `-std=c99` vs. the CBench generator's own `-std=gnu99`
+  test-compile**: some CBench sources use BSD/POSIX typedefs (e.g.
+  libtiff's `u_long`) that strict c99 hides, so a kernel the generator
+  accepted into the manifest could still fail when actually built through
+  the harness. `gnu99` is a strict superset of `c99`, so switching
+  `src/build_utils.py::compile_c` to match is backward compatible with
+  every kernel that already worked.

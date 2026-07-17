@@ -28,22 +28,45 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Union
 
-FLOAT_RE = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+# Tokenizes into "identifier" or "number" pieces, alternation tried in that
+# order. A single-character lookaround can't reliably keep a bare \d+
+# regex from matching digits embedded in an identifier printed as
+# diagnostic text (e.g. TSVC's initialise_arrays() prints the loop's own
+# name, "s1111": a lookbehind that only checks one character back still
+# lets findall start a fresh number-match from the *second* digit of a
+# digit run, since that character's own predecessor is a digit, not a
+# letter). Matching the identifier as a whole token first makes finditer's
+# scan position jump past all of "s1111" in one match, so it never gets a
+# chance to start a number-match partway through it.
+_TOKEN_RE = re.compile(
+    r"[A-Za-z_][A-Za-z_0-9]*"
+    r"|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+)
 
 NumbersOrError = Union[list, str]
 
 
 def _run_capture(bin_path: str, timeout: int = 60,
                  output_file: "Optional[Path]" = None):
-    """Run a binary once, capture stdout+stderr text and optional output-file
-    bytes. Returns (returncode, combined_text, file_bytes) or None on
-    timeout/launch failure."""
+    """Run a binary once, capture stdout+stderr as raw bytes (plus optional
+    output-file bytes). Returns (returncode, combined_bytes, file_bytes) or
+    None on timeout/launch failure.
+
+    Deliberately NOT decoded with text=True/errors="replace": several
+    CBench programs' real product output (compressed data, image/audio
+    bytes) goes straight to stdout, and UTF-8-with-replacement decoding is
+    lossy -- two genuinely different binary outputs can both contain
+    invalid UTF-8 sequences that collapse to the same replacement
+    character, making the hash tier below falsely see them as equal. Raw
+    bytes preserve exactly what the program produced; extract_numbers()
+    decodes losslessly (latin1, a 1:1 byte<->codepoint mapping) only when
+    it needs a str to regex-scan.
+    """
     try:
-        r = subprocess.run([str(bin_path)], capture_output=True, text=True,
-                           timeout=timeout, errors="replace")
+        r = subprocess.run([str(bin_path)], capture_output=True, timeout=timeout)
     except (subprocess.TimeoutExpired, OSError):
         return None
-    combined = (r.stdout or "") + (r.stderr or "")
+    combined = (r.stdout or b"") + (r.stderr or b"")
     file_bytes = None
     if output_file is not None and output_file.exists():
         try:
@@ -61,7 +84,10 @@ def extract_numbers(text: str) -> NumbersOrError:
     difference, so they short-circuit as errors rather than being silently
     dropped or compared."""
     values = []
-    for tok in FLOAT_RE.findall(text):
+    for m in _TOKEN_RE.finditer(text):
+        tok = m.group(0)
+        if tok[0].isalpha() or tok[0] == "_":
+            continue  # identifier token, not a number -- skip without splitting it
         try:
             v = float(tok)
         except ValueError:
@@ -116,17 +142,17 @@ def detect_correctness_mode(bin_path: str, output_file: "Optional[Path]" = None,
     run1 = _run_capture(bin_path, timeout=timeout, output_file=output_file)
     if run1 is None or run1[0] != 0:
         return "exit_only"
-    _, text1, file1 = run1
-    file1_text = file1.decode("latin1") if file1 is not None else ""
-    nums = extract_numbers(text1 + file1_text)
+    _, out1, file1 = run1
+    combined1 = out1.decode("latin1") + (file1.decode("latin1") if file1 is not None else "")
+    nums = extract_numbers(combined1)
     if isinstance(nums, list) and len(nums) >= 1:
         return "numeric"
 
     run2 = _run_capture(bin_path, timeout=timeout, output_file=output_file)
     if run2 is None or run2[0] != 0:
         return "exit_only"
-    _, text2, file2 = run2
-    if text1 == text2 and file1 == file2:
+    _, out2, file2 = run2
+    if out1 == out2 and file1 == file2:
         return "hash"
     return "exit_only"
 
@@ -138,27 +164,27 @@ def check_correctness(ref_bin: str, opt_bin: str, mode: str,
     ref = _run_capture(ref_bin, timeout=timeout, output_file=output_file)
     if ref is None:
         return False, "reference run timed out"
-    ref_rc, ref_text, ref_file = ref
+    ref_rc, ref_out, ref_file = ref
     if ref_rc != 0:
         return False, f"reference exited non-zero ({ref_rc})"
 
     opt = _run_capture(opt_bin, timeout=timeout, output_file=output_file)
     if opt is None:
         return False, "optimized run timed out"
-    opt_rc, opt_text, opt_file = opt
+    opt_rc, opt_out, opt_file = opt
     if opt_rc != 0:
         return False, f"optimized version returned non-zero exit code {opt_rc}"
 
     if mode == "numeric":
-        ref_file_text = ref_file.decode("latin1") if ref_file is not None else ""
-        opt_file_text = opt_file.decode("latin1") if opt_file is not None else ""
-        ref_nums = extract_numbers(ref_text + ref_file_text)
-        opt_nums = extract_numbers(opt_text + opt_file_text)
+        ref_text = ref_out.decode("latin1") + (ref_file.decode("latin1") if ref_file is not None else "")
+        opt_text = opt_out.decode("latin1") + (opt_file.decode("latin1") if opt_file is not None else "")
+        ref_nums = extract_numbers(ref_text)
+        opt_nums = extract_numbers(opt_text)
         return compare_numeric(ref_nums, opt_nums, epsilon=epsilon)
 
     if mode == "hash":
-        ref_h = _hash(ref_text.encode("utf-8", "replace") + (ref_file or b""))
-        opt_h = _hash(opt_text.encode("utf-8", "replace") + (opt_file or b""))
+        ref_h = _hash(ref_out + (ref_file or b""))
+        opt_h = _hash(opt_out + (opt_file or b""))
         if ref_h != opt_h:
             return False, f"output hash mismatch (ref={ref_h[:12]}, opt={opt_h[:12]})"
         return True, ""

@@ -37,11 +37,21 @@ Per program:
   and only kept if clang succeeds. Failures are reported, not silently
   skipped.
 
-Correctness: like the TSVC generator, we don't try to diff whole output
-files element-by-element (impractical for images/audio/binaries) -- instead
-we compute a checksum over the program's real output file after it runs and
-dump that single value via POLYBENCH_DUMP_*, matching PolyBench's own
-correctness-checking convention (compare_outputs on the dumped numbers).
+Correctness: no polybench.h, no framework macros -- the harness (see
+src/correctness.py) hashes/numeric-compares whatever a kernel prints on its
+real stdout, captured directly by the process's own stdout pipe (no shared
+tmp file to race on). Most cBench programs (dijkstra, bzip2 -c, adpcm-c/d,
+crc32, sha, qsort1, patricia, ...) already write their real product output
+straight to stdout -- for those the wrapper does nothing extra. A handful
+(tiff2bw/tiff2dither/tiff2median/tiff2rgba, consumer-jpeg-c, ...) take an
+explicit output-*file* argv token and write their product there instead of
+to stdout; for those the wrapper reads that file back and streams it onto
+its own stdout right after the call, so the harness still only ever needs
+to look at one place (this process's own stdout, captured process-isolated
+by subprocess.run) regardless of which convention the underlying program
+uses. That file path is namespaced by getpid() so two invocations (a
+reference run and a candidate run, or any future concurrent evaluation)
+can never collide on the same path.
 """
 import json
 import re
@@ -165,61 +175,37 @@ def build_argv(name: str, variant: str, template: str, resolved: dict, workdir: 
     return fixed, stdin_file
 
 
+# Generic wrapper -- no polybench.h, no framework macros. Timing is
+# external wall-clock (src/build_utils.py::run_timing) and correctness is
+# checked against this process's own real stdout (src/correctness.py) --
+# see docs/GENERIC_HARNESS_DESIGN.md and the module docstring above for why
+# out_path_decl/cat_output exist for the minority of programs that write
+# their product to a file instead of stdout.
 WRAPPER_TEMPLATE = '''
-#include <polybench.h>
+#include <stdio.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 {body}
 
-static double _checksum_file(const char* path)
+static void _cat_file_to_stdout(const char* path)
 {{
   FILE* f = fopen(path, "rb");
-  if (!f) return -1.0;
-  double sum = 0.0;
-  long i = 0;
-  int c;
-  while ((c = fgetc(f)) != EOF) {{ sum += (double)c * (1.0 + (double)(i % 97)); i++; }}
+  if (!f) return;
+  char buf[65536];
+  size_t n;
+  while ((n = fread(buf, 1, sizeof(buf), f)) > 0) fwrite(buf, 1, n, stdout);
   fclose(f);
-  return sum;
-}}
-
-static void _print_checksum(double chk)
-{{
-  POLYBENCH_DUMP_START;
-  POLYBENCH_DUMP_BEGIN("checksum");
-  fprintf(POLYBENCH_DUMP_TARGET, "%.6f", chk);
-  POLYBENCH_DUMP_END("checksum");
-  POLYBENCH_DUMP_FINISH;
+  remove(path);
 }}
 
 int main(int argc, char** argv)
 {{
+{out_path_decl}
   char* fargv[] = {{ {argv_list} , NULL }};
   int fargc = {argc};
-  const char* out_path = "{out_path}";
 {stdin_setup}
-  /* Some cBench programs write their real output to stdout instead of (or
-     as well as) an explicit output file argument. Redirect fd 1 to out_path
-     for the duration of the call so that data doesn't collide with
-     polybench_print_instruments' own stdout float print, then restore the
-     original stdout to print the timing. */
-  fflush(stdout);
-  int _saved_stdout = dup(1);
-  int _out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-  if (_out_fd >= 0) {{ dup2(_out_fd, 1); close(_out_fd); }}
-
-  polybench_start_instruments;
   kernel_{name}({call_args});
-  fflush(stdout);
-  polybench_stop_instruments;
-
-  dup2(_saved_stdout, 1);
-  close(_saved_stdout);
-  polybench_print_instruments;
-
-  double chk = _checksum_file(out_path);
-  polybench_prevent_dce(_print_checksum(chk));
+{cat_output}
   return 0;
 }}
 '''
@@ -256,20 +242,35 @@ def gen_one(prog_name: str, variant: str, resolved: dict):
     entry_text = rename_entry(entry_text, entry, f"kernel_{kname}")
 
     argv, stdin_file = build_argv(kname, variant, template, resolved, Path("/home/hanning/comet/tmp"))
-    out_path = None
-    for a in argv[1:]:
+    out_idx = None
+    for i, a in enumerate(argv[1:], start=1):
         if a.endswith(".tmp") or "tmp-output" in a:
-            out_path = a
-    if out_path is None:
-        # No explicit output-file token in this program's CLI (e.g. dijkstra,
-        # bzip2, adpcm-c/d, crc32, sha, qsort1, patricia) -- its real output
-        # is whatever it writes to stdout, which main()'s fd-1 redirect
-        # below captures into out_path. Do NOT add a synthetic extra argv
-        # token: several of these programs (bzip2 in particular) would
-        # misinterpret a stray trailing path as another input file.
-        out_path = str(Path("/home/hanning/comet/tmp") / f"{kname}_out.tmp")
+            out_idx = i
+            break
 
-    argv_list = ", ".join(f'"{a}"' for a in argv)
+    if out_idx is not None:
+        # Program writes its real product to a file it opens itself (e.g.
+        # tiff2bw's output path), not to stdout. Namespace that path by
+        # getpid() so a reference run and a candidate run (or any future
+        # concurrent evaluation) can never collide on the same path, and
+        # have the wrapper read it back onto its own stdout right after the
+        # call -- the harness then only ever needs to look in one place.
+        argv_list = ", ".join(
+            "out_path" if i == out_idx else f'"{a}"' for i, a in enumerate(argv))
+        out_path_decl = (
+            "  char out_path[512];\n"
+            f'  snprintf(out_path, sizeof(out_path), "/home/hanning/comet/tmp/{kname}_out_%d.tmp", (int)getpid());\n'
+        )
+        cat_output = "  _cat_file_to_stdout(out_path);\n"
+    else:
+        # No explicit output-file token (e.g. dijkstra, bzip2 -c, adpcm-c/d,
+        # crc32, sha, qsort1, patricia) -- its real output is already
+        # whatever it writes to its own stdout, which the harness captures
+        # directly. Nothing extra needed.
+        argv_list = ", ".join(f'"{a}"' for a in argv)
+        out_path_decl = ""
+        cat_output = ""
+
     if zero_arg:
         call_args = ""
     elif uses_rtl:
@@ -282,7 +283,8 @@ def gen_one(prog_name: str, variant: str, resolved: dict):
         stdin_setup = f'  if (!freopen("{stdin_file}", "r", stdin)) return 1;\n'
 
     wrapper = WRAPPER_TEMPLATE.format(
-        body=entry_text, argv_list=argv_list, argc=len(argv), out_path=out_path,
+        body=entry_text, argv_list=argv_list, argc=len(argv),
+        out_path_decl=out_path_decl, cat_output=cat_output,
         stdin_setup=stdin_setup, name=kname, call_args=call_args,
     )
     (kdir / f"{kname}.c").write_text(wrapper)
@@ -315,7 +317,7 @@ def try_compile(kernel_c: Path) -> tuple:
     out_bin = Path("/tmp") / f"cbenchtest_{kernel_c.stem}"
     cmd = [CLANG, "-O3", "-std=gnu99", "-w",
            f"-I{udir}", f"-I{kdir}",
-           "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
+           "-DLARGE_DATASET",
            str(kernel_c), str(udir / "polybench.c"),
            "-o", str(out_bin), "-lm"]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=120, errors="replace")
