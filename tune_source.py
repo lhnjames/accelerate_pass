@@ -97,9 +97,18 @@ def extract_vectorization_remarks(clang: str, src: str,
 
 
 def extract_kernel_function(content: str, kernel_name: str):
-    """Return (kernel_source, start_idx, end_idx) by brace-counting."""
-    pattern = r"(?:static\s+)?[A-Za-z_][A-Za-z_0-9]*\s*\*?\s*" + re.escape(kernel_name) + r"\s*\("
-    m = re.search(pattern, content)
+    """Return (kernel_source, start_idx, end_idx) by brace-counting.
+
+    Anchored to the start of a line (mod leading whitespace) so a name that
+    happens to also appear earlier in a comment (e.g. a license header
+    reading "Copyright (c) ..." can regex-match a bare call/signature
+    pattern like "Copyright(") can't be matched first -- see
+    scripts/gen_tsvc_kernels.py's extract_function() for the same fix and
+    a worked example (a commented-out stale signature spliced onto the
+    real one).
+    """
+    pattern = r"^[ \t]*(?:static\s+)?[A-Za-z_][A-Za-z_0-9]*\s*\*?\s*" + re.escape(kernel_name) + r"\s*\("
+    m = re.search(pattern, content, re.MULTILINE)
     if not m:
         return None, None, None
     brace_start = content.find("{", m.end())

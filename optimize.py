@@ -77,6 +77,7 @@ from src.remarks import (
 )
 from src.diagnostics import clean_clang_diagnostics
 from src.correctness import detect_correctness_mode, check_correctness
+from src.hotspot import select_hotspot_target
 
 
 # ── Single-shot timing (for interleaved confirmation runs) ───────────────────
@@ -1054,7 +1055,11 @@ Per-pass IR 修改情况（每个 pass 单独运行前后对比 — FIRED=确实
 重要规则：
   - 只能使用逆向推断部分列出的 flag（均已确认存在于此 clang 版本，类型和描述见下方）
   - 不能使用 force-vector-width, force-vector-interleave 等 force-*/disable-* 标志
-  - ≤6 个 flag，每个 ≤8 个候选值
+  - 尽量覆盖广：一次性提出 10-20 个 flag（宁多勿少——每个 flag 的候选值搜索是独立的，
+    系统会自动跳过编译过慢的 flag，不会拖慢整体），每个 flag 生成 4-8 个候选值。
+    这是本系统的核心能力：靠 compiler remarks + missed-optimization 证据，一次性圈定
+    一批真正有依据的候选 flag，再由系统快速网格搜索找出最优组合——比人工调参覆盖面更广、
+    比盲目枚举全部 flag 更精准。
 
 可用 pragma:
 {pragma_str}
@@ -1652,12 +1657,20 @@ def _detect_polybench_mode(clang: str, src_path: str, utils: Path,
     三档：numeric > hash > exit_only）。不再要求目标程序 #include
     <polybench.h> 或调用任何 DUMP/instrument 宏——直接编译一个普通二进制，
     跑起来看它的原生输出里有没有能提取的数值、是否确定性即可。
+
+    仍然带上 -DPOLYBENCH_DUMP_ARRAYS：对 SPEC/TSVC/CBench 新版 wrapper 这
+    个宏根本没被引用，纯粹无操作；但对真正的 PolyBench-C kernel（2mm/gemm
+    等，自带 polybench.h 那套数组宏），它是 polybench_prevent_dce() 内部
+    `if (argc > 42 && ...)` 死代码消除守卫的开关——不定义它，print_array()
+    永远不会真的执行，correctness check 会悄悄退化成"比较两个空输出"，
+    等于没检查。这正是 mcf_r 那次系统性 bug 的同一种坑，只是换了个 kernel
+    类型触发。
     """
     include_dirs = [utils, source_dir] if utils else [source_dir]
     extra_src = _extra_link_sources(utils)
     test_bin = tmpdir / "_detect_test"
     ok, _ = compile_c(clang, [src_path] + extra_src, include_dirs,
-                      ["-DSMALL_DATASET"], test_bin)
+                      ["-DSMALL_DATASET", "-DPOLYBENCH_DUMP_ARRAYS"], test_bin)
     if not ok:
         return "exit_only"
     return detect_correctness_mode(str(test_bin), timeout=20)
@@ -1681,10 +1694,14 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
     mode = _MODE_ALIASES.get(mode, "numeric")
     include_dirs = [utils, source_dir] if utils else [source_dir]
     extra_src = _extra_link_sources(utils)
+    # See _detect_polybench_mode's docstring: no-op for SPEC/TSVC/CBench's
+    # macro-free wrappers, required to unlock real PolyBench-C kernels'
+    # print_array() (gated behind this by polybench_prevent_dce otherwise).
+    _defines = [f"-D{dataset_flag}", "-DPOLYBENCH_DUMP_ARRAYS"]
 
     ref_bin = tmpdir / f"{tag}_ref_{dataset_flag}"
     ok, err = compile_c(clang, [ref_src] + extra_src, include_dirs,
-                        [f"-D{dataset_flag}"], ref_bin)
+                        _defines, ref_bin)
     if not ok:
         # dataset_flag 不存在时降级到 MINI_DATASET
         if dataset_flag == "STANDARD_DATASET":
@@ -1696,7 +1713,7 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
 
     opt_bin = tmpdir / f"{tag}_opt_{dataset_flag}"
     ok, cerr = compile_c(clang, [src_path] + extra_src, include_dirs,
-                         [f"-D{dataset_flag}"], opt_bin, extra_flags=extra_flags)
+                         _defines, opt_bin, extra_flags=extra_flags)
     if not ok:
         return False, f"优化版编译失败 ({dataset_flag}): {clean_clang_diagnostics(cerr, max_diagnostics=3)}"
 
@@ -1766,19 +1783,29 @@ def _eval_build_and_time(clang: str, src_path: str, ref_src: str,
     except Exception:
         src_text = ""
 
-    # 自动检测正确性模式
+    # 自动检测正确性模式（走 src/correctness.py 的通用三档检测，跟
+    # _detect_polybench_mode 用同一套逻辑——不要求目标程序有任何特定宏）。
+    # 实际主流程里 ev["correctness_mode"] 在 evidence collection 阶段就已经
+    # 定好了，这里的 "auto" 只在极少数直接调用 _eval_build_and_time 且没有
+    # 预先探测过的场合触发；保留是为了不留一条仍然依赖旧 DUMP_ARRAYS 宏的
+    # 探测分支在代码里（那条分支本身就是 mcf_r/TSVC 那次静默 1.0x 的根因）。
     if correctness_mode == "auto":
-        if polybench_c and polybench_c.exists():
-            # 快速判断是否支持 POLYBENCH_DUMP_ARRAYS
-            _test = tmpdir / f"{tag}_autodetect"
-            _ok, _ = compile_c(clang, [ref_src, str(polybench_c)], include_dirs,
-                                ["-DPOLYBENCH_DUMP_ARRAYS", "-DSMALL_DATASET"], _test)
-            correctness_mode = "polybench_dump" if _ok else "exit_only"
-        else:
-            correctness_mode = "exit_only"
+        extra_src = [str(polybench_c)] if polybench_c and polybench_c.exists() else []
+        _test = tmpdir / f"{tag}_autodetect"
+        _ok, _ = compile_c(clang, [ref_src] + extra_src, include_dirs, ["-DSMALL_DATASET"], _test)
+        correctness_mode = detect_correctness_mode(str(_test), timeout=20) if _ok else "exit_only"
+
+    # 是否有多文件 utils（framework 无关：单纯是"这个 kernel 有没有额外翻译单元
+    # /数据集大小宏"，跟 correctness_mode 是 numeric/hash/exit_only 完全独立——
+    # 之前用 `correctness_mode == "polybench_dump"` 判断，把 mode 从
+    # "polybench_dump" 改名成 "numeric" 之后这个比较永远为假，会让真正的
+    # PolyBench kernel 在计时阶段悄悄丢掉 -DLARGE_DATASET，量出来的时间会是
+    # 错的数据集规模。
+    _has_utils = bool(polybench_c and polybench_c.exists())
+    _extra_src = [str(polybench_c)] if _has_utils else []
 
     # ── 第一层正确性：SMALL 规模 ──────────────────────────────────────────────
-    ds1 = "SMALL_DATASET" if correctness_mode == "polybench_dump" else "n/a"
+    ds1 = "SMALL_DATASET" if _has_utils else "n/a"
     ok1, err1 = _correctness_check(
         clang, src_path, ref_src, ds1,
         tmpdir, tag + "_c1", utils, source_dir,
@@ -1790,7 +1817,7 @@ def _eval_build_and_time(clang: str, src_path: str, ref_src: str,
                 "snapshot_path": ""}
 
     # ── 第二层正确性：STANDARD 规模（超时自动降级为 MINI）────────────────────
-    ds2 = "STANDARD_DATASET" if correctness_mode == "polybench_dump" else "n/a"
+    ds2 = "STANDARD_DATASET" if _has_utils else "n/a"
     ok2, err2 = _correctness_check(
         clang, src_path, ref_src, ds2,
         tmpdir, tag + "_c2", utils, source_dir,
@@ -1808,36 +1835,20 @@ def _eval_build_and_time(clang: str, src_path: str, ref_src: str,
         snap_file = _save_snapshot(src_text, snapshot_dir, step_num, action, "ok")
         snap_path = str(snap_file)
 
-    # ── 计时：ref + opt，LARGE_DATASET（PolyBench）或直接计时 ────────────────
-    if correctness_mode == "polybench_dump" and polybench_c:
-        ref_time_bin = tmpdir / f"{tag}_ref_time"
-        _ok, _ = compile_c(clang, [ref_src, str(polybench_c)], include_dirs,
-                           ["-DPOLYBENCH_TIME", "-DLARGE_DATASET"], ref_time_bin,
-                           extra_flags=extra_flags)
-        ref_t = ts_run_timing(str(ref_time_bin), runs=runs, pin_cpu=pin_cpu) if _ok else -1.0
+    # ── 计时：ref + opt，LARGE_DATASET ────────────────────────────────────────
+    _time_defines = ["-DLARGE_DATASET"] if _has_utils else []
+    ref_time_bin = tmpdir / f"{tag}_ref_time"
+    _ok, _ = compile_c(clang, [ref_src] + _extra_src, include_dirs,
+                       _time_defines, ref_time_bin, extra_flags=extra_flags)
+    ref_t = ts_run_timing(str(ref_time_bin), runs=runs, pin_cpu=pin_cpu) if _ok else -1.0
 
-        opt_time_bin = tmpdir / f"{tag}_opt_time"
-        _ok2, _err2 = compile_c(clang, [src_path, str(polybench_c)], include_dirs,
-                                 ["-DPOLYBENCH_TIME", "-DLARGE_DATASET"], opt_time_bin,
-                                 extra_flags=extra_flags)
-        if not _ok2:
-            return {"ok": False, "speedup": 1.0,
-                    "error": f"LARGE计时编译失败: {_err2[:200]}",
-                    "perf_stats": {}, "snapshot_path": snap_path}
-    else:
-        # 通用计时：直接编译+运行
-        ref_time_bin = tmpdir / f"{tag}_ref_time_generic"
-        _ok, _ = compile_c(clang, [ref_src], include_dirs, [], ref_time_bin,
-                           extra_flags=extra_flags)
-        ref_t = ts_run_timing(str(ref_time_bin), runs=runs, pin_cpu=pin_cpu) if _ok else -1.0
-
-        opt_time_bin = tmpdir / f"{tag}_opt_time_generic"
-        _ok2, _err2 = compile_c(clang, [src_path], include_dirs, [], opt_time_bin,
-                                 extra_flags=extra_flags)
-        if not _ok2:
-            return {"ok": False, "speedup": 1.0,
-                    "error": f"通用计时编译失败: {_err2[:200]}",
-                    "perf_stats": {}, "snapshot_path": snap_path}
+    opt_time_bin = tmpdir / f"{tag}_opt_time"
+    _ok2, _err2 = compile_c(clang, [src_path] + _extra_src, include_dirs,
+                            _time_defines, opt_time_bin, extra_flags=extra_flags)
+    if not _ok2:
+        return {"ok": False, "speedup": 1.0,
+                "error": f"计时编译失败: {_err2[:200]}",
+                "perf_stats": {}, "snapshot_path": snap_path}
 
     opt_t = ts_run_timing(str(opt_time_bin), runs=runs, pin_cpu=pin_cpu)
     if opt_t <= 0:
@@ -2022,6 +2033,14 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             all_results  = []
 
             # Phase A: independent per-flag search
+            # Fast single-run screening: with the flag budget raised to 10-20 (see the
+            # try_flags prompt section), timing every candidate with the full `runs`
+            # count would make each step much slower for no benefit -- Phase A only
+            # needs to rank candidates well enough to pick per-flag winners for Phase B.
+            # The eventual winner gets a full-`runs` re-time below before its speedup
+            # is reported or gates the correctness check, so precision isn't lost where
+            # it actually matters.
+            _screen_runs = 1
             # Also record per-flag compile time to dynamically exclude slow-to-compile flags
             # from Phase B (flags whose best candidate took >_JOINT_COMPILE_WARN_S to compile
             # are likely to cause exponential vectorizer search when combined with others).
@@ -2048,7 +2067,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     if not ok:
                         continue
                     flag_min_compile_s = min(flag_min_compile_s, _compile_s)
-                    t = tp_run_timing(str(cand), runs=runs, pin_cpu=pin_cpu)
+                    t = tp_run_timing(str(cand), runs=_screen_runs, pin_cpu=pin_cpu)
                     if t <= 0:
                         continue
                     sp = baseline_time / t
@@ -2095,6 +2114,23 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                         if t < best_t:
                             best_t     = t
                             best_flags = joint_flags
+
+            # ── 用完整 runs 重新计时最终候选 ──────────────────────────────────
+            # Phase A/B 用 _screen_runs=1 快速筛选，单次运行的噪声可能让某个候选
+            # 看起来比实际更快（或更慢）。在这个筛选出来的赢家上报速度比、决定要
+            # 不要跑正确性校验之前，用完整 runs 重新计一次时，确保最终数字站得住。
+            if best_flags and best_flags != list(current_best_flags) and _screen_runs < runs:
+                _verify_bin = tmpdir / "tf_verify_best"
+                ok, _ = compile_binary(clang, str(base_file), polybench_c,
+                                       utils, source_dir, _verify_bin,
+                                       extra_flags=best_flags)
+                if ok:
+                    _t = tp_run_timing(str(_verify_bin), runs=runs, pin_cpu=pin_cpu)
+                    best_t = _t if _t > 0 else baseline_time
+                else:
+                    best_t = baseline_time
+                if best_t >= baseline_time:
+                    best_flags = list(current_best_flags)
 
             # ── perf stat on best result ─────────────────────────────────────
             best_perf: dict = {}
@@ -2199,10 +2235,37 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             also_flags = plan.get("also_flags", [])
             # base_src_text and base_choice already resolved above (see base_choice = plan.get("base", ...))
 
+            # ── 热点函数筛选：kernel_<name> 有时只是个薄壳（比如 SPEC mcf_r 的
+            # kernel_mcf_r 读完输入就调一次 global_opt()，真正反复跑的求解循环
+            # while(new_arcs){ primal_net_simplex(...); ... } 在 global_opt 里）。
+            # 之前 rewrite_source 无条件只改 kernel_<name>，改的从来不是真正的
+            # 热点——见 docs/SPEC_mcf_r_build_status.md。这里先做静态筛选，找到
+            # 真正该改的函数，找不到更好的候选就照旧退回 kernel_<name>，对绝大
+            # 多数自身就有循环的 kernel（PolyBench/TSVC/CBench）零行为变化。
+            _utils_text = None
+            if utils:
+                _pc = Path(utils) / "polybench.c"
+                if _pc.exists():
+                    try:
+                        _utils_text = _pc.read_text(errors="replace")
+                    except OSError:
+                        pass
+            _hotspot = select_hotspot_target(kernel_name, base_src_text, _utils_text)
+            target_name = kernel_name
+            if _hotspot["name"] != kernel_name and not _hotspot["in_utils"]:
+                target_name = _hotspot["name"]
+                print(f"  [热点筛选] 改写目标 = {target_name}（而非 {kernel_name}）：{_hotspot['reason']}")
+            elif _hotspot["name"] != kernel_name and _hotspot["in_utils"]:
+                # 真正的热点在 utils/polybench.c 里，但让改写结果跨步骤持久化
+                # 需要把 utils 路径也变成本次 run 可写的私有副本——这部分还没做，
+                # 先只把发现结果打进日志，仍然退回改 kernel_name 本身。
+                print(f"  [热点筛选] 检测到更深的热点 {_hotspot['name']}（在 utils/polybench.c 里）："
+                      f"{_hotspot['reason']}；暂不支持改写 utils 里的函数，仍改写 {kernel_name}")
+
             # ── Phase 1: Analysis LLM — diagnose bottleneck before writing code ──
             print(f"  [重写分析] 运行瓶颈诊断 LLM...")
             analysis_diagnosis = analyze_rewrite_bottleneck(
-                llm, kernel_name, ev, history,
+                llm, target_name, ev, history,
                 base_src_text=base_src_text,
                 strategy=strategy,
                 max_tokens=max_tokens,
@@ -2216,7 +2279,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             # ── Phase 2: Implementation LLM — write kernel code using diagnosis ──
             print(f"  [重写实现] 根据分析生成优化代码...")
             impl_prompt = _build_rewrite_impl_prompt(
-                kernel_name, ev, history,
+                target_name, ev, history,
                 base_src_text=base_src_text,
                 strategy=strategy,
                 analysis_diagnosis=analysis_diagnosis,
@@ -2240,10 +2303,10 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                         "strategy": strategy,
                         "flags": [], "source": None, "perf_stats": {}}
 
-            _, start_idx, end_idx = extract_kernel_function(base_src_text, kernel_name)
+            _, start_idx, end_idx = extract_kernel_function(base_src_text, target_name)
             if start_idx is None:
                 return {"action": action, "speedup": 1.0,
-                        "error": f"无法从 base source 提取 {kernel_name}",
+                        "error": f"无法从 base source 提取 {target_name}",
                         "reasoning": reasoning, "improvement_analysis": improvement_analysis,
                         "strategy": strategy,
                         "flags": [], "source": None, "perf_stats": {}}
@@ -2268,13 +2331,13 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                 if "precision" in err_msg.lower() or "数值不一致" in err_msg or "mismatch" in err_msg.lower():
                     print(f"  精度失败：尝试 precision-fix LLM...")
                     orig_kernel_txt, _, _ = extract_kernel_function(
-                        base_src_text, kernel_name)
+                        base_src_text, target_name)
                     diagnosis = analyze_precision_failure(
                         llm, orig_kernel_txt or base_src_text, raw_kernel, err_msg)
                     if diagnosis:
                         print("  [精度分析] " + diagnosis.splitlines()[0][:120])
                     fix_prompt = _build_precision_fix_prompt(
-                        kernel_name, orig_kernel_txt or base_src_text,
+                        target_name, orig_kernel_txt or base_src_text,
                         raw_kernel, err_msg, diagnosis=diagnosis)
                     fix_resp = llm.call([
                         {"role": "system",
@@ -2284,7 +2347,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     ], max_tokens=max_tokens)
                     if fix_resp:
                         fixed_kernel = _strip_fences(fix_resp)
-                        _, fs_idx, fe_idx = extract_kernel_function(base_src_text, kernel_name)
+                        _, fs_idx, fe_idx = extract_kernel_function(base_src_text, target_name)
                         if fs_idx is not None:
                             fixed_text = base_src_text[:fs_idx] + fixed_kernel + base_src_text[fe_idx:]
                             fixed_src = tmpdir / f"{name}_rw_fix.c"
@@ -2310,9 +2373,9 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                 elif "编译失败" in err_msg or "链接" in err_msg or "undefined reference" in err_msg.lower():
                     print(f"  编译失败：尝试 compile-fix LLM...")
                     orig_kernel_txt, _, _ = extract_kernel_function(
-                        base_src_text, kernel_name)
+                        base_src_text, target_name)
                     fix_prompt = _build_compile_fix_prompt(
-                        kernel_name, orig_kernel_txt or base_src_text, raw_kernel, err_msg)
+                        target_name, orig_kernel_txt or base_src_text, raw_kernel, err_msg)
                     fix_resp = llm.call([
                         {"role": "system",
                          "content": "You are a C compiler expert. Fix ONLY the compile "
@@ -2322,7 +2385,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     ], max_tokens=max_tokens)
                     if fix_resp:
                         fixed_kernel = _strip_fences(fix_resp)
-                        _, fs_idx, fe_idx = extract_kernel_function(base_src_text, kernel_name)
+                        _, fs_idx, fe_idx = extract_kernel_function(base_src_text, target_name)
                         if fs_idx is not None:
                             fixed_text = base_src_text[:fs_idx] + fixed_kernel + base_src_text[fe_idx:]
                             fixed_src = tmpdir / f"{name}_rw_cfix.c"
