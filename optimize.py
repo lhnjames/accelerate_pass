@@ -69,6 +69,9 @@ from tune_source import (
     analyze_precision_failure,
     _build_precision_fix_prompt,
     _build_compile_fix_prompt,
+    _detect_triangular_loop,
+    _detect_inplace_stencil,
+    _detect_inplace_factorization,
 )
 
 from src.remarks import (
@@ -1177,11 +1180,24 @@ def _apply_pragma_hints(source: str, hints: list) -> str:
     Insert #pragma clang loop annotations before matching for-loop lines.
     hints: list of {loop_prefix, pragma}
 
-    Matching strategy (tries in order, stops at first match):
+    Matching strategy, three tiers tried in order (looser each time):
       1. Normalised token match: remove all spaces then compare first 60 chars
          (handles `i < m` vs `i<m`, `++i` vs `i++` mismatches)
       2. Original prefix match: first 50 chars of stripped line vs stripped prefix
       3. Keyword fallback: all non-whitespace words in prefix appear on line
+
+    Within a tier, a match is only accepted if it's UNIQUE. PolyBench-shaped
+    kernels routinely have multiple loop nests with identical or
+    near-identical headers (e.g. 2mm.c has `for (i = 0; i < ni; i++)` /
+    `for (j = 0; j < nl; j++)` appearing twice, for two completely
+    different loops -- an init/scale pass and the real accumulation loop).
+    The old code took the first match at any tier regardless of how many
+    other lines equally qualified, which can silently attach a pragma
+    (including vectorize(enable), which the caller's rules explicitly
+    forbid on loops with carried dependencies) to the wrong loop with no
+    indication anything went wrong. A tier with >1 candidate is now
+    treated as ambiguous and rejected outright -- it does NOT fall through
+    to a looser tier, since a looser tier is even more likely to multi-match.
     """
     import re as _re
 
@@ -1190,6 +1206,7 @@ def _apply_pragma_hints(source: str, hints: list) -> str:
 
     lines = source.split("\n")
     insertions: list = []  # (line_idx, pragma_text)
+    unmatched = []
     for h in hints:
         prefix = h.get("loop_prefix", "").strip()
         pragma = h.get("pragma", "").strip()
@@ -1198,20 +1215,37 @@ def _apply_pragma_hints(source: str, hints: list) -> str:
         norm_prefix = _norm(prefix)[:60]
         words_prefix = set(_re.findall(r'\w+', prefix))
 
-        matched_idx = None
+        tier1, tier2, tier3 = [], [], []
         for i, line in enumerate(lines):
             stripped = line.strip()
             if not stripped.startswith("for"):
                 continue
-            if _norm(stripped)[:60].startswith(norm_prefix):      # strategy 1
-                matched_idx = i; break
-            if stripped[:50].startswith(prefix[:50]):              # strategy 2
-                matched_idx = i; break
-            if words_prefix and words_prefix.issubset(            # strategy 3
+            if _norm(stripped)[:60].startswith(norm_prefix):
+                tier1.append(i)
+            elif stripped[:50].startswith(prefix[:50]):
+                tier2.append(i)
+            elif words_prefix and words_prefix.issubset(
                     set(_re.findall(r'\w+', stripped))):
-                matched_idx = i; break
+                tier3.append(i)
+
+        matched_idx = None
+        for tier_name, tier in (("normalized-prefix", tier1),
+                                ("prefix", tier2), ("keyword-subset", tier3)):
+            if len(tier) == 1:
+                matched_idx = tier[0]
+                break
+            if len(tier) > 1:
+                print(f"  [pragma匹配] ⚠ \"{prefix[:50]}\" 在 {tier_name} 档命中 "
+                      f"{len(tier)} 处循环（行 {[i + 1 for i in tier]}），有歧义，"
+                      f"拒绝盲猜，跳过这条 pragma")
+                break  # don't fall through to a looser tier -- more candidates, not fewer
         if matched_idx is not None:
             insertions.append((matched_idx, pragma))
+        else:
+            unmatched.append(prefix[:60])
+
+    if unmatched:
+        print(f"  [pragma匹配] {len(unmatched)}/{len(hints)} 条 pragma 未找到唯一匹配的循环：{unmatched}")
 
     if not insertions:
         return source
@@ -1284,6 +1318,46 @@ numerical C optimization. Your task is to DIAGNOSE the bottleneck — not write 
 Be specific: reference exact variable names, line numbers, pass names, and memory access patterns. \
 Reason from the evidence provided. Do not list generic principles; apply them to this specific kernel."""
 
+
+def _static_pattern_warnings(kernel_txt: str) -> str:
+    """
+    Run the static pattern detectors (tune_source.py's
+    _detect_triangular_loop/_detect_inplace_stencil/
+    _detect_inplace_factorization) against the actual kernel text and
+    render an explicit, programmatic warning block for the rewrite
+    prompts. These detectors already existed and were reasonably reliable
+    (regex-based structural checks, not guesses) but were only ever wired
+    into the legacy analyze_kernel_patterns() path (--param-only/
+    --source-only, not used by the default agent-mode pipeline that
+    produces every real result this system reports) -- meaning the live
+    rewrite_source prompt has been relying entirely on the LLM correctly
+    recognizing "this is a stencil" / "this is in-place LU" from prose
+    rules and the raw C text alone, with no programmatic check backing it
+    up. Surfacing the same detectors' output directly in the prompt turns
+    "please don't do X to stencils" from an instruction the LLM might miss
+    into a concrete, kernel-specific fact it's told upfront.
+    """
+    warnings = []
+    if _detect_triangular_loop(kernel_txt):
+        warnings.append(
+            "- 检测到三角循环边界（如 j<=i 或 i>=j）：这类循环的迭代次数依赖外层索引，"
+            "禁止假设它是矩形循环去做简单的 tiling/交换，需要专门处理边界。")
+    if _detect_inplace_stencil(kernel_txt):
+        warnings.append(
+            "- 检测到 in-place stencil 模式（数组以 ±1 偏移原地读写，如 Gauss-Seidel/ADI "
+            "column sweep）：更新顺序是算法语义的一部分，绝对禁止 Jacobi 式数组复制或改变"
+            "遍历顺序的向量化提示。")
+    if _detect_inplace_factorization(kernel_txt):
+        warnings.append(
+            "- 检测到 in-place LU/Cholesky 分解模式（同一矩阵在同一循环体内被读又被写，如 "
+            "A[i][j] -= A[i][k]*A[k][j]）：禁止拆分归约 accumulator（改变浮点运算顺序会导致"
+            "数值不一致），tiling 仅可作用于访存局部性，不能改变元素更新的先后顺序。")
+    if not warnings:
+        return ""
+    return ("\n### 静态模式检测（程序自动识别，不是猜测——发现即视为硬约束）\n"
+           + "\n".join(warnings) + "\n")
+
+
 def _build_rewrite_analysis_prompt(kernel_name: str, ev: dict,
                                    history: "OptimizationHistory",
                                    base_src_text: str,
@@ -1298,6 +1372,8 @@ def _build_rewrite_analysis_prompt(kernel_name: str, ev: dict,
             kernel_txt = base_src_text
     except Exception:
         kernel_txt = base_src_text
+
+    pattern_warnings = _static_pattern_warnings(kernel_txt)
 
     # ── remarks/IR 是不是真的在描述这次要改的函数？──────────────────────────
     # ev["kernel_remarks"]/ev["rich_remarks"]/ev["kernel_ir"] 都是 evidence
@@ -1382,7 +1458,7 @@ def _build_rewrite_analysis_prompt(kernel_name: str, ev: dict,
 ```c
 {kernel_txt}
 ```
-
+{pattern_warnings}
 ## Hardware performance counters (measured on current -O3 build)
 {perf_str}
 
@@ -1607,6 +1683,8 @@ def _build_rewrite_impl_prompt(kernel_name: str, ev: dict,
     except Exception:
         kernel_txt = base_src_text
 
+    pattern_warnings = _static_pattern_warnings(kernel_txt)
+
     forbidden_macros = ev.get("forbidden_macros", [])
     forbidden_str = ", ".join(f"`{m}`" for m in forbidden_macros[:30]) if forbidden_macros else "none"
 
@@ -1657,7 +1735,7 @@ def _build_rewrite_impl_prompt(kernel_name: str, ev: dict,
 ```c
 {kernel_txt}
 ```
-
+{pattern_warnings}
 ### Optimization strategy
 {strategy}
 
