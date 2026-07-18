@@ -1108,6 +1108,16 @@ Per-pass IR 修改情况（每个 pass 单独运行前后对比 — FIRED=确实
 允许的变换：循环 tiling/cache blocking、寄存器 blocking（scalar accumulator）、
 循环交换、循环融合/分裂、标量提升、O(tile²) 临时 scratch buffer。
 
+⚠ 重要：不要把"外层循环有串行依赖，无法并行/向量化"和"这个 kernel 没有优化空间"
+混为一谈——这是两回事。cache tiling/blocking 优化的是内层计算的访存局部性
+（减少 cache miss、减少重复从内存读取的数据量），并不需要打破外层的串行依赖：
+外层循环该按什么顺序执行还是按什么顺序执行，只是把内层循环重组成分块处理，
+让每一块的数据能留在 cache 里被复用。Cholesky/LU/QR 分解这类"外层列/行之间
+确实是串行依赖"的稠密线性代数 kernel，在真实 HPC 实践里恰恰是靠分块
+（blocked Cholesky/blocked LU）拿到最大加速的——串行依赖从来不是"不能分块"
+的理由，只是"不能跨块并行"。如果一个 kernel 有嵌套循环遍历 2D/3D 数组、
+且从未尝试过 tiling/blocking，不要因为"外层依赖"就判定它没有优化空间。
+
 禁止：
   - 分裂归约 accumulator（导致 FP 重排 → 数值不一致）
   - 对 in-place kernel 做 Jacobi-style 数组复制（改变算法语义）
@@ -1116,6 +1126,13 @@ Per-pass IR 修改情况（每个 pass 单独运行前后对比 — FIRED=确实
 ### action: "done"
 终止优化。用于：已收敛、kernel 存在无法克服的根本瓶颈、或预算耗尽。
   "reason": "终止原因"
+
+⚠ 在选择 "done" 之前自查：如果这个 kernel 有嵌套循环遍历 2D/3D 数组
+（典型的稠密线性代数/stencil 计算），而 rewrite_source 从未真正尝试过
+tiling/cache blocking（哪怕只试了 scalar accumulator 或标量提升这类小改动），
+不要现在终止——tiling 往往是这类 kernel 收益最大的单一变换，"外层有串行
+依赖"不构成跳过它的理由（见上面 rewrite_source 部分的说明）。先用剩余步骤
+认真试一次分块，不行再终止。
 
 ══════════════════════════════════════════════════════════════
 ## 输出格式（严格 JSON，无 markdown，无前言后语）
