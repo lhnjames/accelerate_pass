@@ -3464,6 +3464,14 @@ def main():
                 print(f"  *** 新最优: {best_speedup:.3f}x  [{strat}] ***")
 
         # ── 最终组合测速：若 best_source 和 best_flags 来自不同步骤，补测 ───────
+        # `best_source`（来自某次 rewrite_source 步骤）和 `best_flags`（来自某次
+        # try_flags 步骤）各自都已经在历史里验证过"比 baseline 更快"，但两者
+        # 从未一起测过——组合到一起完全可能互相打架（比如某个 -mllvm 参数是针对
+        # 原始源码的 IR 结构调的，重写后 IR 变了，参数反而帮倒忙）。这里补测一次，
+        # 但只有测出来真的比单独 source 更好时才采纳组合；测出来更差就必须丢掉
+        # flags，回退到已知更优的 source-only 结果——不能让"组合"这个动作本身
+        # 覆盖掉已经验证过的更优状态（之前这里没有比较，jacobi-2d 就因为组合测
+        # 出 0.9415x 比 source-only 的 1.014x 差，却被当成最终结果报了出来）。
         compound_speedup  = best_speedup
         compound_flags    = best_flags[:]
         compound_verified = False
@@ -3488,11 +3496,19 @@ def main():
                     if _ok:
                         ct = ts_run_timing(str(_cbin), runs=args.runs, pin_cpu=pin_cpu)
                         if ct > 0 and baseline_time > 0:
-                            compound_speedup  = baseline_time / ct
-                            compound_flags    = best_flags[:]
+                            _combo_sp = baseline_time / ct
                             compound_verified = True
-                            print(f"  组合加速比: {compound_speedup:.4f}x "
-                                  f"({(compound_speedup-1)*100:+.1f}%)")
+                            if _combo_sp > best_speedup:
+                                compound_speedup = _combo_sp
+                                compound_flags   = best_flags[:]
+                                print(f"  组合加速比: {compound_speedup:.4f}x "
+                                      f"({(compound_speedup-1)*100:+.1f}%) ← 比单独 source 更优，保留 flags")
+                            else:
+                                compound_speedup = best_speedup
+                                compound_flags   = []
+                                best_flags       = []
+                                print(f"  组合测得 {_combo_sp:.4f}x，比单独 source（{best_speedup:.4f}x）更差，"
+                                      f"丢弃 flags，最终只保留 source 重写")
                 try:
                     _combo_src.unlink()
                 except Exception:

@@ -111,7 +111,51 @@ def extract_kernel_function(content: str, kernel_name: str):
     m = re.search(pattern, content, re.MULTILINE)
     if not m:
         return None, None, None
-    brace_start = content.find("{", m.end())
+
+    # Find the matching close-paren for this signature's own "(" (paren-
+    # counting, not just the next ")") -- needed to tell a genuine function
+    # *definition* from a macro invocation/call statement that merely
+    # happens to be followed, much later in the file, by some unrelated
+    # "{". E.g. a PolyBench kernel's `POLYBENCH_2D(D,NI,NL,ni,nl);` array
+    # declaration matches this same NAME(...)-shaped pattern; naively
+    # searching for the next "{" after it can walk straight into an
+    # unrelated function's body and silently return garbage labeled with
+    # the macro's name (this is exactly how src/hotspot.py's call-graph
+    # walk, which searches for arbitrary identifiers found via a bare
+    # call-site regex, once mis-selected "POLYBENCH_2D" as 2mm's hot
+    # function). A real function definition never has ';' immediately
+    # after its parameter list's closing paren -- K&R-style parameter
+    # declarations, if present, come first; a call/macro-invocation
+    # statement does.
+    paren_depth, paren_end = 1, -1
+    for i in range(m.end(), len(content)):
+        if content[i] == "(":
+            paren_depth += 1
+        elif content[i] == ")":
+            paren_depth -= 1
+            if paren_depth == 0:
+                paren_end = i + 1
+                break
+    if paren_end == -1:
+        return None, None, None
+    # ';' -> a call/macro-invocation statement. ',' -> this "(...)" is one
+    # item among several in a LARGER enclosing parameter list. ')' -> it's
+    # the LAST item in that enclosing list instead (so what immediately
+    # follows is the *enclosing* list's own closing paren, not this one's).
+    # All three mean these parens were nested inside something else's
+    # list, not a standalone function definition -- e.g. a PolyBench
+    # kernel's own signature declares array parameters as
+    # `DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk), ..., DATA_TYPE
+    # POLYBENCH_2D(D,NI,NL,ni,nl))`, where POLYBENCH_2D is a macro, not a
+    # function, and every occurrence -- including the last, un-commaed one
+    # -- matches this same NAME(...)-shaped, line-anchored pattern
+    # (`DATA_TYPE` reads like a return type to the regex). A real
+    # function's own parameter list is never immediately followed by any
+    # of ';', ',', ')'.
+    if content[paren_end:].lstrip()[:1] in (";", ",", ")"):
+        return None, None, None
+
+    brace_start = content.find("{", paren_end)
     if brace_start == -1:
         return None, None, None
     brace, end = 0, -1

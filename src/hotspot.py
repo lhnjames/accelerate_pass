@@ -170,30 +170,34 @@ def select_hotspot_target(kernel_name: str, driver_text: str,
     *persists* across the agent's later steps needs the utils path itself
     to be a per-run mutable copy, which is a separate piece of plumbing.
 
-    Selection: if kernel_<name> itself already contains a loop, it's
-    presumably doing real work directly -- that's the common case
-    (PolyBench/TSVC/CBench kernels) and matches today's behavior exactly,
-    zero analysis needed. Otherwise (a thin wrapper), breadth-first walk
-    the *entire* reachable call graph (bounded by max_hops and
-    MAX_FUNCTIONS) -- not stopping at the first function with a loop, since
-    that's often just a convergence dispatcher (global_opt's while loop)
-    over the function that does the actual repeated arithmetic
-    (primal_net_simplex, called once per dispatcher iteration, no loop of
-    its own necessarily). Every function reached is scored by _score() and
-    the best one wins, not the first or the biggest.
+    Selection: breadth-first walk the *entire* reachable call graph
+    (bounded by max_hops and MAX_FUNCTIONS), starting from kernel_name, and
+    score EVERY function reached -- including kernel_name itself -- the
+    same way, picking whichever scores highest. An earlier version
+    short-circuited here ("if kernel_name has a loop, it must be doing the
+    real work, stop") -- true for the common case (PolyBench/TSVC/CBench
+    kernels, whose loop body IS the dense array arithmetic) but wrong for
+    e.g. SPEC lbm_r's kernel_lbm_r, whose `for` loop is a pure per-timestep
+    dispatcher (LBM_handleInOutFlow/LBM_performStreamCollideTRT/
+    LBM_swapGrids calls, no inline arithmetic of its own) around the
+    function that does the actual lattice-Boltzmann compute -- the exact
+    same "loop is a dispatcher, not the work" pattern as mcf_r's
+    global_opt, just one level shallower. A loop by itself was never a
+    reliable "real work happens here" signal; only _score() (arithmetic
+    density + being called from inside someone else's loop) is, so every
+    reachable function -- the entry included -- goes through it uniformly.
+    A dense-loop kernel like a real PolyBench kernel still scores high on
+    arithmetic density and simply wins on its own merits; no special case
+    needed for that path either.
     """
     body, _, _ = extract_kernel_function(driver_text, kernel_name)
     if body is None:
         return {"name": kernel_name, "body": "", "in_utils": False,
                 "reason": "kernel function not found"}
 
-    if _has_loop(body):
-        return {"name": kernel_name, "body": body, "in_utils": False,
-                "reason": f"{kernel_name} itself contains a loop"}
-
     # Walk the whole reachable graph, recording every function's body/origin
     # and which functions get called from inside *someone's* loop.
-    graph = {}            # name -> (body, in_utils)
+    graph = {kernel_name: (body, False)}   # name -> (body, in_utils)
     called_in_loop = set()  # names invoked from inside any visited function's loop
     frontier = [kernel_name]
     visited = {kernel_name}
@@ -226,23 +230,27 @@ def select_hotspot_target(kernel_name: str, driver_text: str,
         if not frontier:
             break
 
-    candidates = [(n, b, u) for n, (b, u) in graph.items() if n != kernel_name]
-    if not candidates:
-        return {"name": kernel_name, "body": body, "in_utils": False,
-                "reason": (f"{kernel_name} has no loop and no reachable callee "
-                          f"found within {max_hops} hops -- falling back to the entry point")}
-
+    # kernel_name competes on equal footing with everything reachable from
+    # it -- see the docstring for why a loop of its own doesn't exempt it
+    # from that comparison.
     scored = sorted(
-        ((_score(n, b, called_in_loop), n, b, u) for n, b, u in candidates),
+        ((_score(n, b, called_in_loop), n, b, u) for n, (b, u) in graph.items()),
         key=lambda c: c[0], reverse=True,
     )
     score, name, sel_body, in_utils = scored[0]
+    others = ", ".join(f"{c[1]} (score {c[0]:.0f})" for c in scored[1:4])
+
+    if name == kernel_name:
+        return {"name": kernel_name, "body": body, "in_utils": False,
+                "reason": (f"{kernel_name} itself scored highest (score {score:.0f}) among "
+                          f"{len(graph)} reachable functions -- treating it as doing the "
+                          f"real work directly"
+                          + (f" (also considered: {others})" if others else ""))}
+
     where = "utils/polybench.c" if in_utils else "the driver file"
     signal = "called from inside a loop" if name in called_in_loop else (
         "contains a loop" if _has_loop(sel_body) else "highest arithmetic density found")
-    others = ", ".join(f"{c[1]} (score {c[0]:.0f})" for c in scored[1:4])
-    reason = (f"{kernel_name} has no loop of its own; {name} (score {score:.0f}, "
-             f"{signal}) does and is defined in {where}, scored highest across "
-             f"{len(candidates)} reachable functions"
+    reason = (f"{name} (score {score:.0f}, {signal}) scored higher than {kernel_name} itself "
+             f"and is defined in {where}, across {len(graph)} reachable functions"
              + (f" (also considered: {others})" if others else ""))
     return {"name": name, "body": sel_body, "in_utils": in_utils, "reason": reason}
