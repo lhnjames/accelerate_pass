@@ -3666,10 +3666,16 @@ def main():
         if best_flags:
             print(f"最优参数组:      {' '.join(best_flags)}")
 
+        # 优先使用最终确认测量（交替测量+配对中位数，噪声更低），
+        # 而不是搜索阶段挑出来的单次测量值——两者可能因噪声差出 50%+，
+        # 之前这里一直印的是未确认的 best_speedup，具有误导性。
+        reported_speedup = (confirmation.get("confirmed_speedup")
+                             if confirmation.get("ok")
+                             else (max(compound_speedup, best_speedup) if compound_verified else best_speedup))
         if compound_verified:
             print(f"组合加速比:      {compound_speedup:.4f}x ({(compound_speedup-1)*100:+.1f}%)  [source + flags]")
-        else:
-            print(f"最优加速比:      {best_speedup:.4f}x ({(best_speedup-1)*100:+.1f}%)")
+        print(f"最优加速比:      {reported_speedup:.4f}x ({(reported_speedup-1)*100:+.1f}%)"
+              + ("  [已用最终确认测量校正]" if confirmation.get("ok") and abs(reported_speedup - best_speedup) > 1e-6 else ""))
 
         print()
         if best_source and best_flags:
