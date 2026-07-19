@@ -72,6 +72,7 @@ from tune_source import (
     _detect_triangular_loop,
     _detect_inplace_stencil,
     _detect_inplace_factorization,
+    _detect_strided_inner_loop,
 )
 
 from src.remarks import (
@@ -777,8 +778,14 @@ def _build_remarks_and_targeted_passes(ev: dict) -> dict:
 
 def _build_step_guidance(step_num: int, max_steps: int, forced_action: "str | None",
                          best_sp: float, best_desc: str, bottleneck_hints: list,
-                         history: "OptimizationHistory") -> str:
-    """构建步骤引导语：根据强制阶段/历史完成情况告诉 LLM 这一步该做什么。"""
+                         history: "OptimizationHistory",
+                         strided_hint: "tuple[bool, str]" = (False, "")) -> str:
+    """构建步骤引导语：根据强制阶段/历史完成情况告诉 LLM 这一步该做什么。
+
+    strided_hint: (found, message) from _detect_strided_inner_loop() on the
+    current target's code -- see the plateau-escalation block below for why
+    this needs to reach here and not just the rewrite prompts.
+    """
     remaining = max_steps - step_num + 1
 
     # Check whether each mandatory phase has been done successfully (with speedup)
@@ -844,6 +851,41 @@ def _build_step_guidance(step_num: int, max_steps: int, forced_action: "str | No
                 "\n⚠ 注意：本轮尚未做过 pass 参数调整。"
                 "建议用 base=\"current_best\" 重新做 try_flags，在新源码上搜索最优参数。"
             )
+
+    # ── 平台期升级：静态分析已经发现了跨步访存/循环交换机会，但源码重写
+    # 一直没真的去做，收益已经连续几次趋于平缓——这正是 symm 这次跑到
+    # 4.5x 就卡住的情况：第2步选了 tiling（4.587x），之后5轮都在这条路径上
+    # 微调（4.584x~4.645x之间），从未回头试循环交换（历史同一 kernel 靠
+    # 循环交换直接跳到 9.8x）。allowed 变换列表里"循环交换"和"tiling"权重
+    # 相同，全靠 LLM 现场决定选哪个，选中 tiling 之后就没有机制推它回头
+    # 重新考虑——这里补上：连续两次成功的 rewrite_source 收益都没有明显
+    # 超过前一次时，且从没试过循环交换，就升级成明确要求。
+    strided_found, strided_msg = strided_hint
+    if strided_found and forced_action != "try_flags":
+        _rewrite_ok = [s for s in history.steps
+                      if s.action == "rewrite_source" and not s.error]
+        _tried_interchange = any(
+            s.strategy and re.search(
+                r'循环交换|交换.{0,8}(循环|顺序)|loop\s*interchange|对调.{0,10}(循环|顺序)',
+                s.strategy)
+            for s in _rewrite_ok)
+        if not _tried_interchange:
+            if len(_rewrite_ok) >= 2:
+                _last_two = [s.speedup for s in _rewrite_ok[-2:]]
+                _plateaued = (max(_last_two) - min(_last_two)) < 0.1 * max(_last_two)
+            else:
+                _plateaued = False
+            if _plateaued:
+                guidance += (
+                    f"\n\n⚠⚠ 平台期升级：{strided_msg}\n"
+                    f"最近两次源码重写收益已趋于平缓（{_last_two[0]:.3f}x → {_last_two[1]:.3f}x，"
+                    f"没有实质提升），且从未真正尝试过循环交换。下一次 rewrite_source **必须**用 "
+                    f"base=\"original\" 从原始代码重新出发（不要在当前 tiling/分块版本上继续微调），"
+                    f"strategy 明确写循环交换：把上面检测到的那对变量互换嵌套顺序，"
+                    f"让访存变成连续的（stride-1）。这类结构性修复历史上比继续微调现有方向收益大得多。"
+                )
+            elif not _rewrite_ok:
+                guidance += f"\n\n【静态分析提示】{strided_msg}"
 
     if remaining <= 2:
         guidance += f"  仅剩 {remaining} 步——请集中在成功率最高的操作。"
@@ -1022,8 +1064,10 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
     # ── history 部分 ─────────────────────────────────────────────────────────
     history_section = history.to_prompt_section()
 
+    strided_hint = _detect_strided_inner_loop(display_kernel_text)
     guidance = _build_step_guidance(step_num, max_steps, forced_action,
-                                    best_sp, best_desc, bottleneck_hints, history)
+                                    best_sp, best_desc, bottleneck_hints, history,
+                                    strided_hint=strided_hint)
 
     evidence          = _build_evidence_sections(ev, baseline_perf, missed_lines)
     ir_lines          = evidence["ir_lines"]
@@ -1405,6 +1449,9 @@ def _static_pattern_warnings(kernel_txt: str) -> str:
             "- 检测到 in-place LU/Cholesky 分解模式（同一矩阵在同一循环体内被读又被写，如 "
             "A[i][j] -= A[i][k]*A[k][j]）：禁止拆分归约 accumulator（改变浮点运算顺序会导致"
             "数值不一致），tiling 仅可作用于访存局部性，不能改变元素更新的先后顺序。")
+    _strided_found, _strided_msg = _detect_strided_inner_loop(kernel_txt)
+    if _strided_found:
+        warnings.append("- " + _strided_msg)
     if not warnings:
         return ""
     return ("\n### 静态模式检测（程序自动识别，不是猜测——发现即视为硬约束）\n"
@@ -2638,9 +2685,19 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                             "strategy": strategy,
                             "flags": [], "source": None, "perf_stats": {}}
                 sp = res["speedup"]
-                if sp > 1.0:
+                # 只有真的超过当前最优才落盘——不是"比baseline强就写"。utils.c
+                # 是共享状态，本次 run 后续每一步 base="current_best" 都直接读盘上
+                # 这份文件；之前用 `sp > 1.0` 当门槛，一个 3.8x（差于当前最优
+                # 4.587x 但仍强于 baseline）的重写会真的把磁盘上的文件覆盖成
+                # 更差的版本，且这个降级幅度如果小于灾难性回退阈值（默认20%）
+                # 根本不会被上层 main() 的回退逻辑捕捉到——历史最优的数字还在，
+                # 但磁盘上实际参与后续编译的代码已经悄悄变差了。
+                if sp > history.best_speedup:
                     (Path(utils) / "polybench.c").write_text(rewritten_utils_text)
                     print(f"  [utils 持久化] {target_name} 的改写已写回 {utils}/polybench.c，后续步骤生效")
+                elif sp > 1.0:
+                    print(f"  [utils 未持久化] {sp:.3f}x 强于 baseline 但弱于当前最优 "
+                          f"{history.best_speedup:.3f}x，不写回磁盘，避免后续步骤在更差的版本上继续")
                 return {"action": action, "speedup": sp, "strategy": f"rewrite(utils/{target_name}): {strategy}",
                         "error": "", "reasoning": reasoning, "improvement_analysis": improvement_analysis,
                         "flags": [], "source": None,  # driver 文件没变，不更新 current_best_source

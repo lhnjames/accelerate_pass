@@ -451,6 +451,58 @@ def _detect_inplace_factorization(kernel_src: str) -> bool:
     return False
 
 
+def _detect_strided_inner_loop(kernel_src: str):
+    """Heuristic loop-interchange opportunity detector.
+
+    Finds the innermost loop variable (the last `for (var = ...)` header in
+    textual order -- true for the simple nested-loop shape PolyBench/TSVC/
+    cBench kernels use, where loops are written in nesting order with no
+    sibling loops interleaved) and checks whether 2D array accesses in the
+    kernel use that variable as the FIRST subscript (`A[iv][j]`, stride-N
+    across a row-major array) rather than the LAST one (`A[j][iv]`,
+    stride-1/contiguous). The former is the textbook symptom loop
+    interchange fixes: swapping loop order so the innermost variable walks
+    the LAST subscript turns strided access into sequential access,
+    unlocking both cache-line reuse and auto-vectorization -- see symm's
+    9.8x-from-one-rewrite jump when the agent found this on its own vs.
+    the ~4.5x ceiling of tiling-only attempts that never revisited it.
+    Only flags arrays where the strided pattern isn't itself balanced out
+    by a contiguous access to the same array elsewhere in the kernel
+    (which would mean the access pattern is genuinely mixed, not a
+    plain oversight). Returns (found, message).
+    """
+    loop_vars = re.findall(r'\bfor\s*\(\s*(?:int\s+)?(\w+)\s*=', kernel_src)
+    if not loop_vars:
+        return False, ""
+    iv = loop_vars[-1]
+    # arr -> companion var seen in the OTHER subscript slot when iv is the
+    # strided (first-subscript) one -- this is the variable that should
+    # become the new innermost loop, not iv itself (iv is already
+    # innermost; the fix is to swap it out, not "move it in").
+    strided: dict = {}
+    contiguous_arrays = set()
+    for m in re.finditer(r'\b([A-Za-z_]\w*)\s*\[([^\[\]]+)\]\s*\[([^\[\]]+)\]', kernel_src):
+        arr, idx1, idx2 = m.group(1), m.group(2).strip(), m.group(3).strip()
+        iv_first = bool(re.fullmatch(rf'{re.escape(iv)}(\s*[+\-]\s*\w+)?', idx1))
+        iv_last  = bool(re.fullmatch(rf'{re.escape(iv)}(\s*[+\-]\s*\w+)?', idx2))
+        other = re.match(r'(\w+)', idx2).group(1) if idx2 else None
+        if iv_first and not re.search(rf'\b{re.escape(iv)}\b', idx2) and other and other != iv:
+            strided.setdefault(arr, other)
+        elif iv_last and not re.search(rf'\b{re.escape(iv)}\b', idx1):
+            contiguous_arrays.add(arr)
+    flagged = {a: v for a, v in strided.items() if a not in contiguous_arrays}
+    if not flagged:
+        return False, ""
+    example, companion = sorted(flagged.items())[0]
+    arrs = ", ".join(sorted(flagged))
+    return True, (
+        f"检测到内层循环变量 `{iv}` 在数组 {arrs} 里被用作第一个下标（如 `{example}[{iv}][{companion}]`），"
+        f"这是行主序（row-major）布局下的跨步访问（stride-N，不连续，阻碍向量化和 cache line 复用）。"
+        f"这类模式通常可以通过**循环交换**（把 `{iv}` 和 `{companion}` 的嵌套顺序对调，让 `{companion}` "
+        f"变成最内层循环，`{iv}` 挪到外层/中层）直接把这些数组的访问改成连续的 `{example}[...][{iv}]` 形式——"
+        f"往往比单纯 tiling/分块收益大得多，值得优先尝试，而不是只在当前访问模式上做 cache blocking。")
+
+
 _PRECISION_ANALYSIS_SYSTEM = (
     "You are a floating-point numerical analysis expert. "
     "You diagnose exactly why two C kernels produce different numeric outputs "
