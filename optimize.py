@@ -2475,18 +2475,36 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                             best_t     = t
                             best_flags = joint_flags
 
-            # ── 用完整 runs 重新计时最终候选 ──────────────────────────────────
-            # Phase A/B 用 _screen_runs=1 快速筛选，单次运行的噪声可能让某个候选
-            # 看起来比实际更快（或更慢）。在这个筛选出来的赢家上报速度比、决定要
-            # 不要跑正确性校验之前，用完整 runs 重新计一次时，确保最终数字站得住。
+            # ── 排名靠前的候选重新验证：交替测量，而不是再跑几次同一个二进制 ──
+            # Phase A/B 用 _screen_runs=1 快速筛选，单次测量的噪声足以把一个
+            # 实际不到 1.7x 的 flag 误判成 2.76x 的"新最优"（doitgen 步骤6 真实
+            # 出现过）。这里不是简单把赢家多测 N 次求平均——那治不了"搜索过程
+            # 越往后系统负载越高"这种跨候选的系统性漂移；而是复用
+            # confirm_result 同款的 baseline/candidate 交替测量 + 配对中位数
+            # 手法，与一个刚编译出来、不带任何候选 flag 的纯净 base_file 直接
+            # 交替对比，两边共享同一段测量窗口，能互相抵消漂移。
             if best_flags and best_flags != list(current_best_flags) and _screen_runs < runs:
+                _screen_t = best_t  # Phase A/B 单次筛选给出的时间，仅用于下面打印对比
                 _verify_bin = tmpdir / "tf_verify_best"
                 ok, _ = compile_binary(clang, str(base_file), polybench_c,
                                        utils, source_dir, _verify_bin,
                                        extra_flags=best_flags)
                 if ok:
-                    _t = tp_run_timing(str(_verify_bin), runs=runs, pin_cpu=pin_cpu)
-                    best_t = _t if _t > 0 else baseline_time
+                    _plain_bin = tmpdir / "tf_verify_plain_base"
+                    ok_plain, _ = compile_binary(clang, str(base_file), polybench_c,
+                                                 utils, source_dir, _plain_bin)
+                    _confirm = (confirm_result(str(_plain_bin), str(_verify_bin), runs, pin_cpu)
+                               if ok_plain else {"ok": False})
+                    if _confirm.get("ok"):
+                        best_t = _confirm["best_median_ms"]
+                        _screen_sp = baseline_time / _screen_t if _screen_t > 0 else 0.0
+                        print(f"    [候选交替验证] {' '.join(best_flags)}: "
+                              f"单次筛选 {_screen_sp:.3f}x → "
+                              f"交替确认 {_confirm['confirmed_speedup']:.3f}x "
+                              f"(IQR [{_confirm['speedup_iqr'][0]:.3f}, {_confirm['speedup_iqr'][1]:.3f}])")
+                    else:
+                        _t = tp_run_timing(str(_verify_bin), runs=runs, pin_cpu=pin_cpu)
+                        best_t = _t if _t > 0 else baseline_time
                 else:
                     best_t = baseline_time
                 if best_t >= baseline_time:
