@@ -4,6 +4,8 @@ Shared compile/run helpers for the flags (tune_param) and source-rewrite
 kernel with clang and time the resulting binary the same way.
 """
 from __future__ import annotations
+import os
+import signal
 import statistics
 import subprocess
 import time
@@ -63,9 +65,26 @@ def compile_c(clang_path: str, sources: Sequence[str],
            + inc_flags + defines + list(sources) + ["-o", str(output_bin), "-lm"])
     if extra_flags:
         cmd.extend(extra_flags)
+    # `clang` (the driver) forks a `-cc1` backend subprocess to actually do the
+    # work; subprocess.run(..., timeout=N) on timeout only kills the driver
+    # (its direct child), leaving a hung -cc1 GRANDCHILD running orphaned --
+    # observed live, twice, burning a full CPU core for 30-50+ minutes each
+    # time (LLVM 11's SLP vectorizer pathologically slow on certain flag/
+    # kernel combos, e.g. -slp-min-tree-size=0/1 on SPEC lbm_r's polybench.c).
+    # start_new_session=True puts the whole clang+cc1 tree in its own process
+    # group so a timeout can kill all of it via killpg, not just the driver.
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
-                           errors="replace")
-        return r.returncode == 0, r.stderr
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, errors="replace", start_new_session=True)
+    except Exception as e:
+        return False, str(e)
+    try:
+        _out, err = proc.communicate(timeout=timeout)
+        return proc.returncode == 0, err
     except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.wait()
         return False, f"compile timeout after {timeout}s"
