@@ -1664,6 +1664,42 @@ def _anti_repeat_forced(history: "OptimizationHistory") -> "str | None":
     return next_action
 
 
+def _extract_original_signature(kernel_txt: str, kernel_name: str) -> str:
+    """Pull the literal `<storage-class> <return-type> name(...)` header off
+    an extracted function body, for telling rewrite_source's LLM the actual
+    signature to preserve -- rather than assuming "static void" (true for
+    PolyBench-style kernels, wrong for arbitrary hotspot.py targets like
+    SPEC mcf_r's primal_iminus, which is `node_t *primal_iminus(...)` with
+    real extern linkage declared in a header; the LLM adding a `static` that
+    isn't there is a real linkage conflict at link time, not a style nit).
+    Handles the `#ifdef _PROTO_ <ansi> #else <k&r> #endif` dual-declaration
+    pattern common in this SPEC-era C code by preferring the _PROTO_ (ANSI
+    prototype) branch. extract_kernel_function's start-of-body match already
+    lands *inside* that guard (right after the `#ifdef _PROTO_` line, which
+    is why searching for that literal marker in `kernel_txt` fails and must
+    not gate this at all) -- so this looks for a bare `#else`/`#endif`
+    appearing before the function's real opening `{` as the dual-declaration
+    signal instead. Falls back to "" (caller keeps its generic wording) if
+    nothing recognizable is found.
+    """
+    text = kernel_txt
+    real_brace_idx = text.find("{")
+    else_idx = text.find("#else")
+    endif_idx = text.find("#endif")
+    sig_end = else_idx if else_idx != -1 else endif_idx
+    if sig_end != -1 and (real_brace_idx == -1 or sig_end < real_brace_idx):
+        text = text[:sig_end]
+    brace_idx = text.find("{")
+    header = text[:brace_idx] if brace_idx != -1 else text
+    header = header.strip()
+    # Sanity check: must actually mention the function name, else this
+    # extraction went wrong on unusual formatting -- don't hand the LLM
+    # garbage as if it were authoritative.
+    if kernel_name not in header or len(header) > 400:
+        return ""
+    return header
+
+
 def _build_rewrite_impl_prompt(kernel_name: str, ev: dict,
                                history: "OptimizationHistory",
                                base_src_text: str,
@@ -1682,6 +1718,8 @@ def _build_rewrite_impl_prompt(kernel_name: str, ev: dict,
             kernel_txt = base_src_text
     except Exception:
         kernel_txt = base_src_text
+
+    original_signature = _extract_original_signature(kernel_txt, kernel_name)
 
     pattern_warnings = _static_pattern_warnings(kernel_txt)
 
@@ -1749,8 +1787,11 @@ def _build_rewrite_impl_prompt(kernel_name: str, ev: dict,
 ## Hard constraints — read BEFORE writing a single line
 
 1. **Function signature**: Keep EXACTLY the same as original — same name `{kernel_name}`,
-   same parameter names and types, same PolyBench macro forms
-   (e.g. `DATA_TYPE POLYBENCH_2D(A,N,N,n,n)` NOT `double A[n][n]`).
+   same parameter names and types, same return type, same storage class/linkage
+   (do NOT add or remove `static`/`extern` — this function's linkage is fixed by
+   declarations elsewhere in the codebase; guessing wrong is a link error, not a style choice),
+   same PolyBench macro forms (e.g. `DATA_TYPE POLYBENCH_2D(A,N,N,n,n)` NOT `double A[n][n]`).
+   {"The ORIGINAL signature, verbatim, is: `" + original_signature + "` — reuse this exact opening." if original_signature else ""}
    NEVER add `__restrict__` or `restrict` after any `POLYBENCH_2D(...)` or `POLYBENCH_1D(...)` macro
    — the macro already expands to a multi-token type expression; appending qualifiers causes a syntax error.
 2. **Forbidden macros** (these expand to types/sizes — do NOT expand them yourself): {forbidden_str}
@@ -1769,7 +1810,7 @@ def _build_rewrite_impl_prompt(kernel_name: str, ev: dict,
 7. **PolyBench macros**: Use `_PB_N`, `SQRT_FUN`, `EXP_FUN`, `SCALAR_VAL` — never expand them.
 
 Output ONLY the C kernel function. No markdown fences, no explanation.
-Start immediately with `static void {kernel_name}(` or `void {kernel_name}(`.
+Start immediately with {"`" + original_signature + "`" if original_signature else "`static void " + kernel_name + "(` or `void " + kernel_name + "(`"}.
 """
 
 
