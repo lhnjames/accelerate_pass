@@ -22,7 +22,7 @@ Usage:
   python optimize.py --program path/to/kernel.c --rounds 5
   python optimize.py --program path/to/kernel.c --graph-only   # pass graph only
 """
-import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses, shutil
+import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses, shutil, time
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -119,6 +119,67 @@ def confirm_result(base_bin: str, best_bin: str, runs: int,
     for _ in range(max(1, runs)):
         b = _single_shot_ms(base_bin, pin_cpu)
         o = _single_shot_ms(best_bin, pin_cpu)
+        if b > 0 and o > 0:
+            base_ms.append(b)
+            best_ms.append(o)
+            ratios.append(b / o)
+
+    if not ratios:
+        return {"ok": False}
+
+    ratios_sorted = sorted(ratios)
+    n = len(ratios_sorted)
+    q1 = ratios_sorted[n // 4]
+    q3 = ratios_sorted[(3 * n) // 4] if n > 1 else ratios_sorted[0]
+    return {
+        "ok": True,
+        "n": n,
+        "confirmed_speedup": statistics.median(ratios),
+        "speedup_iqr": [q1, q3],
+        "base_median_ms": statistics.median(base_ms),
+        "best_median_ms": statistics.median(best_ms),
+        "base_stdev_pct": (statistics.stdev(base_ms) / statistics.mean(base_ms) * 100.0) if n > 1 else 0.0,
+        "best_stdev_pct": (statistics.stdev(best_ms) / statistics.mean(best_ms) * 100.0) if n > 1 else 0.0,
+    }
+
+
+def _single_shot_ms_external(bin_path: str, pin_cpu: "int | None" = None) -> float:
+    """One execution, EXTERNAL wall-clock timing (time.monotonic() wrapped
+    around the subprocess) -- this is deliberately a different methodology
+    from _single_shot_ms(), which parses the binary's own stdout-reported
+    time. tp_run_timing()/ts_run_timing() (src/build_utils.run_timing,
+    used everywhere else in this file for baseline_time and Phase A/B flag
+    screening) are ALSO external-clock. Mixing the two -- taking a ratio or
+    absolute ms from stdout-self-report and dividing it into (or comparing
+    it against) an externally-measured baseline_time -- silently produces
+    nonsense: observed live, SPEC lbm_r's confirm step reported "134.346x"
+    because its self-reported time only covers a fraction of true wall time
+    for that binary, while baseline_time came from run_timing()'s external
+    clock. Use this (and confirm_result_external below), not confirm_result,
+    anywhere the result needs to compare against a run_timing()-sourced
+    baseline_time."""
+    cmd = (["taskset", "-c", str(pin_cpu)] if pin_cpu is not None else []) + [str(bin_path)]
+    t0 = time.monotonic()
+    try:
+        res = subprocess.run(cmd, capture_output=True, timeout=120)
+    except Exception:
+        return -1.0
+    elapsed_ms = (time.monotonic() - t0) * 1000.0
+    return elapsed_ms if res.returncode == 0 else -1.0
+
+
+def confirm_result_external(base_bin: str, best_bin: str, runs: int,
+                            pin_cpu: "int | None" = None) -> dict:
+    """Same alternating-measurement / paired-median technique as
+    confirm_result(), but using _single_shot_ms_external() throughout --
+    see its docstring for why this matters. Same return shape."""
+    _single_shot_ms_external(base_bin, pin_cpu)
+    _single_shot_ms_external(best_bin, pin_cpu)
+
+    ratios, base_ms, best_ms = [], [], []
+    for _ in range(max(1, runs)):
+        b = _single_shot_ms_external(base_bin, pin_cpu)
+        o = _single_shot_ms_external(best_bin, pin_cpu)
         if b > 0 and o > 0:
             base_ms.append(b)
             best_ms.append(o)
@@ -2493,7 +2554,12 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     _plain_bin = tmpdir / "tf_verify_plain_base"
                     ok_plain, _ = compile_binary(clang, str(base_file), polybench_c,
                                                  utils, source_dir, _plain_bin)
-                    _confirm = (confirm_result(str(_plain_bin), str(_verify_bin), runs, pin_cpu)
+                    # confirm_result_external, NOT confirm_result: best_t below gets
+                    # compared against baseline_time, which was measured via
+                    # run_timing()'s external wall-clock -- confirm_result's
+                    # stdout-self-report parsing is a different methodology and
+                    # produces nonsense when mixed with it (see its docstring).
+                    _confirm = (confirm_result_external(str(_plain_bin), str(_verify_bin), runs, pin_cpu)
                                if ok_plain else {"ok": False})
                     if _confirm.get("ok"):
                         best_t = _confirm["best_median_ms"]
