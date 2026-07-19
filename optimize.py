@@ -914,6 +914,35 @@ def _build_evidence_sections(ev: dict, baseline_perf: dict, missed_lines: list) 
     }
 
 
+def _current_hotspot_context(ev: dict, base_src_text: str,
+                             current_best_source: "str | None" = None) -> tuple:
+    """Current body text of the cached hotspot target (ev["hotspot_target"],
+    set once in main() right after evidence collection -- NOT re-selected
+    here; which function is "the real hotspot" is a structural fact about
+    the call graph that doesn't change mid-run). Re-extracts fresh on every
+    call so accepted rewrites are reflected: a driver-level current_best_source
+    if the target is kernel_name itself, or the (possibly already-rewritten
+    and persisted -- see _eval_utils_rewrite) utils/polybench.c if the target
+    lives there. Returns (target_name, body_text, in_utils).
+    """
+    kernel_name = ev["kernel_name"]
+    target_name = ev.get("hotspot_target", kernel_name)
+    if target_name == kernel_name:
+        return target_name, (current_best_source or base_src_text), False
+    if ev.get("hotspot_in_utils") and ev.get("utils"):
+        pc = Path(ev["utils"]) / "polybench.c"
+        text = None
+        if pc.exists():
+            try:
+                text = pc.read_text(errors="replace")
+            except OSError:
+                pass
+        body, _, _ = extract_kernel_function(text, target_name) if text else (None, None, None)
+        return target_name, (body or ""), True
+    body, _, _ = extract_kernel_function(current_best_source or base_src_text, target_name)
+    return target_name, (body or ""), False
+
+
 def _build_agent_prompt(kernel_name: str, ev: dict,
                         cpu_info: str, cpu_cache: str,
                         history: "OptimizationHistory",
@@ -966,6 +995,30 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
     else:
         source_note = "尚无源码重写（仅 -mllvm flags 被测试过）。"
 
+    # ── 热点重定向：如果真正该改的函数不是 kernel_name 自己（见 main() 里
+    # 选一次、缓存进 ev["hotspot_target"] 的说明），这里必须让 LLM 知道，
+    # 并且下面【③ Kernel 源码】要展示真正的目标函数，而不是 kernel_name——
+    # 否则 LLM 会照着 kernel_name 的代码提 rewrite_source strategy，但实际
+    # 写代码、验证、生效的却是热点函数，两者对不上。
+    _hs_target, _hs_body, _hs_in_utils = _current_hotspot_context(
+        ev, ev['kernel_text'], current_best_source)
+    hotspot_note = ""
+    display_kernel_text = ev['kernel_text']
+    display_kernel_label = kernel_name
+    if _hs_target != kernel_name:
+        _hs_where = ("utils/polybench.c（该 run 私有可写副本，rewrite_source 改动会持久化到这里）"
+                    if _hs_in_utils else "driver 文件")
+        hotspot_note = (
+            f"\n⚠ 热点重定向：`{kernel_name}` 本身只是入口/wrapper，真正被反复执行、"
+            f"决定性能的函数是 `{_hs_target}`（位于 {_hs_where}）。"
+            f"判定依据：{ev.get('hotspot_reason', '')}\n"
+            f"下面【③ Kernel 源码】展示的就是 `{_hs_target}`（不是 `{kernel_name}`）——"
+            f"提 rewrite_source 的 strategy 时必须针对这段代码里的具体变量/循环/调用设计变换，"
+            f"不要描述对 `{kernel_name}` 本身的改动（比如合并它的 printf、给它的参数校验加分支预测提示），"
+            f"因为实际写代码、验证、生效的目标就是 `{_hs_target}`。\n")
+        display_kernel_text = _hs_body
+        display_kernel_label = _hs_target
+
     # ── history 部分 ─────────────────────────────────────────────────────────
     history_section = history.to_prompt_section()
 
@@ -998,7 +1051,7 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
 - 不能添加新 pass，不能使用 force-*/disable-* 标志绕过 cost model
 - 源码修改必须保证与原始输出数值一致（SMALL 和 STANDARD 两个数据集规模均验证）
 - 每次只选择一个 action
-
+{hotspot_note}
 {guidance}
 
 ══════════════════════════════════════════════════════════════
@@ -1016,13 +1069,13 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
 {targeted_pass_str}
 
 ══════════════════════════════════════════════════════════════
-## ③ Kernel 源码
+## ③ Kernel 源码（目标函数：`{display_kernel_label}`）
 
-### ORIGINAL（所有正确性验证均对比此版本输出）
+{"### 当前版本（可能已包含之前步骤被接受的改写；正确性验证始终对比整个程序最初的输出）" if _hs_target != kernel_name else "### ORIGINAL（所有正确性验证均对比此版本输出）"}
 ```c
-{ev['kernel_text']}
+{display_kernel_text}
 ```
-{"### Current Best Kernel（" + f"{best_sp:.3f}x" + "，base='current_best' 在此基础上继续）" + chr(10) + "```c" + chr(10) + current_best_kernel + chr(10) + "```" if current_best_kernel else ""}
+{("### Current Best Kernel（" + f"{best_sp:.3f}x" + "，base='current_best' 在此基础上继续）" + chr(10) + "```c" + chr(10) + current_best_kernel + chr(10) + "```") if (current_best_kernel and _hs_target == kernel_name) else ""}
 当前最优状态：
   加速比: {best_sp:.3f}x  [{best_desc}]
   最优 flags: {flags_str}
@@ -2495,13 +2548,17 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             also_flags = plan.get("also_flags", [])
             # base_src_text and base_choice already resolved above (see base_choice = plan.get("base", ...))
 
-            # ── 热点函数筛选：kernel_<name> 有时只是个薄壳（比如 SPEC mcf_r 的
-            # kernel_mcf_r 读完输入就调一次 global_opt()，真正反复跑的求解循环
-            # while(new_arcs){ primal_net_simplex(...); ... } 在 global_opt 里）。
-            # 之前 rewrite_source 无条件只改 kernel_<name>，改的从来不是真正的
-            # 热点——见 docs/SPEC_mcf_r_build_status.md。这里先做静态筛选，找到
-            # 真正该改的函数，找不到更好的候选就照旧退回 kernel_<name>，对绝大
-            # 多数自身就有循环的 kernel（PolyBench/TSVC/CBench）零行为变化。
+            # ── 热点函数：只在 main() 里 collect_all_evidence 之后选一次（见
+            # ev["hotspot_target"]），这里绝不重新跑 select_hotspot_target ──
+            # 原因：这个函数名是调用图的结构性事实，run 期间不会变，重新选一次
+            # 没有意义；真正会变的是它的正文（改写被接受后），所以正文永远在这
+            # 里现读现取。之前每步都重新选且外层 agent 决策 prompt（_build_agent_prompt，
+            # 决定 action + strategy 那一步）完全不知道热点重定向这回事，导致它
+            # 提的 strategy 描述的是 kernel_name 的改动（比如"合并 kernel_mcf_r 的
+            # printf"），而实际写代码、验证、生效的却是热点函数（primal_iminus）——
+            # 两者对不上，等于用错误的意图指导实现阶段的 LLM。见与本次改动同批的
+            # commit message。现在 target_name 和 in_utils 从 ev 里读缓存值，与
+            # _build_agent_prompt 看到的完全一致。
             _utils_text = None
             if utils:
                 _pc = Path(utils) / "polybench.c"
@@ -2510,15 +2567,9 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                         _utils_text = _pc.read_text(errors="replace")
                     except OSError:
                         pass
-            _hotspot = select_hotspot_target(kernel_name, base_src_text, _utils_text)
-            target_name = kernel_name
-            context_text = base_src_text
-            if _hotspot["name"] != kernel_name:
-                target_name = _hotspot["name"]
-                context_text = _utils_text if _hotspot["in_utils"] else base_src_text
-                where = "utils/polybench.c（本次 run 私有可写副本）" if _hotspot["in_utils"] else "driver 文件"
-                print(f"  [热点筛选] 改写目标 = {target_name}（{where}，而非 {kernel_name}）：{_hotspot['reason']}")
-                ev["hotspot_reason"] = _hotspot["reason"]
+            target_name = ev.get("hotspot_target", kernel_name)
+            _hotspot_in_utils = ev.get("hotspot_in_utils", False) and target_name != kernel_name
+            context_text = _utils_text if _hotspot_in_utils else base_src_text
 
             # ── Phase 1: Analysis LLM — diagnose bottleneck before writing code ──
             print(f"  [重写分析] 运行瓶颈诊断 LLM...")
@@ -2565,7 +2616,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             # utils，候选用改写后的影子 utils（见 _eval_utils_rewrite）。通过就
             # 直接写回本次 run 的私有 utils 路径持久化，后续步骤自动生效——
             # 不需要在 main() 主循环里为"utils 状态"单独加一个字段来传递。
-            if _hotspot["in_utils"]:
+            if _hotspot_in_utils:
                 _, u_start, u_end = extract_kernel_function(context_text, target_name)
                 if u_start is None:
                     return {"action": action, "speedup": 1.0,
@@ -3417,6 +3468,32 @@ def main():
         _pg_stats = ev.get("pass_graph", {}).get("stats", {})
         print(f"  {_pg_stats.get('unique_passes', '?')} passes in pipeline, "
               f"{len(ev['kernel_passes'])} ran on {kernel_name}")
+
+        # ── 热点函数：整个 run 只选一次，选完缓存进 ev ──────────────────────
+        # 必须在 agent 步骤循环开始前做，不能等到某一步的 rewrite_source 处理
+        # 里才选：外层 agent 决策 prompt（_build_agent_prompt，决定 action +
+        # strategy 那一步）也要用同一个目标，否则它会照着 kernel_name 自己的
+        # 证据/源码提 strategy（比如 SPEC mcf_r 提"合并 printf"），而实际写代码、
+        # 验证、生效的却是热点函数（primal_iminus），两者对不上等于用错误的
+        # 意图指导实现阶段的 LLM——这正是之前观测到的 bug。
+        _utils_text_hs = None
+        if ev.get("utils"):
+            _pc_hs = Path(ev["utils"]) / "polybench.c"
+            if _pc_hs.exists():
+                try:
+                    _utils_text_hs = _pc_hs.read_text(errors="replace")
+                except OSError:
+                    pass
+        _driver_text_hs = Path(src).read_text(errors="replace")
+        _hotspot0 = select_hotspot_target(kernel_name, _driver_text_hs, _utils_text_hs)
+        ev["hotspot_target"]   = _hotspot0["name"]
+        ev["hotspot_in_utils"] = _hotspot0["in_utils"]
+        ev["hotspot_reason"]   = _hotspot0["reason"]
+        if _hotspot0["name"] != kernel_name:
+            _where_hs = ("utils/polybench.c（本次 run 私有可写副本）"
+                        if _hotspot0["in_utils"] else "driver 文件")
+            print(f"  [热点筛选] 真正的改写目标 = {_hotspot0['name']}"
+                  f"（{_where_hs}，而非 {kernel_name}）：{_hotspot0['reason']}")
 
         # --graph-only: just render the pass graph and exit
         if args.graph_only:
