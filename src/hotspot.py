@@ -33,6 +33,13 @@ from tune_source import extract_kernel_function
 _LOOP_RE = re.compile(r"\b(?:for|while)\s*\(")
 _CALL_RE = re.compile(r"\b([A-Za-z_][A-Za-z_0-9]*)\s*\(")
 _ARITH_RE = re.compile(r"(?<![-+*/%<>=!&|])[-+*/%](?!=?[-+*/%<>=!&|])|\[[^\[\]]*\]")
+# Pointer-dereference and comparison ops -- the equivalent of "real inline
+# computation" for pointer/struct-chasing code (linked lists, trees, graphs:
+# SPEC mcf_r's simplex pivot, cBench's dijkstra/patricia) where the hot loop
+# is dominated by `bea->head`, `iminus->pred`, `x != y` rather than `+`/`*`/
+# array subscripts. Without this, _arith_density() systematically undervalues
+# that whole workload class relative to array-heavy PolyBench-style code.
+_PTR_BRANCH_RE = re.compile(r"->|[=!<>]=|(?<![<>=!])[<>](?!=)")
 # Strips /* block */ and // line comments (not inside string/char literals --
 # good enough for scanning C source for calls; a real license-header comment
 # block like "Copyright (c) ... (ZIB)" would otherwise regex-match as a call
@@ -125,15 +132,56 @@ def _calls_inside_loops(body: str) -> set:
 
 def _arith_density(body: str) -> float:
     """Rough proxy for "does real inline computation" -- arithmetic
-    operators and array-subscript expressions per character of body, after
-    stripping comments (otherwise a comment full of ASCII-art or math
-    notation could inflate this). Distinguishes a function that mostly
-    just dispatches to other calls (low density) from one doing the actual
-    numeric work (high density)."""
+    operators, array-subscript expressions, pointer dereferences, and
+    comparisons per character of body, after stripping comments (otherwise
+    a comment full of ASCII-art or math notation could inflate this).
+    Distinguishes a function that mostly just dispatches to other calls
+    (low density) from one doing the actual work (high density). Pointer/
+    comparison ops count at half weight of arithmetic/subscript ops -- see
+    _PTR_BRANCH_RE."""
     body = _strip_comments(body)
     if not body:
         return 0.0
-    return len(_ARITH_RE.findall(body)) / max(len(body), 1)
+    arith = len(_ARITH_RE.findall(body))
+    ptr = len(_PTR_BRANCH_RE.findall(body))
+    return (arith + 0.5 * ptr) / max(len(body), 1)
+
+
+def _self_loop_bonus(body: str) -> float:
+    """Signal for "this function IS the hot loop", as opposed to "is called
+    from inside someone else's loop" (see called_in_loop_by in _score).
+    global_opt()'s `while(new_arcs) { primal_net_simplex(...); ... }` and
+    master()'s `while(!opt) { primal_bea_mpp(...); ...branchy pivot work... }`
+    both look identical under _has_loop() -- both have a top-level while
+    loop occupying nearly their whole body -- but only one of them is
+    actually doing the repeated work itself rather than delegating it
+    further. Distinguish them by requiring the loop body to also be dense
+    (by the same arith/pointer proxy as _arith_density): a pure dispatcher
+    loop stays near-zero density no matter how much of the function it
+    spans, while a real pivot/traversal loop doesn't.
+    """
+    stripped = _strip_comments(body)
+    spans = _loop_body_spans(stripped)
+    if not spans or not stripped:
+        return 0.0
+    # Union of loop-body character ranges (top-level loops rarely overlap,
+    # but merge just in case of nesting) as a fraction of the whole function.
+    covered = 0
+    prev_end = -1
+    for start, end in sorted(spans):
+        start = max(start, prev_end)
+        if end > start:
+            covered += end - start
+            prev_end = end
+    coverage = covered / len(stripped)
+    if coverage < 0.5:
+        return 0.0
+    loop_text = "".join(stripped[s:e] for s, e in spans)
+    loop_density = (len(_ARITH_RE.findall(loop_text))
+                    + 0.5 * len(_PTR_BRANCH_RE.findall(loop_text))) / max(len(loop_text), 1)
+    if loop_density < 0.005:   # near-zero -- a thin call-dispatch loop, not real work
+        return 0.0
+    return 180.0               # comparable to the called_in_loop_by bonus
 
 
 def _score(name: str, body: str, called_in_loop_by: set) -> float:
@@ -148,6 +196,7 @@ def _score(name: str, body: str, called_in_loop_by: set) -> float:
         score += 200.0          # runs repeatedly -- the strongest signal available
     if _has_loop(body):
         score += 20.0
+    score += _self_loop_bonus(body)          # IS the hot loop, not called from one
     score += 4000.0 * _arith_density(body)   # real inline computation
     if any(c in _IO_HINT_CALLS for c in calls):
         score -= 150.0           # one-shot input parsing, not the hot path
