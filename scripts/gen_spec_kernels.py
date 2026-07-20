@@ -41,14 +41,25 @@ count -- see docs/SPEC2017_STATUS.md for the full 43-benchmark survey and
 why the rest are deferred):
     505.mcf_r   (11 files, network simplex solver)
     519.lbm_r   ( 2 files, lattice-Boltzmann fluid dynamics)
+    544.nab_r   (19 files, molecular dynamics -- see "rundir" below)
 Not yet done (documented, not attempted here):
-    544.nab_r    -- needs argv[1] resolved relative to a data subdir
-                    (chdir semantics), not just flat absolute paths.
     557.xz_r     -- two `main()`s (spec.c harness + pxz.c), ~70 files.
     538.imagick_r, 500.perlbench_r, 502.gcc_r -- SPEC harness
                     (spec.c/SpecMain) dispatch pattern, large file counts.
     Fortran-language and CXX-language benchmarks -- out of scope for this
     C-only, clang -mllvm-flag-driven harness.
+
+nab_r's argv[1] handling ("rundir" config key): nabmd.c's main() builds its
+input filename as `strcat(argv[1], "/"); strcat(argv[1], argv[1]); strcat
+(".pdb")` -- i.e. literally `<argv1>/<argv1>.pdb` -- which only resolves if
+argv[1] is a short relative name ("hkrdenq") looked up in the CURRENT
+WORKING DIRECTORY, unlike mcf_r/lbm_r where every path could just be made
+absolute in argv itself with no chdir needed. A "rundir" config entry
+copies the needed data/test/input/<dirname>/ subtree into the shim's own
+tree ONCE at generation time (not at every run -- doing it at runtime
+inside the wrapper would leak into the timed region) and the wrapper does
+one cheap chdir() into that directory before calling kernel_<name>, with
+argv left as the plain short name SPEC's own harness would pass.
 """
 import re
 import shutil
@@ -100,6 +111,28 @@ BENCHMARKS = {
             str(bdir / "data/test/input/100_100_130_cf_a.of"),
         ],
     },
+    "nab_r": {
+        "bench_dir": "544.nab_r",
+        "entry_file": "nabmd.c",
+        # from Spec/object.pm's @sources, minus specrand.h's own .c (kept),
+        # minus eff.c (not in @sources -- its NOPERFLIB/NOREDUCE/OpenMP
+        # branches are therefore irrelevant here, no extra defines needed).
+        "sources": [
+            "nabmd.c", "sff.c", "nblist.c", "prm.c", "memutil.c", "molio.c",
+            "molutil.c", "errormsg.c", "binpos.c", "rand2.c",
+            "select_atoms.c", "reslib.c", "database.c", "traceback.c",
+            "chirvol.c", "specrand/specrand.c", "regex-alpha/regcomp.c",
+            "regex-alpha/regerror.c", "regex-alpha/regexec.c",
+            "regex-alpha/regfree.c",
+        ],
+        "skip_dirs": set(),
+        # data/test/input/control: "hkrdenq 1930344093 1000" (dirname, PRNG
+        # seed, MD step count) -- see Spec/object.pm's invoke(). dirname
+        # stays a short relative name (see module docstring); "rundir"
+        # below stages the directory it needs to resolve against.
+        "argv": lambda bdir: ["kernel_nab_r", "hkrdenq", "1930344093", "1000"],
+        "rundir": lambda bdir: (bdir / "data/test/input/hkrdenq", "hkrdenq"),
+    },
 }
 
 
@@ -139,12 +172,12 @@ def rename_entry_all(text: str, entry: str, new_name: str) -> str:
 # subprocess.run(capture_output=True) already captures with zero extra
 # plumbing.
 WRAPPER_TEMPLATE = '''{spec_defines}
-{body}
+{unistd_include}{body}
 
 int main(int argc, char** argv)
 {{
   (void)argc; (void)argv;
-  char* fargv[] = {{ {argv_list} , NULL }};
+{chdir_call}  char* fargv[] = {{ {argv_list} , NULL }};
   int fargc = {argc};
 
   kernel_{name}(fargc, fargv);
@@ -183,8 +216,28 @@ def gen_one(kname: str, cfg: dict):
     argv = cfg["argv"](bdir)
     argv_list = ", ".join(f'"{a}"' for a in argv)
 
+    # "rundir": some benchmarks (nab_r) build filenames as a short relative
+    # name joined against argv[1] itself, which only resolves against a
+    # specific CWD -- stage that directory ONCE here (generation time), the
+    # wrapper just chdir()s into it before calling kernel_<name> (cheap,
+    # not part of the thing being timed's own I/O).
+    chdir_call = ""
+    unistd_include = ""
+    if "rundir" in cfg:
+        src_dir, dirname = cfg["rundir"](bdir)
+        rundir_root = shim_root / "rundir"
+        dest_dir = rundir_root / dirname
+        if dest_dir.exists():
+            shutil.rmtree(dest_dir)
+        shutil.copytree(src_dir, dest_dir)
+        unistd_include = "#include <unistd.h>\n"
+        chdir_call = (
+            f'  if (chdir("{rundir_root}") != 0) {{ perror("chdir"); return 1; }}\n'
+        )
+
     wrapper = WRAPPER_TEMPLATE.format(
-        spec_defines=SPEC_DEFINES_H, body=entry_text, argv_list=argv_list,
+        spec_defines=SPEC_DEFINES_H, unistd_include=unistd_include, body=entry_text,
+        chdir_call=chdir_call, argv_list=argv_list,
         argc=len(argv), name=kname,
     )
     (kdir / f"{kname}.c").write_text(wrapper)
