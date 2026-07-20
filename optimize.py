@@ -1825,6 +1825,30 @@ def _anti_repeat_forced(history: "OptimizationHistory") -> "str | None":
     return next_action
 
 
+def _widen_span_for_proto_guard(text: str, start_idx: int) -> int:
+    """If `start_idx` (extract_kernel_function's span start) lands right
+    after a `#ifdef _PROTO_` guard line, widen the span to include that
+    guard line too -- otherwise splicing raw_kernel (a single ANSI-style
+    signature, per _extract_original_signature's instruction to the LLM;
+    never the `#ifdef/#else/#endif` dual-declaration wrapper) into
+    [start_idx:end_idx] removes the `#else <K&R decl> #endif` half (which
+    IS inside that span, sitting between the signature and the opening
+    `{`) but leaves the `#ifdef _PROTO_` line dangling with no matching
+    #endif -- exactly the "unterminated conditional directive" compile
+    failure observed live on SPEC mcf_r's primal_iminus (utils/
+    polybench.c:2513). This SPEC-era code repeats that
+    `#ifdef _PROTO_ <ansi> #else <k&r> #endif` idiom throughout, so this
+    isn't specific to one function. Returns the original start_idx
+    unchanged if no such guard is found immediately before it.
+    """
+    before = text[:start_idx]
+    stripped = before.rstrip()
+    marker = "#ifdef _PROTO_"
+    if stripped.endswith(marker):
+        return len(stripped) - len(marker)
+    return start_idx
+
+
 def _extract_original_signature(kernel_txt: str, kernel_name: str) -> str:
     """Pull the literal `<storage-class> <return-type> name(...)` header off
     an extracted function body, for telling rewrite_source's LLM the actual
@@ -2755,6 +2779,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                             "reasoning": reasoning, "improvement_analysis": improvement_analysis,
                             "strategy": strategy,
                             "flags": [], "source": None, "perf_stats": {}}
+                u_start = _widen_span_for_proto_guard(context_text, u_start)
                 rewritten_utils_text = context_text[:u_start] + raw_kernel + context_text[u_end:]
                 _driver_unchanged = tmpdir / f"{name}_driver_unchanged.c"
                 _driver_unchanged.write_text(base_src_text)
@@ -2794,6 +2819,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                         "reasoning": reasoning, "improvement_analysis": improvement_analysis,
                         "strategy": strategy,
                         "flags": [], "source": None, "perf_stats": {}}
+            start_idx = _widen_span_for_proto_guard(base_src_text, start_idx)
 
             rewritten_text = base_src_text[:start_idx] + raw_kernel + base_src_text[end_idx:]
             _rsrc = tmpdir / f"{name}_rewrite.c"
