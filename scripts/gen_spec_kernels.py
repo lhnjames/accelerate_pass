@@ -199,6 +199,22 @@ def gen_one(kname: str, cfg: dict):
     if dupes:
         return None, f"duplicate header basenames, can't flatten: {dupes}"
 
+    # Some benchmarks #include a helper .c file textually from inside another
+    # .c file (nab_r's sff.c does `#include "eff.c"`) rather than compiling
+    # it as its own translation unit -- eff.c is deliberately NOT in this
+    # benchmark's "sources" list (it'd be a duplicate-symbol link error if it
+    # were both #include'd AND compiled separately), but it still needs to be
+    # on the include path for that #include to resolve. Flatten every .c
+    # file the same way headers are flattened (skip_dirs, uniqueness check)
+    # so this resolves generically instead of hunting down each case by hand
+    # per benchmark.
+    all_c_files = [c for c in src_root.rglob("*.c")
+                   if not (set(c.relative_to(src_root).parts[:-1]) & cfg["skip_dirs"])]
+    c_names = [c.name for c in all_c_files]
+    c_dupes = {n for n in c_names if c_names.count(n) > 1}
+    if c_dupes:
+        return None, f"duplicate .c basenames, can't flatten: {c_dupes}"
+
     shim_root = OUT_ROOT / kname / "SPEC_shim"
     kdir = shim_root / "kernels" / kname
     udir = shim_root / "utilities"
@@ -208,6 +224,20 @@ def gen_one(kname: str, cfg: dict):
     for h in headers:
         shutil.copy(h, kdir / h.name)
         shutil.copy(h, udir / h.name)
+
+    # Flatten .c files too (see the comment above all_c_files) so any
+    # #include "helper.c" from within a compiled source resolves. Skip
+    # ones that are cfg["sources"] members or the entry file -- those get
+    # written explicitly below (concatenated into polybench.c, or as the
+    # wrapper's own body) and copying them here too would be redundant,
+    # not harmful, but pointless.
+    _sources_and_entry = set(cfg["sources"]) | {cfg["entry_file"]}
+    for c in all_c_files:
+        rel = str(c.relative_to(src_root))
+        if rel in _sources_and_entry:
+            continue
+        shutil.copy(c, kdir / c.name)
+        shutil.copy(c, udir / c.name)
 
     entry_path = src_root / cfg["entry_file"]
     entry_text = entry_path.read_text(errors="replace")
