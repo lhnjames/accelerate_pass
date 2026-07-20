@@ -114,9 +114,13 @@ BENCHMARKS = {
     "nab_r": {
         "bench_dir": "544.nab_r",
         "entry_file": "nabmd.c",
-        # from Spec/object.pm's @sources, minus specrand.h's own .c (kept),
-        # minus eff.c (not in @sources -- its NOPERFLIB/NOREDUCE/OpenMP
-        # branches are therefore irrelevant here, no extra defines needed).
+        # from Spec/object.pm's @sources; eff.c/sff2.c are pulled in via
+        # textual #include from inside sff.c, not compiled separately (see
+        # the .c-flattening comment in gen_one) -- but sff.c only skips the
+        # `#include "sff2.c"` line (a file that doesn't exist in this SPEC
+        # distribution at all -- presumably an optional perf-library variant
+        # never shipped) when NOPERFLIB is defined, hence extra_defines
+        # below matching object.pm's own $bench_flags for this benchmark.
         "sources": [
             "nabmd.c", "sff.c", "nblist.c", "prm.c", "memutil.c", "molio.c",
             "molutil.c", "errormsg.c", "binpos.c", "rand2.c",
@@ -132,6 +136,7 @@ BENCHMARKS = {
         # below stages the directory it needs to resolve against.
         "argv": lambda bdir: ["kernel_nab_r", "hkrdenq", "1930344093", "1000"],
         "rundir": lambda bdir: (bdir / "data/test/input/hkrdenq", "hkrdenq"),
+        "extra_defines": ["NOPERFLIB", "NOREDUCE", "SPEC_AUTO_SUPPRESS_OPENMP"],
     },
 }
 
@@ -246,6 +251,9 @@ def gen_one(kname: str, cfg: dict):
     argv = cfg["argv"](bdir)
     argv_list = ", ".join(f'"{a}"' for a in argv)
 
+    defines_h = SPEC_DEFINES_H + "".join(
+        f"#ifndef {d}\n#define {d} 1\n#endif\n" for d in cfg.get("extra_defines", []))
+
     # "rundir": some benchmarks (nab_r) build filenames as a short relative
     # name joined against argv[1] itself, which only resolves against a
     # specific CWD -- stage that directory ONCE here (generation time), the
@@ -266,14 +274,14 @@ def gen_one(kname: str, cfg: dict):
         )
 
     wrapper = WRAPPER_TEMPLATE.format(
-        spec_defines=SPEC_DEFINES_H, unistd_include=unistd_include, body=entry_text,
+        spec_defines=defines_h, unistd_include=unistd_include, body=entry_text,
         chdir_call=chdir_call, argv_list=argv_list,
         argc=len(argv), name=kname,
     )
     (kdir / f"{kname}.c").write_text(wrapper)
 
     extra = [sf for sf in cfg["sources"] if sf != cfg["entry_file"]]
-    pieces = [SPEC_DEFINES_H, POLYBENCH_C.read_text()]
+    pieces = [defines_h, POLYBENCH_C.read_text()]
     for sf in extra:
         p = src_root / sf
         pieces.append(f"\n/* ==== {sf} ==== */\n" + p.read_text(errors="replace"))
