@@ -41,7 +41,28 @@ count -- see docs/SPEC2017_STATUS.md for the full 43-benchmark survey and
 why the rest are deferred):
     505.mcf_r   (11 files, network simplex solver)
     519.lbm_r   ( 2 files, lattice-Boltzmann fluid dynamics)
-    544.nab_r   (19 files, molecular dynamics -- see "rundir" below)
+In progress, NOT compiling yet (do not add to manifest expectations):
+    544.nab_r    -- got past the "missing file"/argv-chdir issues (see
+                    "rundir" below and the .c/.ih flattening in gen_one),
+                    but its regex-alpha/ subsystem was never designed for
+                    unity-building: regex2.h has no include guard (fine
+                    across separate TUs, breaks when regcomp.c AND
+                    regexec.c's bodies both land in one TU), and at least
+                    one real symbol collision (a file-scoped `static
+                    REAL_T dist(ATOM_T*, ATOM_T*)` helper in one file vs
+                    an unrelated extern `dist(MOLECULE_T*, char[], char[])`
+                    declared in another -- two different functions that
+                    happen to share a name, only safe under separate
+                    compilation) plus several stale/mismatched forward-
+                    declarations (reducerror, select_atoms, get) that
+                    various nab source files carry locally and never
+                    actually got cross-checked before. Needs either format
+                    per-symbol renaming/guard patches at generation time,
+                    or (bigger change) compiling regex-alpha's files as
+                    genuinely separate translation units instead of unity-
+                    building them -- not attempted, would touch the
+                    generic single-TU assumption gen_one() and the rest of
+                    this harness both currently make.
 Not yet done (documented, not attempted here):
     557.xz_r     -- two `main()`s (spec.c harness + pxz.c), ~70 files.
     538.imagick_r, 500.perlbench_r, 502.gcc_r -- SPEC harness
@@ -196,8 +217,10 @@ def gen_one(kname: str, cfg: dict):
     src_root = bdir / "src"
 
     # collect every header under src/ (excluding skip_dirs), verify basenames
-    # are unique before flattening.
-    headers = [h for h in src_root.rglob("*.h")
+    # are unique before flattening. Some codebases (nab_r's BSD regex
+    # engine) use ".ih" ("inline header") for #include-only fragment files
+    # alongside ordinary ".h" -- both need to be on the include path.
+    headers = [h for h in list(src_root.rglob("*.h")) + list(src_root.rglob("*.ih"))
                if not (set(h.relative_to(src_root).parts[:-1]) & cfg["skip_dirs"])]
     names = [h.name for h in headers]
     dupes = {n for n in names if names.count(n) > 1}
