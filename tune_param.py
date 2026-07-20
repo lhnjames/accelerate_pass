@@ -332,6 +332,33 @@ def _gen_o3_ir(clang: str, src: str, utils: "Path", source_dir: "Path",
             pass
 
 
+def _normalize_pass_name(raw: str) -> str:
+    """LLVM 11's new pass manager prints loop/CGSCC-scoped passes wrapped in
+    an adaptor, e.g. `FunctionToLoopPassAdaptor<llvm::LICMPass>` instead of
+    plain `LICMPass` -- every OTHER piece of this codebase (remarks parsing
+    via REMARK_PASS_MAP, _BOTTLENECK_PASS_PRIORITY, PASS_CATEGORIES, this
+    file's own PASS_KEYWORDS) keys passes by the bare class name, so a
+    wrapped name here never matches anything downstream. Concretely:
+    discover_options_from_help(opt, kernel_passes) is called with THIS
+    function's output as pass_names -- if LICM shows up as the wrapped
+    string, its keyword-derivation garbles into nonsense and it silently
+    gets zero discovered params (observed live: SPEC lbm_r's evidence
+    collection correctly named LICMPass the #1 priority pass with 22 missed
+    remarks, yet not one -licm-* flag was ever a candidate, across every
+    run of this kernel, because kernel_passes never actually contained the
+    string "LICMPass" for discover_options_from_help to match against).
+    Pulls the innermost `llvm::<Name>` identifier out of any adaptor
+    wrapping; passes with no such wrapping (the common case) pass through
+    unchanged. Nested sub-pipeline managers (e.g.
+    `FunctionToLoopPassAdaptor<llvm::PassManager<llvm::Loop, ...>>`, which
+    aren't a specific tunable pass at all) fall back to their last
+    llvm::-qualified segment -- harmless since that won't match any real
+    pass name in _BOTTLENECK_PASS_PRIORITY/PASS_KEYWORDS either way.
+    """
+    matches = re.findall(r"llvm::(\w+)", raw)
+    return matches[-1] if matches else raw
+
+
 def extract_o3_passes_for_kernel(opt: str, ir_path: str,
                                   kernel_name: str, timeout: int = 120) -> list:
     """Run opt -debug-pass-manager on the given IR to find passes that ran on kernel."""
@@ -346,9 +373,11 @@ def extract_o3_passes_for_kernel(opt: str, ir_path: str,
     for line in r.stderr.splitlines():
         if "Running pass:" in line and target in line:
             m = re.search(r"Running pass:\s+(\S+)", line)
-            if m and m.group(1) not in seen:
-                seen.add(m.group(1))
-                passes.append(m.group(1))
+            if m:
+                name = _normalize_pass_name(m.group(1))
+                if name not in seen:
+                    seen.add(name)
+                    passes.append(name)
     return passes
 
 
