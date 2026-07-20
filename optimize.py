@@ -2651,18 +2651,34 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             flag_specs = list(plan.get("flags", []))
 
             # ── Auto-supplement: add targeted_passes params not already in LLM suggestions ──
-            # Selection criteria (all three must hold):
-            #   1. Pass actually ran in the O3 pipeline (in ev["targeted_passes"])
-            #   2. Pass has missed remarks (optimization opportunities exist)
-            #   3. Parameter exists in this LLVM binary (in ev["discovered_opts"] OR in
-            #      _DEFAULT_FLAG_CANDIDATES whose entries are verified via opt --help-hidden)
+            # Selection criteria (pass must hold at least one):
+            #   1. Pass actually ran in the O3 pipeline AND has missed remarks (optimization
+            #      opportunities exist), OR
+            #   2. Pass actually ran in the O3 pipeline AND has a real, discoverable tunable
+            #      parameter (in ev["discovered_opts"], opt --help-hidden verified) -- a pass
+            #      can be worth tuning even with zero "missed" remarks against THIS kernel's
+            #      entry function: for hotspot-redirected targets (src/hotspot.py -- SPEC
+            #      mcf_r/lbm_r etc., where kernel_<name> is a thin wrapper and the real hot
+            #      loop lives in a different function), remarks/missed-counts are collected
+            #      against the ENTRY function only, so a pass with real params can show
+            #      missed_count==0 there while still mattering for the actual hot function.
+            # get_targeted_passes() (src/perf_analysis.py) already applies exactly this
+            # OR-criteria when building ev["targeted_passes"] in the first place -- this used
+            # to re-filter with a STRICTER "missed_count==0 -> skip" check on top, silently
+            # dropping every params-only pass get_targeted_passes had already decided to
+            # include. Observed live: lbm_r's evidence collection named LICMPass the #1
+            # priority pass for its cache_inefficiency bottleneck, but not one -licm-* flag
+            # ever got tested across 2 full try_flags rounds (~150 candidates) because LICM's
+            # missed_count against kernel_lbm_r was 0 -- this stricter check silently threw
+            # it away every time despite get_targeted_passes already having decided (via its
+            # own params-OR-missed check) that it belonged in ev["targeted_passes"] at all.
             # Candidate values: from _DEFAULT_FLAG_CANDIDATES, always toward MORE aggressive
             # optimization (see comments there for per-parameter justification).
             _discovered = ev.get("discovered_opts", {})
             _already = {spec.get("flag", "").lstrip("-") for spec in flag_specs}
             for _tp in ev.get("targeted_passes", []):
-                if _tp.get("missed_count", 0) == 0:
-                    continue  # skip passes with no missed remarks
+                if _tp.get("missed_count", 0) == 0 and not _tp.get("params"):
+                    continue  # neither signal present -- nothing to act on
                 pname = _tp["pass_name"]
                 for _param in _tp.get("params", []):
                     _key = _param.lstrip("-")
