@@ -204,45 +204,17 @@ def _score(name: str, body: str, called_in_loop_by: set) -> float:
     return score
 
 
-def select_hotspot_target(kernel_name: str, driver_text: str,
-                          utils_text: "Optional[str]" = None,
-                          max_hops: int = 4) -> dict:
-    """
-    Decide which function rewrite_source should actually show/target.
-
-    Returns {"name", "body", "in_utils", "reason"}. `in_utils` is True if
-    the selected function is defined in utils/polybench.c (the multi-file
-    kernel's unity-built extra translation unit) rather than the driver
-    file that holds kernel_<name> itself -- callers should treat that as
-    informational for now (surface it in the prompt/diagnosis) rather than
-    a rewrite target, since editing and re-linking a modified utils.c that
-    *persists* across the agent's later steps needs the utils path itself
-    to be a per-run mutable copy, which is a separate piece of plumbing.
-
-    Selection: breadth-first walk the *entire* reachable call graph
-    (bounded by max_hops and MAX_FUNCTIONS), starting from kernel_name, and
-    score EVERY function reached -- including kernel_name itself -- the
-    same way, picking whichever scores highest. An earlier version
-    short-circuited here ("if kernel_name has a loop, it must be doing the
-    real work, stop") -- true for the common case (PolyBench/TSVC/CBench
-    kernels, whose loop body IS the dense array arithmetic) but wrong for
-    e.g. SPEC lbm_r's kernel_lbm_r, whose `for` loop is a pure per-timestep
-    dispatcher (LBM_handleInOutFlow/LBM_performStreamCollideTRT/
-    LBM_swapGrids calls, no inline arithmetic of its own) around the
-    function that does the actual lattice-Boltzmann compute -- the exact
-    same "loop is a dispatcher, not the work" pattern as mcf_r's
-    global_opt, just one level shallower. A loop by itself was never a
-    reliable "real work happens here" signal; only _score() (arithmetic
-    density + being called from inside someone else's loop) is, so every
-    reachable function -- the entry included -- goes through it uniformly.
-    A dense-loop kernel like a real PolyBench kernel still scores high on
-    arithmetic density and simply wins on its own merits; no special case
-    needed for that path either.
-    """
+def _build_and_score(kernel_name: str, driver_text: str,
+                     utils_text: "Optional[str]", max_hops: int):
+    """Shared graph-walk + scoring core for select_hotspot_target() and
+    select_hotspot_targets() -- see select_hotspot_target's docstring
+    (kept there since it's the primary/most-called entry point) for what
+    this does and why. Returns (scored, graph_size) where scored is a
+    list of (score, name, body, in_utils) sorted descending, or (None, 0)
+    if kernel_name itself can't be found."""
     body, _, _ = extract_kernel_function(driver_text, kernel_name)
     if body is None:
-        return {"name": kernel_name, "body": "", "in_utils": False,
-                "reason": "kernel function not found"}
+        return None, 0, set()
 
     # Walk the whole reachable graph, recording every function's body/origin
     # and which functions get called from inside *someone's* loop.
@@ -280,19 +252,72 @@ def select_hotspot_target(kernel_name: str, driver_text: str,
             break
 
     # kernel_name competes on equal footing with everything reachable from
-    # it -- see the docstring for why a loop of its own doesn't exempt it
-    # from that comparison.
+    # it -- see select_hotspot_target's docstring for why a loop of its own
+    # doesn't exempt it from that comparison.
     scored = sorted(
         ((_score(n, b, called_in_loop), n, b, u) for n, (b, u) in graph.items()),
         key=lambda c: c[0], reverse=True,
     )
+    return scored, len(graph), called_in_loop
+
+
+def select_hotspot_target(kernel_name: str, driver_text: str,
+                          utils_text: "Optional[str]" = None,
+                          max_hops: int = 4) -> dict:
+    """
+    Decide which function rewrite_source should actually show/target.
+
+    Returns {"name", "body", "in_utils", "reason"}. `in_utils` is True if
+    the selected function is defined in utils/polybench.c (the multi-file
+    kernel's unity-built extra translation unit) rather than the driver
+    file that holds kernel_<name> itself -- callers should treat that as
+    informational for now (surface it in the prompt/diagnosis) rather than
+    a rewrite target, since editing and re-linking a modified utils.c that
+    *persists* across the agent's later steps needs the utils path itself
+    to be a per-run mutable copy, which is a separate piece of plumbing.
+
+    Selection: breadth-first walk the *entire* reachable call graph
+    (bounded by max_hops and MAX_FUNCTIONS), starting from kernel_name, and
+    score EVERY function reached -- including kernel_name itself -- the
+    same way, picking whichever scores highest. An earlier version
+    short-circuited here ("if kernel_name has a loop, it must be doing the
+    real work, stop") -- true for the common case (PolyBench/TSVC/CBench
+    kernels, whose loop body IS the dense array arithmetic) but wrong for
+    e.g. SPEC lbm_r's kernel_lbm_r, whose `for` loop is a pure per-timestep
+    dispatcher (LBM_handleInOutFlow/LBM_performStreamCollideTRT/
+    LBM_swapGrids calls, no inline arithmetic of its own) around the
+    function that does the actual lattice-Boltzmann compute -- the exact
+    same "loop is a dispatcher, not the work" pattern as mcf_r's
+    global_opt, just one level shallower. A loop by itself was never a
+    reliable "real work happens here" signal; only _score() (arithmetic
+    density + being called from inside someone else's loop) is, so every
+    reachable function -- the entry included -- goes through it uniformly.
+    A dense-loop kernel like a real PolyBench kernel still scores high on
+    arithmetic density and simply wins on its own merits; no special case
+    needed for that path either.
+
+    See select_hotspot_targets() (plural) for the multi-function variant --
+    mcf_r's primal_iminus/switch_arcs/markBaskets score within 4% of each
+    other (the hot loop's cost is genuinely spread across several similarly-
+    sized functions, not concentrated in one), so rewriting only the #1
+    scorer caps achievable speedup at whatever that one function alone is
+    worth. This function is unchanged/single-target for every existing
+    caller; select_hotspot_targets is additive.
+    """
+    scored, graph_size, called_in_loop = _build_and_score(
+        kernel_name, driver_text, utils_text, max_hops)
+    if scored is None:
+        return {"name": kernel_name, "body": "", "in_utils": False,
+                "reason": "kernel function not found"}
+
     score, name, sel_body, in_utils = scored[0]
     others = ", ".join(f"{c[1]} (score {c[0]:.0f})" for c in scored[1:4])
 
     if name == kernel_name:
+        body, _, _ = extract_kernel_function(driver_text, kernel_name)
         return {"name": kernel_name, "body": body, "in_utils": False,
                 "reason": (f"{kernel_name} itself scored highest (score {score:.0f}) among "
-                          f"{len(graph)} reachable functions -- treating it as doing the "
+                          f"{graph_size} reachable functions -- treating it as doing the "
                           f"real work directly"
                           + (f" (also considered: {others})" if others else ""))}
 
@@ -300,6 +325,62 @@ def select_hotspot_target(kernel_name: str, driver_text: str,
     signal = "called from inside a loop" if name in called_in_loop else (
         "contains a loop" if _has_loop(sel_body) else "highest arithmetic density found")
     reason = (f"{name} (score {score:.0f}, {signal}) scored higher than {kernel_name} itself "
-             f"and is defined in {where}, across {len(graph)} reachable functions"
+             f"and is defined in {where}, across {graph_size} reachable functions"
              + (f" (also considered: {others})" if others else ""))
     return {"name": name, "body": sel_body, "in_utils": in_utils, "reason": reason}
+
+
+def select_hotspot_targets(kernel_name: str, driver_text: str,
+                           utils_text: "Optional[str]" = None,
+                           max_hops: int = 4, top_k: int = 3,
+                           closeness_pct: float = 15.0) -> list:
+    """Plural variant of select_hotspot_target(): returns up to `top_k`
+    targets instead of just the single best-scoring one, for kernels where
+    the hot loop's cost is genuinely spread across several functions of
+    comparable importance rather than concentrated in one -- see
+    select_hotspot_target's docstring for the motivating mcf_r case.
+
+    A candidate beyond #1 is only included if its score is within
+    `closeness_pct`% of #1's (relative), so this stays a no-op (returns a
+    single-element list, same as select_hotspot_target) for the common case
+    where one function genuinely dominates -- cholesky, lbm_r's
+    LBM_performStreamCollideTRT, etc. Only functions sharing the SAME
+    location (all in utils_text, or all in driver_text) as #1 are
+    included; a same-scoring candidate in the other file is dropped rather
+    than mixed in, since multi-target rewrite_source currently only
+    supports splicing several spans within one shared text (see
+    optimize.py's _splice_multi_spans).
+
+    Returns a list of {"name", "body", "in_utils", "reason"} dicts, same
+    shape as select_hotspot_target's return value, longest first (#1 always
+    included even if kernel_name itself wins, in which case the list has
+    exactly one entry -- self-hotspot kernels never get multi-target
+    treatment, there is nothing else to combine them with).
+    """
+    scored, graph_size, called_in_loop = _build_and_score(
+        kernel_name, driver_text, utils_text, max_hops)
+    if scored is None:
+        return [{"name": kernel_name, "body": "", "in_utils": False,
+                 "reason": "kernel function not found"}]
+
+    top_score, top_name, top_body, top_in_utils = scored[0]
+    if top_name == kernel_name:
+        return [select_hotspot_target(kernel_name, driver_text, utils_text, max_hops)]
+
+    threshold = top_score * (1.0 - closeness_pct / 100.0)
+    picked = []
+    for score, name, body, in_utils in scored:
+        if len(picked) >= top_k:
+            break
+        if score < threshold:
+            break
+        if in_utils != top_in_utils:
+            continue
+        where = "utils/polybench.c" if in_utils else "the driver file"
+        signal = "called from inside a loop" if name in called_in_loop else (
+            "contains a loop" if _has_loop(body) else "highest arithmetic density found")
+        reason = (f"{name} (score {score:.0f}, {signal}), within {closeness_pct:.0f}% of "
+                 f"top scorer {top_name} (score {top_score:.0f}) among {graph_size} "
+                 f"reachable functions -- joint-rewrite candidate")
+        picked.append({"name": name, "body": body, "in_utils": in_utils, "reason": reason})
+    return picked or [select_hotspot_target(kernel_name, driver_text, utils_text, max_hops)]

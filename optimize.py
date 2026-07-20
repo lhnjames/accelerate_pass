@@ -81,7 +81,7 @@ from src.remarks import (
 )
 from src.diagnostics import clean_clang_diagnostics
 from src.correctness import detect_correctness_mode, check_correctness
-from src.hotspot import select_hotspot_target
+from src.hotspot import select_hotspot_target, select_hotspot_targets
 
 
 # ── Single-shot timing (for interleaved confirmation runs) ───────────────────
@@ -1046,6 +1046,39 @@ def _current_hotspot_context(ev: dict, base_src_text: str,
     return target_name, (body or ""), False
 
 
+def _current_hotspot_contexts(ev: dict, base_src_text: str,
+                              current_best_source: "str | None" = None) -> list:
+    """Plural sibling of _current_hotspot_context(): current body text for
+    EVERY name in ev["hotspot_targets"] (set once in main() via
+    select_hotspot_targets() -- see its docstring for when this is more
+    than one name). Returns a list of (name, body, in_utils) tuples in the
+    same order as ev["hotspot_targets"]; falls back to a single-element
+    list matching _current_hotspot_context's result when there's only one
+    target (the overwhelmingly common case), so callers that only care
+    about "the" target can keep using the singular function unchanged.
+    """
+    kernel_name = ev["kernel_name"]
+    names = ev.get("hotspot_targets") or [ev.get("hotspot_target", kernel_name)]
+    if len(names) <= 1:
+        return [_current_hotspot_context(ev, base_src_text, current_best_source)]
+    in_utils = ev.get("hotspot_in_utils", False)
+    text = None
+    if in_utils and ev.get("utils"):
+        pc = Path(ev["utils"]) / "polybench.c"
+        if pc.exists():
+            try:
+                text = pc.read_text(errors="replace")
+            except OSError:
+                pass
+    else:
+        text = current_best_source or base_src_text
+    out = []
+    for name in names:
+        body, _, _ = extract_kernel_function(text, name) if text else (None, None, None)
+        out.append((name, body or "", in_utils))
+    return out
+
+
 def _build_agent_prompt(kernel_name: str, ev: dict,
                         cpu_info: str, cpu_cache: str,
                         history: "OptimizationHistory",
@@ -1103,24 +1136,43 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
     # 并且下面【③ Kernel 源码】要展示真正的目标函数，而不是 kernel_name——
     # 否则 LLM 会照着 kernel_name 的代码提 rewrite_source strategy，但实际
     # 写代码、验证、生效的却是热点函数，两者对不上。
-    _hs_target, _hs_body, _hs_in_utils = _current_hotspot_context(
-        ev, ev['kernel_text'], current_best_source)
+    _hs_contexts = _current_hotspot_contexts(ev, ev['kernel_text'], current_best_source)
+    _hs_target, _hs_body, _hs_in_utils = _hs_contexts[0]
+    _hs_multi = len(_hs_contexts) > 1
     hotspot_note = ""
     display_kernel_text = ev['kernel_text']
     display_kernel_label = kernel_name
     if _hs_target != kernel_name:
         _hs_where = ("utils/polybench.c（该 run 私有可写副本，rewrite_source 改动会持久化到这里）"
                     if _hs_in_utils else "driver 文件")
-        hotspot_note = (
-            f"\n⚠ 热点重定向：`{kernel_name}` 本身只是入口/wrapper，真正被反复执行、"
-            f"决定性能的函数是 `{_hs_target}`（位于 {_hs_where}）。"
-            f"判定依据：{ev.get('hotspot_reason', '')}\n"
-            f"下面【③ Kernel 源码】展示的就是 `{_hs_target}`（不是 `{kernel_name}`）——"
-            f"提 rewrite_source 的 strategy 时必须针对这段代码里的具体变量/循环/调用设计变换，"
-            f"不要描述对 `{kernel_name}` 本身的改动（比如合并它的 printf、给它的参数校验加分支预测提示），"
-            f"因为实际写代码、验证、生效的目标就是 `{_hs_target}`。\n")
-        display_kernel_text = _hs_body
-        display_kernel_label = _hs_target
+        if _hs_multi:
+            _hs_names = [n for n, _, _ in _hs_contexts]
+            hotspot_note = (
+                f"\n⚠ 热点重定向（多函数联合）：`{kernel_name}` 本身只是入口/wrapper，"
+                f"真正被反复执行、决定性能的不是单个函数，而是这 {len(_hs_names)} 个热点分数"
+                f"彼此接近的函数一起构成的调用链：{', '.join(f'`{n}`' for n in _hs_names)}"
+                f"（均位于 {_hs_where}）。判定依据：{ev.get('hotspot_reason', '')}\n"
+                f"下面【③ Kernel 源码】依次展示这 {len(_hs_names)} 个函数的完整代码——"
+                f"提 rewrite_source 的 strategy 时要把它们当一个整体来设计变换"
+                f"（比如内联合并、消除函数间调用开销、跨函数消除冗余计算），"
+                f"而不是只改其中一个；不要描述对 `{kernel_name}` 本身的改动。\n"
+                f"实现阶段会要求同时输出这 {len(_hs_names)} 个函数的新代码，"
+                f"每个前面带一行 `// ===COMET_FUNC: <函数名>===` 标记，顺序和上面展示的一致"
+                f"（可以在函数体内部做任意重构，但每个原函数名对应的标记必须都出现一次）。\n")
+            display_kernel_text = "\n\n".join(
+                f"// ===COMET_FUNC: {n}===\n{b}" for n, b, _ in _hs_contexts)
+            display_kernel_label = " + ".join(_hs_names)
+        else:
+            hotspot_note = (
+                f"\n⚠ 热点重定向：`{kernel_name}` 本身只是入口/wrapper，真正被反复执行、"
+                f"决定性能的函数是 `{_hs_target}`（位于 {_hs_where}）。"
+                f"判定依据：{ev.get('hotspot_reason', '')}\n"
+                f"下面【③ Kernel 源码】展示的就是 `{_hs_target}`（不是 `{kernel_name}`）——"
+                f"提 rewrite_source 的 strategy 时必须针对这段代码里的具体变量/循环/调用设计变换，"
+                f"不要描述对 `{kernel_name}` 本身的改动（比如合并它的 printf、给它的参数校验加分支预测提示），"
+                f"因为实际写代码、验证、生效的目标就是 `{_hs_target}`。\n")
+            display_kernel_text = _hs_body
+            display_kernel_label = _hs_target
 
     # ── history 部分 ─────────────────────────────────────────────────────────
     history_section = history.to_prompt_section()
@@ -1847,6 +1899,150 @@ def _widen_span_for_proto_guard(text: str, start_idx: int) -> int:
     if stripped.endswith(marker):
         return len(stripped) - len(marker)
     return start_idx
+
+
+_COMET_FUNC_MARKER_RE = re.compile(r'//\s*===COMET_FUNC:\s*(\S+?)\s*===\s*\n')
+
+
+def _splice_multi_spans(text: str, spans: "list[tuple]", replacements: dict) -> "str | None":
+    """Multi-function sibling of the single-span splice used everywhere
+    else in this file (`text[:start] + raw_kernel + text[end:]`). Removes
+    every (name, start, end) span in `spans` from `text` and inserts each
+    span's replacement (from `replacements[name]`) at that same original
+    position, so unrelated code between the target functions is left
+    exactly where it was -- this is NOT "delete everything and paste one
+    combined blob at the top", each function's new body lands where its
+    old one used to be, in the original file's function ORDER, not
+    necessarily the LLM's response order (parse_multi_func_response
+    already re-keys by name so this doesn't depend on the LLM preserving
+    order either). Returns None if any name in `spans` is missing from
+    `replacements` (caller should treat that as a parse failure, not
+    silently drop a function).
+    """
+    for name, _, _ in spans:
+        if name not in replacements:
+            return None
+    ordered = sorted(spans, key=lambda s: s[1])
+    out = []
+    prev_end = 0
+    for name, start, end in ordered:
+        widened_start = _widen_span_for_proto_guard(text, start)
+        out.append(text[prev_end:widened_start])
+        out.append(replacements[name])
+        prev_end = end
+    out.append(text[prev_end:])
+    return "".join(out)
+
+
+def _parse_multi_func_response(raw: str, expected_names: "list[str]") -> "dict | None":
+    """Split an implementation LLM's response into {name: body} using the
+    `// ===COMET_FUNC: <name>===` markers _build_rewrite_impl_prompt_multi
+    asks for. Returns None (parse failure -- caller reports this as a
+    rewrite_source error, same as any other malformed-response case) unless
+    EVERY name in expected_names appears exactly once; a partial/renamed/
+    reordered response is not silently accepted with the others left
+    unchanged, since "some of the N functions got rewritten, the rest
+    quietly kept their old text" is a correctness trap, not a valid result.
+    """
+    matches = list(_COMET_FUNC_MARKER_RE.finditer(raw))
+    if not matches:
+        return None
+    chunks = {}
+    for i, m in enumerate(matches):
+        name = m.group(1)
+        body_start = m.end()
+        body_end = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
+        chunks[name] = raw[body_start:body_end].strip() + "\n"
+    if set(chunks.keys()) != set(expected_names):
+        return None
+    return chunks
+
+
+def _build_rewrite_impl_prompt_multi(target_names: "list[str]", ev: dict,
+                                     history: "OptimizationHistory",
+                                     base_src_text: str,
+                                     strategy: str,
+                                     analysis_diagnosis: str) -> str:
+    """Multi-function sibling of _build_rewrite_impl_prompt(): shows all of
+    `target_names`' current bodies together and asks for a combined
+    response covering all of them, marked so _parse_multi_func_response can
+    split it back apart. Deliberately a separate, smaller function rather
+    than parameterizing the single-target builder -- that one is large,
+    mature, and heavily exercised; bolting a list-of-targets code path
+    through every section of it risked destabilizing the common (single-
+    target) case for a feature that only fires when hotspot scores cluster
+    within closeness_pct of each other (see select_hotspot_targets)."""
+    funcs = []
+    for name in target_names:
+        body, _, _ = extract_kernel_function(base_src_text, name)
+        body = body or ""
+        sig = _extract_original_signature(body, name)
+        warn = _static_pattern_warnings(body)
+        funcs.append((name, body, sig, warn))
+
+    forbidden_macros = ev.get("forbidden_macros", [])
+    forbidden_str = ", ".join(f"`{m}`" for m in forbidden_macros[:30]) if forbidden_macros else "none"
+    cpu_info = ev.get("cpu_info", "")
+    cpu_cache = ev.get("cpu_cache", "")
+
+    diagnosis_block = ""
+    if analysis_diagnosis:
+        diagnosis_block = (f"### Expert performance analysis (of the overall hot call chain "
+                           f"-- read this carefully before writing)\n{analysis_diagnosis}\n\n")
+
+    funcs_block = "\n\n".join(
+        f"#### Function {i+1}/{len(funcs)}: `{name}`\n"
+        + (f"Original signature (keep EXACTLY, including storage class/linkage): `{sig}`\n" if sig else "")
+        + (warn if warn else "")
+        + f"```c\n{body}\n```"
+        for i, (name, body, sig, warn) in enumerate(funcs)
+    )
+
+    names_str = ", ".join(f"`{n}`" for n in target_names)
+    markers_example = "\n".join(f"// ===COMET_FUNC: {n}===\n<new code for {n}>" for n in target_names)
+
+    return f"""{diagnosis_block}Implement an optimization spanning {len(target_names)} functions that together form
+one hot call chain: {names_str}. Based on the analysis above, treat them as a SINGLE
+unit to optimize -- inlining one into another, eliminating a call between them,
+restructuring shared state across them, etc. are all in scope, not just per-function
+tweaks.
+
+### Functions to optimize (current code, in this exact order)
+{funcs_block}
+
+### Optimization strategy
+{strategy}
+
+### CPU / SIMD context
+{cpu_info}
+{cpu_cache}
+
+## Hard constraints — read BEFORE writing a single line
+
+1. **Every one of the {len(target_names)} function names must still exist as a real,
+   callable, correctly-signatured function afterward** — {names_str} are called from
+   elsewhere in this codebase (outside what you can see here) with their original
+   signatures (return type, parameter types, storage class/linkage). You may change
+   what happens INSIDE them (including having one call, or fully absorb the body of,
+   another one in this list) but you cannot delete or rename any of them, or change a
+   signature that's used externally.
+2. **Forbidden macros** (these expand to types/sizes — do NOT expand them yourself): {forbidden_str}
+3. **Reduction precision**: NEVER add `vectorize(enable)` or `interleave(enable)` to a
+   loop that accumulates into a scalar — changes FP summation order → wrong results.
+4. **Single accumulator**: one scalar accumulator per output element, never split.
+
+## Output format — REQUIRED, do not deviate
+
+Output ALL {len(target_names)} functions, each preceded by its own marker line on its
+own, exactly matching this pattern (the function name after the colon must match one
+of {names_str} verbatim):
+
+{markers_example}
+
+No prose, no markdown fences, no explanation outside the marker lines and code —
+just the {len(target_names)} marker+function blocks, back to back, in any order, each
+one appearing exactly once.
+"""
 
 
 def _extract_original_signature(kernel_txt: str, kernel_name: str) -> str:
@@ -2726,6 +2922,17 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             _hotspot_in_utils = ev.get("hotspot_in_utils", False) and target_name != kernel_name
             context_text = _utils_text if _hotspot_in_utils else base_src_text
 
+            # ── 多函数联合重写：select_hotspot_targets 发现热点分数彼此接近、
+            # 分散在多个函数时（见 src/hotspot.py），ev["hotspot_targets"] 会有
+            # 不止一个名字。单独改分数最高的那一个天花板太低——mcf_r 的
+            # primal_iminus/switch_arcs/markBaskets 分数差不到4%，只改一个
+            # 完全动不了另外两个占大头的部分。这里的分支只影响 Phase 2 的实现
+            # LLM 调用和后面的拼接逻辑；Phase 1 的瓶颈诊断仍然只对分数最高的
+            # target_name 跑（诊断是给人/LLM看的文字，不是要拼回源码的代码，
+            # 针对主要目标诊断已经足够指导策略）。
+            target_names = ev.get("hotspot_targets") or [target_name]
+            _is_multi = len(target_names) > 1
+
             # ── Phase 1: Analysis LLM — diagnose bottleneck before writing code ──
             print(f"  [重写分析] 运行瓶颈诊断 LLM...")
             analysis_diagnosis = analyze_rewrite_bottleneck(
@@ -2742,45 +2949,96 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
 
             # ── Phase 2: Implementation LLM — write kernel code using diagnosis ──
             print(f"  [重写实现] 根据分析生成优化代码...")
-            impl_prompt = _build_rewrite_impl_prompt(
-                target_name, ev, history,
-                base_src_text=context_text,
-                strategy=strategy,
-                analysis_diagnosis=analysis_diagnosis,
-            )
-            impl_system = (
-                "You are a C performance engineering expert implementing an optimization. "
-                "Read the analysis carefully, then implement exactly what it recommends. "
-                "Output ONLY the C kernel function — no prose, no markdown, no fences."
-            )
-            impl_resp = llm.call(
-                [{"role": "system", "content": impl_system},
-                 {"role": "user",   "content": impl_prompt}],
-                max_tokens=max_tokens,
-                timeout=120,
-            )
-            raw_kernel = _strip_fences(impl_resp) if impl_resp else ""
+            multi_chunks = None
+            if _is_multi:
+                print(f"  [多函数联合] 目标 = {', '.join(target_names)}")
+                impl_prompt = _build_rewrite_impl_prompt_multi(
+                    target_names, ev, history,
+                    base_src_text=context_text,
+                    strategy=strategy,
+                    analysis_diagnosis=analysis_diagnosis,
+                )
+                impl_system = (
+                    "You are a C performance engineering expert implementing an optimization "
+                    "that spans multiple functions. Read the analysis carefully, then implement "
+                    "exactly what it recommends. Output ONLY the marked function blocks the "
+                    "prompt asks for — no prose, no markdown, no fences."
+                )
+                impl_resp = llm.call(
+                    [{"role": "system", "content": impl_system},
+                     {"role": "user",   "content": impl_prompt}],
+                    max_tokens=max_tokens,
+                    timeout=150,
+                )
+                raw_multi = _strip_fences(impl_resp) if impl_resp else ""
+                multi_chunks = _parse_multi_func_response(raw_multi, target_names) if raw_multi else None
+                if multi_chunks is None:
+                    return {"action": action, "speedup": 1.0,
+                            "error": (f"多函数重写响应解析失败：期望 {target_names} 各恰好一次的 "
+                                     f"// ===COMET_FUNC: name=== 标记，实际未能匹配"),
+                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                            "strategy": strategy,
+                            "flags": [], "source": None, "perf_stats": {}}
+                raw_kernel = None  # not used on the multi path; multi_chunks carries the result
+            else:
+                impl_prompt = _build_rewrite_impl_prompt(
+                    target_name, ev, history,
+                    base_src_text=context_text,
+                    strategy=strategy,
+                    analysis_diagnosis=analysis_diagnosis,
+                )
+                impl_system = (
+                    "You are a C performance engineering expert implementing an optimization. "
+                    "Read the analysis carefully, then implement exactly what it recommends. "
+                    "Output ONLY the C kernel function — no prose, no markdown, no fences."
+                )
+                impl_resp = llm.call(
+                    [{"role": "system", "content": impl_system},
+                     {"role": "user",   "content": impl_prompt}],
+                    max_tokens=max_tokens,
+                    timeout=120,
+                )
+                raw_kernel = _strip_fences(impl_resp) if impl_resp else ""
 
-            if not raw_kernel:
-                return {"action": action, "speedup": 1.0, "error": "实现 LLM 未返回 kernel_code",
-                        "reasoning": reasoning, "improvement_analysis": improvement_analysis,
-                        "strategy": strategy,
-                        "flags": [], "source": None, "perf_stats": {}}
+                if not raw_kernel:
+                    return {"action": action, "speedup": 1.0, "error": "实现 LLM 未返回 kernel_code",
+                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                            "strategy": strategy,
+                            "flags": [], "source": None, "perf_stats": {}}
 
             # ── 热点在 utils/polybench.c 里：driver 文件本身不变，ref 用原始
             # utils，候选用改写后的影子 utils（见 _eval_utils_rewrite）。通过就
             # 直接写回本次 run 的私有 utils 路径持久化，后续步骤自动生效——
             # 不需要在 main() 主循环里为"utils 状态"单独加一个字段来传递。
             if _hotspot_in_utils:
-                _, u_start, u_end = extract_kernel_function(context_text, target_name)
-                if u_start is None:
-                    return {"action": action, "speedup": 1.0,
-                            "error": f"无法从 utils/polybench.c 提取 {target_name}",
-                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
-                            "strategy": strategy,
-                            "flags": [], "source": None, "perf_stats": {}}
-                u_start = _widen_span_for_proto_guard(context_text, u_start)
-                rewritten_utils_text = context_text[:u_start] + raw_kernel + context_text[u_end:]
+                if _is_multi:
+                    spans = []
+                    for n in target_names:
+                        _, s, e = extract_kernel_function(context_text, n)
+                        if s is None:
+                            return {"action": action, "speedup": 1.0,
+                                    "error": f"无法从 utils/polybench.c 提取 {n}",
+                                    "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                                    "strategy": strategy,
+                                    "flags": [], "source": None, "perf_stats": {}}
+                        spans.append((n, s, e))
+                    rewritten_utils_text = _splice_multi_spans(context_text, spans, multi_chunks)
+                    if rewritten_utils_text is None:
+                        return {"action": action, "speedup": 1.0,
+                                "error": "多函数拼接失败：解析出的函数名和原始 span 对不上",
+                                "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                                "strategy": strategy,
+                                "flags": [], "source": None, "perf_stats": {}}
+                else:
+                    _, u_start, u_end = extract_kernel_function(context_text, target_name)
+                    if u_start is None:
+                        return {"action": action, "speedup": 1.0,
+                                "error": f"无法从 utils/polybench.c 提取 {target_name}",
+                                "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                                "strategy": strategy,
+                                "flags": [], "source": None, "perf_stats": {}}
+                    u_start = _widen_span_for_proto_guard(context_text, u_start)
+                    rewritten_utils_text = context_text[:u_start] + raw_kernel + context_text[u_end:]
                 _driver_unchanged = tmpdir / f"{name}_driver_unchanged.c"
                 _driver_unchanged.write_text(base_src_text)
                 res = _eval_utils_rewrite(
@@ -2801,27 +3059,46 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                 # 更差的版本，且这个降级幅度如果小于灾难性回退阈值（默认20%）
                 # 根本不会被上层 main() 的回退逻辑捕捉到——历史最优的数字还在，
                 # 但磁盘上实际参与后续编译的代码已经悄悄变差了。
+                _target_label = "+".join(target_names) if _is_multi else target_name
                 if sp > history.best_speedup:
                     (Path(utils) / "polybench.c").write_text(rewritten_utils_text)
-                    print(f"  [utils 持久化] {target_name} 的改写已写回 {utils}/polybench.c，后续步骤生效")
+                    print(f"  [utils 持久化] {_target_label} 的改写已写回 {utils}/polybench.c，后续步骤生效")
                 elif sp > 1.0:
                     print(f"  [utils 未持久化] {sp:.3f}x 强于 baseline 但弱于当前最优 "
                           f"{history.best_speedup:.3f}x，不写回磁盘，避免后续步骤在更差的版本上继续")
-                return {"action": action, "speedup": sp, "strategy": f"rewrite(utils/{target_name}): {strategy}",
+                return {"action": action, "speedup": sp, "strategy": f"rewrite(utils/{_target_label}): {strategy}",
                         "error": "", "reasoning": reasoning, "improvement_analysis": improvement_analysis,
                         "flags": [], "source": None,  # driver 文件没变，不更新 current_best_source
                         "perf_stats": {}, "snapshot_path": ""}
 
-            _, start_idx, end_idx = extract_kernel_function(base_src_text, target_name)
-            if start_idx is None:
-                return {"action": action, "speedup": 1.0,
-                        "error": f"无法从 base source 提取 {target_name}",
-                        "reasoning": reasoning, "improvement_analysis": improvement_analysis,
-                        "strategy": strategy,
-                        "flags": [], "source": None, "perf_stats": {}}
-            start_idx = _widen_span_for_proto_guard(base_src_text, start_idx)
-
-            rewritten_text = base_src_text[:start_idx] + raw_kernel + base_src_text[end_idx:]
+            if _is_multi:
+                spans = []
+                for n in target_names:
+                    _, s, e = extract_kernel_function(base_src_text, n)
+                    if s is None:
+                        return {"action": action, "speedup": 1.0,
+                                "error": f"无法从 base source 提取 {n}",
+                                "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                                "strategy": strategy,
+                                "flags": [], "source": None, "perf_stats": {}}
+                    spans.append((n, s, e))
+                rewritten_text = _splice_multi_spans(base_src_text, spans, multi_chunks)
+                if rewritten_text is None:
+                    return {"action": action, "speedup": 1.0,
+                            "error": "多函数拼接失败：解析出的函数名和原始 span 对不上",
+                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                            "strategy": strategy,
+                            "flags": [], "source": None, "perf_stats": {}}
+            else:
+                _, start_idx, end_idx = extract_kernel_function(base_src_text, target_name)
+                if start_idx is None:
+                    return {"action": action, "speedup": 1.0,
+                            "error": f"无法从 base source 提取 {target_name}",
+                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
+                            "strategy": strategy,
+                            "flags": [], "source": None, "perf_stats": {}}
+                start_idx = _widen_span_for_proto_guard(base_src_text, start_idx)
+                rewritten_text = base_src_text[:start_idx] + raw_kernel + base_src_text[end_idx:]
             _rsrc = tmpdir / f"{name}_rewrite.c"
             _rsrc.write_text(rewritten_text)
 
@@ -2837,8 +3114,15 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             )
             if not res["ok"]:
                 err_msg = res["error"]
+                # precision-fix/compile-fix sub-attempts below both build a fix
+                # prompt from `raw_kernel`, which is None on the multi-target
+                # path (multi_chunks carries the result there instead, see
+                # _do_rewrite_source's Phase 2) -- not extending those two
+                # sub-flows to the multi-function case for now, just skip them
+                # and report the plain error; this only affects the (rare in
+                # practice) driver-file multi-target path, not the in_utils one.
                 # ── precision-fix sub-attempt (same as legacy run_source_round) ──
-                if "precision" in err_msg.lower() or "数值不一致" in err_msg or "mismatch" in err_msg.lower():
+                if not _is_multi and ("precision" in err_msg.lower() or "数值不一致" in err_msg or "mismatch" in err_msg.lower()):
                     print(f"  精度失败：尝试 precision-fix LLM...")
                     orig_kernel_txt, _, _ = extract_kernel_function(
                         base_src_text, target_name)
@@ -2880,7 +3164,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                                 err_msg = (f"precision error (fix also failed): "
                                            f"{err_msg[:200]}\nROOT CAUSE: {diagnosis[:150]}")
                 # ── generic compile-fix sub-attempt (non-precision compile/link errors) ──
-                elif "编译失败" in err_msg or "链接" in err_msg or "undefined reference" in err_msg.lower():
+                elif not _is_multi and ("编译失败" in err_msg or "链接" in err_msg or "undefined reference" in err_msg.lower()):
                     print(f"  编译失败：尝试 compile-fix LLM...")
                     orig_kernel_txt, _, _ = extract_kernel_function(
                         base_src_text, target_name)
@@ -3652,15 +3936,31 @@ def main():
                 except OSError:
                     pass
         _driver_text_hs = Path(src).read_text(errors="replace")
-        _hotspot0 = select_hotspot_target(kernel_name, _driver_text_hs, _utils_text_hs)
-        ev["hotspot_target"]   = _hotspot0["name"]
-        ev["hotspot_in_utils"] = _hotspot0["in_utils"]
-        ev["hotspot_reason"]   = _hotspot0["reason"]
-        if _hotspot0["name"] != kernel_name:
+        # select_hotspot_targets (plural): mcf_r's primal_iminus/switch_arcs/
+        # markBaskets score within 4% of each other -- the hot loop's cost is
+        # genuinely spread across several functions of comparable weight,
+        # not concentrated in one, so rewriting only the #1 scorer caps
+        # achievable speedup at whatever that one function alone is worth.
+        # Reduces to a single-element list (identical behavior to the old
+        # select_hotspot_target) for the common case where one function
+        # really does dominate -- see src/hotspot.py's docstring.
+        _hotspots0 = select_hotspot_targets(kernel_name, _driver_text_hs, _utils_text_hs)
+        ev["hotspot_targets"]  = [h["name"] for h in _hotspots0]
+        ev["hotspot_target"]   = _hotspots0[0]["name"]
+        ev["hotspot_in_utils"] = _hotspots0[0]["in_utils"]
+        ev["hotspot_reason"]   = "; ".join(h["reason"] for h in _hotspots0)
+        if _hotspots0[0]["name"] != kernel_name:
             _where_hs = ("utils/polybench.c（本次 run 私有可写副本）"
-                        if _hotspot0["in_utils"] else "driver 文件")
-            print(f"  [热点筛选] 真正的改写目标 = {_hotspot0['name']}"
-                  f"（{_where_hs}，而非 {kernel_name}）：{_hotspot0['reason']}")
+                        if _hotspots0[0]["in_utils"] else "driver 文件")
+            if len(_hotspots0) > 1:
+                print(f"  [热点筛选] 联合改写目标 = {', '.join(ev['hotspot_targets'])}"
+                      f"（{_where_hs}，而非 {kernel_name}）——热点分数彼此接近，"
+                      f"分散在多个函数里，需要一起改：")
+                for h in _hotspots0:
+                    print(f"    - {h['reason']}")
+            else:
+                print(f"  [热点筛选] 真正的改写目标 = {_hotspots0[0]['name']}"
+                      f"（{_where_hs}，而非 {kernel_name}）：{_hotspots0[0]['reason']}")
 
         # --graph-only: just render the pass graph and exit
         if args.graph_only:
