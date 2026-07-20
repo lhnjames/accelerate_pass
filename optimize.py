@@ -1904,6 +1904,24 @@ def _widen_span_for_proto_guard(text: str, start_idx: int) -> int:
 _COMET_FUNC_MARKER_RE = re.compile(r'//\s*===COMET_FUNC:\s*(\S+?)\s*===\s*\n')
 
 
+_COND_OPEN_RE = re.compile(r'^\s*#\s*(?:ifdef|ifndef|if)\b', re.MULTILINE)
+_COND_CLOSE_RE = re.compile(r'^\s*#\s*endif\b', re.MULTILINE)
+
+
+def _cond_directive_balance(text: str) -> int:
+    """(#ifdef/#ifndef/#if count) - (#endif count) -- a cheap, generalizable
+    sanity check for _splice_multi_spans below: splicing N independently-
+    generated function bodies into one file can produce something that
+    parses as a self-consistent single function (every widened span passed
+    unit-tested cleanly on its own -- see the commit this was added in) but
+    is only actually valid in combination if no span's #ifdef/#endif
+    pairing got separated from its partner by another span landing between
+    them. Comparing before vs after catches that class of corruption
+    generically, without needing to understand this SPEC-era code's
+    specific #ifdef _PROTO_ idiom."""
+    return len(_COND_OPEN_RE.findall(text)) - len(_COND_CLOSE_RE.findall(text))
+
+
 def _splice_multi_spans(text: str, spans: "list[tuple]", replacements: dict) -> "str | None":
     """Multi-function sibling of the single-span splice used everywhere
     else in this file (`text[:start] + raw_kernel + text[end:]`). Removes
@@ -1931,7 +1949,11 @@ def _splice_multi_spans(text: str, spans: "list[tuple]", replacements: dict) -> 
         out.append(replacements[name])
         prev_end = end
     out.append(text[prev_end:])
-    return "".join(out)
+    spliced = "".join(out)
+
+    if _cond_directive_balance(spliced) != _cond_directive_balance(text):
+        return None
+    return spliced
 
 
 def _parse_multi_func_response(raw: str, expected_names: "list[str]") -> "dict | None":
@@ -2030,6 +2052,17 @@ tweaks.
 3. **Reduction precision**: NEVER add `vectorize(enable)` or `interleave(enable)` to a
    loop that accumulates into a scalar — changes FP summation order → wrong results.
 4. **Single accumulator**: one scalar accumulator per output element, never split.
+5. **No `#ifdef`/`#else`/`#endif` in your output, ever, for any of the {len(target_names)}
+   functions** — the code shown above already had its old-style `#ifdef _PROTO_ <ansi
+   signature> #else <K&R signature> #endif` dual-declaration wrapper stripped down to
+   just the modern signature before being shown to you; write ONLY that same plain
+   `<signature> { ... }` form back. Re-adding any `#ifdef`/`#else`/`#endif` (even by
+   copying one from a comment or from habit) leaves an unmatched preprocessor
+   directive once your function replaces the original — every function in your
+   response must have its own conditional directives (if any were genuinely part of
+   the function body, e.g. `#if defined(_OPENMP)`) balanced *within that one
+   function's own text*, matching one-for-one with what was already balanced in the
+   version shown to you above.
 
 ## Output format — REQUIRED, do not deviate
 
