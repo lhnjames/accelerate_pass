@@ -332,30 +332,40 @@ def select_hotspot_target(kernel_name: str, driver_text: str,
 
 def select_hotspot_targets(kernel_name: str, driver_text: str,
                            utils_text: "Optional[str]" = None,
-                           max_hops: int = 4, top_k: int = 3,
-                           closeness_pct: float = 15.0) -> list:
-    """Plural variant of select_hotspot_target(): returns up to `top_k`
-    targets instead of just the single best-scoring one, for kernels where
-    the hot loop's cost is genuinely spread across several functions of
-    comparable importance rather than concentrated in one -- see
+                           max_hops: int = 4, max_targets: int = 6,
+                           min_gap_pct: float = 8.0) -> list:
+    """Plural variant of select_hotspot_target(): returns multiple targets
+    instead of just the single best-scoring one, for kernels where the hot
+    loop's cost is genuinely spread across several functions of comparable
+    importance rather than concentrated in one -- see
     select_hotspot_target's docstring for the motivating mcf_r case.
 
-    A candidate beyond #1 is only included if its score is within
-    `closeness_pct`% of #1's (relative), so this stays a no-op (returns a
-    single-element list, same as select_hotspot_target) for the common case
-    where one function genuinely dominates -- cholesky, lbm_r's
-    LBM_performStreamCollideTRT, etc. Only functions sharing the SAME
-    location (all in utils_text, or all in driver_text) as #1 are
-    included; a same-scoring candidate in the other file is dropped rather
-    than mixed in, since multi-target rewrite_source currently only
-    supports splicing several spans within one shared text (see
+    Cluster boundary is found from the score distribution itself, not a
+    fixed cutoff percentage: among the top `max_targets` same-location
+    candidates, compute each consecutive relative drop
+    (score[i-1]-score[i])/score[i-1], and cut at whichever gap is LARGEST
+    -- everything before that gap is "the cluster", everything after is a
+    different tier. This adapts per kernel instead of assuming every
+    kernel's cluster is bounded by the same percentage: reproduces both
+    known cases from real score data with no tuning --
+      mcf_r:  502, 486, 482, 386, ...  -> biggest gap is 482->386 (19.9%),
+              cluster = {502, 486, 482}  (3 functions)
+      lbm_r:  556, 540, 395, 354, ...  -> biggest gap is 540->395 (26.9%),
+              cluster = {556, 540}       (2 functions)
+    If the largest gap found is smaller than `min_gap_pct`, the scores are
+    too flat to trust any cut point as a real category boundary (could just
+    be noise among many similarly-unimportant functions) -- falls back to
+    single-target rather than guessing a cluster size. Only functions
+    sharing the SAME location (all in utils_text, or all in driver_text) as
+    #1 are ever considered, since multi-target rewrite_source currently
+    only supports splicing several spans within one shared text (see
     optimize.py's _splice_multi_spans).
 
     Returns a list of {"name", "body", "in_utils", "reason"} dicts, same
-    shape as select_hotspot_target's return value, longest first (#1 always
-    included even if kernel_name itself wins, in which case the list has
-    exactly one entry -- self-hotspot kernels never get multi-target
-    treatment, there is nothing else to combine them with).
+    shape as select_hotspot_target's return value, highest-scoring first
+    (#1 always included even if kernel_name itself wins, in which case the
+    list has exactly one entry -- self-hotspot kernels never get
+    multi-target treatment, there is nothing else to cluster them with).
     """
     scored, graph_size, called_in_loop = _build_and_score(
         kernel_name, driver_text, utils_text, max_hops)
@@ -367,20 +377,29 @@ def select_hotspot_targets(kernel_name: str, driver_text: str,
     if top_name == kernel_name:
         return [select_hotspot_target(kernel_name, driver_text, utils_text, max_hops)]
 
-    threshold = top_score * (1.0 - closeness_pct / 100.0)
+    same_loc = [c for c in scored if c[3] == top_in_utils][:max_targets]
+
+    cut = 1  # default: just the top scorer, if no gap clears min_gap_pct
+    best_gap = -1.0
+    for i in range(1, len(same_loc)):
+        prev_score = same_loc[i - 1][0]
+        if prev_score <= 0:
+            break
+        gap_pct = (prev_score - same_loc[i][0]) / prev_score * 100.0
+        if gap_pct > best_gap:
+            best_gap = gap_pct
+            cut = i
+    if best_gap < min_gap_pct:
+        cut = 1  # scores too flat to trust any cluster boundary
+
     picked = []
-    for score, name, body, in_utils in scored:
-        if len(picked) >= top_k:
-            break
-        if score < threshold:
-            break
-        if in_utils != top_in_utils:
-            continue
+    for score, name, body, in_utils in same_loc[:cut]:
         where = "utils/polybench.c" if in_utils else "the driver file"
         signal = "called from inside a loop" if name in called_in_loop else (
             "contains a loop" if _has_loop(body) else "highest arithmetic density found")
-        reason = (f"{name} (score {score:.0f}, {signal}), within {closeness_pct:.0f}% of "
-                 f"top scorer {top_name} (score {top_score:.0f}) among {graph_size} "
+        reason = (f"{name} (score {score:.0f}, {signal}) -- part of a {cut}-function cluster "
+                 f"found by the biggest score gap ({best_gap:.0f}%) among the top "
+                 f"{len(same_loc)} candidates, defined in {where}, among {graph_size} "
                  f"reachable functions -- joint-rewrite candidate")
         picked.append({"name": name, "body": body, "in_utils": in_utils, "reason": reason})
     return picked or [select_hotspot_target(kernel_name, driver_text, utils_text, max_hops)]

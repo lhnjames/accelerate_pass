@@ -2023,7 +2023,7 @@ def _build_rewrite_impl_prompt_multi(target_names: "list[str]", ev: dict,
     mature, and heavily exercised; bolting a list-of-targets code path
     through every section of it risked destabilizing the common (single-
     target) case for a feature that only fires when hotspot scores cluster
-    within closeness_pct of each other (see select_hotspot_targets)."""
+    together, per the adaptive gap-detection in select_hotspot_targets."""
     funcs = []
     for name in target_names:
         body, _, _ = extract_kernel_function(base_src_text, name)
