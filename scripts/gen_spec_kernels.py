@@ -263,10 +263,22 @@ def gen_one(kname: str, cfg: dict):
     # deliberately left alone -- nab_r's engine.inc is #include'd twice on
     # purpose (regexec.c wraps it with different macros each time to
     # generate two engine variants from one template), so guarding it would
-    # break that by design.
+    # break that by design. engine.ih is the same story one level down: it's
+    # textually #include'd FROM INSIDE engine.inc (not from regexec.c
+    # directly), so it inherits the same "processed twice, once per macro
+    # state" requirement -- it supplies the forward declarations of
+    # backref/fast/dissect/etc *under whichever name the active SNAMES/
+    # LNAMES macros rename them to*. Guarding it silently no-ops the SECOND
+    # inclusion, so the second pass's renamed functions (lbackref, lfast)
+    # never get a prototype before their first use, use-before-declare then
+    # makes them implicitly `extern`, and the real `static` definition later
+    # in the file conflicts with that -- exactly the "static declaration of
+    # 'lbackref' follows non-static declaration" error this was blocking on.
+    _NEVER_GUARD = {"engine.inc", "engine.ih"}
     for h in headers:
         text = h.read_text(errors="replace")
-        if h.suffix != ".inc" and "ifndef" not in text[:200] and "pragma once" not in text[:200]:
+        if (h.name not in _NEVER_GUARD and h.suffix != ".inc"
+                and "ifndef" not in text[:200] and "pragma once" not in text[:200]):
             guard = f"_GEN_SPEC_GUARD_{h.stem.upper().replace('-', '_')}_H_"
             text = f"#ifndef {guard}\n#define {guard}\n{text}\n#endif /* {guard} */\n"
         (kdir / h.name).write_text(text)
