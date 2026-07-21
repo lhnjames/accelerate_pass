@@ -219,7 +219,8 @@ class StepRecord:
     has_source: bool  = False
     perf_stats: dict  = dataclasses.field(default_factory=dict)  # perf 硬件计数器
     snapshot_path: str = ""  # 快照文件路径
-    improvement_analysis: str = ""  # 规划 LLM 对"为何改进不够大/为何未改进"的分析
+    improvement_analysis: str = ""  # 决策 LLM 对"为何改进不够大/为何未改进"的自我预测（与结果同一次调用产出，带推测性）
+    reflection: str = ""  # 独立反思 LLM 事后诊断（见 reflect_on_failure），只在本步未改进/出错时产生
 
     def summary_line(self) -> str:
         tag = f"步骤{self.step_num}[{self.action}]"
@@ -241,6 +242,8 @@ class StepRecord:
             lines.append(f"  推理: {self.reasoning[:200]}")
         if self.improvement_analysis:
             lines.append(f"  改进分析: {self.improvement_analysis}")
+        if self.reflection:
+            lines.append(f"  反思: {self.reflection}")
         if self.flags:
             lines.append(f"  Flags: {' '.join(str(f) for f in self.flags[:8])}")
         if self.perf_stats and not self.perf_stats.get("error"):
@@ -1751,6 +1754,80 @@ def analyze_rewrite_bottleneck(llm, kernel_name: str, ev: dict,
                  {"role": "user",   "content": prompt}],
                 max_tokens=max_tokens,
                 timeout=120,
+                temperature=0,
+            )
+            if resp and resp.strip():
+                return resp.strip()
+        except Exception:
+            pass
+    return ""
+
+
+_REFLECTION_SYSTEM = """\
+You are a compiler performance engineer reviewing a FAILED or NON-IMPROVING optimization \
+attempt after the fact. You have the actual measured outcome (not a prediction) -- the exact \
+error message, or the exact before/after perf counters and speedup. Diagnose the concrete, \
+specific reason this attempt did not help, and recommend ONE concrete different thing to try \
+next (a specific flag, a specific transformation, or "stop trying X, the ceiling here is \
+structural because Y"). Do not restate generic principles -- ground everything in the actual \
+data given. Keep it to 2-3 sentences."""
+
+
+def reflect_on_failure(llm, kernel_name: str, ev: dict,
+                       history: "OptimizationHistory",
+                       rec: "StepRecord",
+                       prev_best_speedup: float,
+                       max_tokens: int = 400) -> str:
+    """
+    独立的事后反思 LLM：仅在一步执行完、结果已知（未改进或出错）之后触发，
+    diagnose 用的是真实发生的结果（错误信息 / 实际 perf 计数器变化），而不是
+    决策 LLM 在同一次调用里对自己即将做的事的预测（那是 improvement_analysis
+    字段,本质是猜测,决策前就写好了）。
+
+    与 analyze_rewrite_bottleneck 的区别：那个函数只在 rewrite_source 动作
+    执行前跑，为"即将生成什么代码"提供诊断；这个函数在任意 action（try_flags/
+    try_pragma/rewrite_source）执行后跑，为"刚刚发生的事为什么没用"提供诊断，
+    输出直接进入 StepRecord.reflection，通过 OptimizationHistory.to_prompt_section
+    自动出现在下一步的 agent 提示词里，让下一步的决策 LLM 和元规划 LLM 都能看到。
+
+    返回反思文本，失败时返回 ""（非致命——反思是辅助信息，不应阻塞主循环）。
+    """
+    if rec.action in ("done", "error"):
+        return ""
+
+    if rec.error:
+        outcome = f"执行失败，错误信息: {rec.error[:400]}"
+    else:
+        outcome = (f"执行成功但未超过此前最优: 本步加速比={rec.speedup:.3f}x, "
+                  f"此前最优={prev_best_speedup:.3f}x")
+        if rec.perf_stats and not rec.perf_stats.get("error"):
+            ipc = rec.perf_stats.get("ipc")
+            llc = rec.perf_stats.get("llc_miss_rate")
+            hints = rec.perf_stats.get("bottleneck_hints", [])
+            outcome += f"; perf: IPC={ipc}, LLC_miss={llc}%, 瓶颈={hints}"
+
+    prior_reflections = [s.reflection for s in history.steps[:-1] if s.reflection]
+    prior_block = ""
+    if prior_reflections:
+        prior_block = ("\n之前已有的反思（避免重复给出相同建议）:\n"
+                       + "\n".join(f"- {r}" for r in prior_reflections[-3:]))
+
+    prompt = f"""Kernel: `{kernel_name}`
+Action attempted: {rec.action}  Strategy: {rec.strategy or '(none given)'}
+Flags used: {' '.join(str(f) for f in rec.flags[:12]) if rec.flags else '(none)'}
+Outcome: {outcome}
+{prior_block}
+
+Diagnose why this specific attempt did not improve on {prev_best_speedup:.3f}x, and recommend \
+one concrete different thing to try next."""
+
+    for attempt in range(2):
+        try:
+            resp = llm.call(
+                [{"role": "system", "content": _REFLECTION_SYSTEM},
+                 {"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                timeout=60,
                 temperature=0,
             )
             if resp and resp.strip():
@@ -4146,6 +4223,8 @@ def main():
                           if _utils_polybench_c and _utils_polybench_c.exists() else None)
             rollback_stack.append((best_source, list(best_flags), best_speedup, _utils_snap))
 
+            _prev_best_speedup = history.best_speedup  # 记录一下，反思 LLM 需要与它对比
+
             result = run_agent_step(
                 src_original=src, config=config, llm=llm,
                 ev=ev, runs=args.runs, pin_cpu=pin_cpu,
@@ -4159,6 +4238,19 @@ def main():
                 forced_action=_forced,
             )
             history.record(step, result)
+
+            # ── 反思 LLM：仅在本步未改进（含出错）时触发，用真实结果事后诊断 ──
+            # （区别于 improvement_analysis：那是决策 LLM 对自己即将做的事的预测，
+            # 这里是独立调用，基于已经发生的真实 error/perf 数据）。结果写回
+            # StepRecord.reflection，自动通过 to_prompt_section 出现在下一步提示词里。
+            _rec = history.steps[-1]
+            _no_improve = _rec.error or _rec.speedup <= _prev_best_speedup + 1e-6
+            if _no_improve and _rec.action not in ("done", "error"):
+                _reflection = reflect_on_failure(
+                    llm, kernel_name, ev, history, _rec, _prev_best_speedup)
+                _rec.reflection = _reflection
+                if _reflection:
+                    print(f"  [Reflection] {_reflection[:300]}")
 
             action = result.get("action", "")
             sp_raw = result.get("speedup", 1.0)
