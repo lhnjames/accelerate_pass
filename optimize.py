@@ -1765,7 +1765,7 @@ def analyze_rewrite_bottleneck(llm, kernel_name: str, ev: dict,
 def plan_action_sequence(llm, kernel_name: str,
                          history: "OptimizationHistory",
                          step_num: int, max_steps: int,
-                         max_tokens: int = 512) -> List[str]:
+                         max_tokens: int = 2000) -> List[str]:
     """
     元规划 LLM：根据当前历史决定接下来最多 3 步应该用哪些工具，
     保证多个工具交替出现，避免同一工具连续重复。
@@ -1834,7 +1834,37 @@ Valid action names: try_flags, rewrite_source, try_pragma"""
         if not resp:
             print("  [Planner] 规划失败（非致命）: LLM 无响应")
             return []
-        parsed = json.loads(strip_json_fences(resp))
+        # Reasoning models often narrate their reasoning as plain-text prose
+        # before (or, if max_tokens runs out mid-thought, INSTEAD of) the
+        # actual JSON -- src/llm_client.py's reasoning_content fallback
+        # returns that raw prose verbatim when `content` came back empty, so
+        # a strict "the whole response must be JSON" parse fails on it. This
+        # was observed live on effectively every call of this function all
+        # session (max_tokens=512 -- raised above -- left no budget for the
+        # model to finish reasoning AND emit JSON). strip_json_fences only
+        # strips markdown fences, not narration, so as a second attempt,
+        # scan for the first balanced {...} block anywhere in the response
+        # and parse just that -- handles "prose then JSON" even if the
+        # larger token budget doesn't fully eliminate the pattern.
+        try:
+            parsed = json.loads(strip_json_fences(resp))
+        except json.JSONDecodeError:
+            start = resp.find("{")
+            if start == -1:
+                raise
+            depth = 0
+            end = -1
+            for i in range(start, len(resp)):
+                if resp[i] == "{":
+                    depth += 1
+                elif resp[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = i + 1
+                        break
+            if end == -1:
+                raise
+            parsed = json.loads(resp[start:end])
         raw_plan = parsed.get("plan", [])
         valid = [a if isinstance(a, str) else a.get("action", "")
                  for a in raw_plan]
@@ -4104,7 +4134,7 @@ def main():
                         _planned_seq = plan_action_sequence(
                             llm, kernel_name, history,
                             step_num=step, max_steps=max_steps,
-                            max_tokens=512,
+                            max_tokens=2000,
                         )
                     if _planned_seq:
                         _forced = _planned_seq.pop(0)
