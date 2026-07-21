@@ -86,78 +86,24 @@ from src.hotspot import select_hotspot_target, select_hotspot_targets
 
 # ── Single-shot timing (for interleaved confirmation runs) ───────────────────
 
-def _single_shot_ms(bin_path: str, pin_cpu: "int | None" = None) -> float:
-    """One execution, no internal warmup/median — caller controls repetition
-    and interleaving. Returns -1.0 on failure."""
-    cmd = (["taskset", "-c", str(pin_cpu)] if pin_cpu is not None else []) + [str(bin_path)]
-    try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        if res.returncode != 0:
-            return -1.0
-        out = res.stdout.strip() or res.stderr.strip()
-        return float(out.split()[-1]) * 1000.0
-    except Exception:
-        return -1.0
-
-
-def confirm_result(base_bin: str, best_bin: str, runs: int,
-                    pin_cpu: "int | None" = None) -> dict:
-    """Re-measure baseline and best candidate interleaved (base, best, base,
-    best, ...) to cancel slow system-load drift that a single measurement
-    taken at the start of a multi-minute agent run cannot control for.
-
-    Reports the confirmed speedup as the median of per-pair ratios (paired
-    measurement), plus IQR as a cheap non-parametric uncertainty estimate —
-    a single noisy step-level measurement is not sufficient evidence for a
-    paper-reportable number.
-    """
-    # one throwaway warmup per binary (cache/branch predictor/turbo ramp-up)
-    _single_shot_ms(base_bin, pin_cpu)
-    _single_shot_ms(best_bin, pin_cpu)
-
-    ratios, base_ms, best_ms = [], [], []
-    for _ in range(max(1, runs)):
-        b = _single_shot_ms(base_bin, pin_cpu)
-        o = _single_shot_ms(best_bin, pin_cpu)
-        if b > 0 and o > 0:
-            base_ms.append(b)
-            best_ms.append(o)
-            ratios.append(b / o)
-
-    if not ratios:
-        return {"ok": False}
-
-    ratios_sorted = sorted(ratios)
-    n = len(ratios_sorted)
-    q1 = ratios_sorted[n // 4]
-    q3 = ratios_sorted[(3 * n) // 4] if n > 1 else ratios_sorted[0]
-    return {
-        "ok": True,
-        "n": n,
-        "confirmed_speedup": statistics.median(ratios),
-        "speedup_iqr": [q1, q3],
-        "base_median_ms": statistics.median(base_ms),
-        "best_median_ms": statistics.median(best_ms),
-        "base_stdev_pct": (statistics.stdev(base_ms) / statistics.mean(base_ms) * 100.0) if n > 1 else 0.0,
-        "best_stdev_pct": (statistics.stdev(best_ms) / statistics.mean(best_ms) * 100.0) if n > 1 else 0.0,
-    }
-
-
 def _single_shot_ms_external(bin_path: str, pin_cpu: "int | None" = None) -> float:
     """One execution, EXTERNAL wall-clock timing (time.monotonic() wrapped
-    around the subprocess) -- this is deliberately a different methodology
-    from _single_shot_ms(), which parses the binary's own stdout-reported
-    time. tp_run_timing()/ts_run_timing() (src/build_utils.run_timing,
+    around the subprocess) -- deliberately does not trust the binary's own
+    stdout-reported time, unlike an earlier version of this measurement
+    (confirm_result()/_single_shot_ms(), removed) that parsed the last
+    whitespace token of stdout as an elapsed-seconds value. That convention
+    only holds for PolyBench-shaped kernels; it silently breaks for any
+    program that prints its own output (SPEC benchmarks): observed live,
+    lbm_r's confirm step once reported a bogus "134.346x" because the parsed
+    "time" only covered a fraction of true wall time, and later, nab_r's
+    and mcf_r's confirm step failed outright (every alternating sample <=0)
+    because their last stdout token wasn't a timing value at all (e.g.
+    nab_r's is literally the "0" from "...Done, md returns 0"). External
+    timing works for any program regardless of what it prints to stdout, and
+    matches tp_run_timing()/ts_run_timing() (src/build_utils.run_timing,
     used everywhere else in this file for baseline_time and Phase A/B flag
-    screening) are ALSO external-clock. Mixing the two -- taking a ratio or
-    absolute ms from stdout-self-report and dividing it into (or comparing
-    it against) an externally-measured baseline_time -- silently produces
-    nonsense: observed live, SPEC lbm_r's confirm step reported "134.346x"
-    because its self-reported time only covers a fraction of true wall time
-    for that binary, while baseline_time came from run_timing()'s external
-    clock. Use this (and confirm_result_external below), not confirm_result,
-    anywhere the result needs to compare against a run_timing()-sourced
-    baseline_time."""
+    screening), so there is no risk of mixing two different measurement
+    methodologies against the same baseline_time."""
     cmd = (["taskset", "-c", str(pin_cpu)] if pin_cpu is not None else []) + [str(bin_path)]
     t0 = time.monotonic()
     try:
@@ -4385,8 +4331,29 @@ def main():
                     ["-DPOLYBENCH_TIME", "-DLARGE_DATASET"], _vbest_bin,
                     extra_flags=best_flags)
                 if _ok_b and _ok_c:
-                    confirmation = confirm_result(str(_vbase_bin), str(_vbest_bin),
-                                                  args.runs, pin_cpu)
+                    # confirm_result() (self-shot stdout parsing) assumed the
+                    # binary's own last stdout token IS the elapsed time --
+                    # true for PolyBench-shaped kernels, false for SPEC
+                    # benchmarks whose native program prints its own prose
+                    # (nab_r's last token is the literal "0" from "...Done,
+                    # md returns 0"; mcf_r's is similarly not a timing
+                    # value). That's not just "self-consistent but off by a
+                    # constant" -- the ratio of two NON-timing numbers is not
+                    # a speedup, so this always failed outright for nab_r/
+                    # mcf_r (both alternating samples <=0, confirmation.ok
+                    # stayed False) and, worse, silently produced a
+                    # meaningless-but-plausible-looking "1.0000x, CV 0.0%"
+                    # for lbm_r's run where base==best happened to make it
+                    # look self-consistent by coincidence. confirm_result_
+                    # external() (already used for try_flags mid-run
+                    # re-verification, see its own history) uses actual
+                    # wall-clock timing around the subprocess call instead of
+                    # trusting program output, which works for any program
+                    # regardless of what it prints -- use it here too so the
+                    # final, paper-reported number is trustworthy for every
+                    # kernel type, not just PolyBench ones.
+                    confirmation = confirm_result_external(str(_vbase_bin), str(_vbest_bin),
+                                                           args.runs, pin_cpu)
                     if confirmation.get("ok"):
                         print(f"  确认加速比: {confirmation['confirmed_speedup']:.4f}x "
                               f"(IQR [{confirmation['speedup_iqr'][0]:.4f}, "
