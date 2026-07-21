@@ -221,6 +221,7 @@ def gen_one(kname: str, cfg: dict):
     # engine) use ".ih" ("inline header") for #include-only fragment files
     # alongside ordinary ".h" -- both need to be on the include path.
     headers = [h for h in list(src_root.rglob("*.h")) + list(src_root.rglob("*.ih"))
+               + list(src_root.rglob("*.inc"))
                if not (set(h.relative_to(src_root).parts[:-1]) & cfg["skip_dirs"])]
     names = [h.name for h in headers]
     dupes = {n for n in names if names.count(n) > 1}
@@ -249,9 +250,27 @@ def gen_one(kname: str, cfg: dict):
     kdir.mkdir(parents=True, exist_ok=True)
     udir.mkdir(parents=True, exist_ok=True)
 
+    # Some headers (nab_r's regex-alpha/regex2.h) have no include guard --
+    # harmless under normal separate-TU compilation (each .c file that
+    # #includes it gets its own copy, processed once), but this generator
+    # unity-builds every "sources" file into one polybench.c TU, so if TWO
+    # of them #include the same unguarded header, its content -- struct/
+    # typedef defs included -- gets reprocessed a second time in the SAME
+    # TU, which for typedefs is a hard "redefinition with different types"
+    # error even when the text is byte-identical (C doesn't consider two
+    # separately-parsed struct definitions the same type). Inject a guard
+    # for any .h/.ih file that doesn't already have one; .inc files are
+    # deliberately left alone -- nab_r's engine.inc is #include'd twice on
+    # purpose (regexec.c wraps it with different macros each time to
+    # generate two engine variants from one template), so guarding it would
+    # break that by design.
     for h in headers:
-        shutil.copy(h, kdir / h.name)
-        shutil.copy(h, udir / h.name)
+        text = h.read_text(errors="replace")
+        if h.suffix != ".inc" and "ifndef" not in text[:200] and "pragma once" not in text[:200]:
+            guard = f"_GEN_SPEC_GUARD_{h.stem.upper().replace('-', '_')}_H_"
+            text = f"#ifndef {guard}\n#define {guard}\n{text}\n#endif /* {guard} */\n"
+        (kdir / h.name).write_text(text)
+        (udir / h.name).write_text(text)
 
     # Flatten .c files too (see the comment above all_c_files) so any
     # #include "helper.c" from within a compiled source resolves. Skip
