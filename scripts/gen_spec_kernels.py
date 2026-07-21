@@ -158,6 +158,51 @@ BENCHMARKS = {
         "argv": lambda bdir: ["kernel_nab_r", "hkrdenq", "1930344093", "1000"],
         "rundir": lambda bdir: (bdir / "data/test/input/hkrdenq", "hkrdenq"),
         "extra_defines": ["NOPERFLIB", "NOREDUCE", "SPEC_AUTO_SUPPRESS_OPENMP"],
+        # nab's source files were always compiled separately -- each file's
+        # local forward declarations of functions actually DEFINED in some
+        # other file were never cross-checked by a linker that verifies
+        # signatures (C doesn't require that), so several drifted, and one
+        # pair of unrelated static helpers happen to share a name. Under
+        # unity-build these become real conflicts. Two categories, two fixes:
+        #  - reducerror/select_atoms: molio.c's/prm.c's LOCAL prototype has
+        #    the wrong return type vs. the real definition (sff.c's
+        #    reducerror returns int; select_atoms.c's select_atoms returns
+        #    int) -- just correct the stale local prototype to match.
+        #  - dist: molio.c has its OWN static (file-private) `dist(ATOM_T*,
+        #    ATOM_T*)` helper (point-to-point distance) that is a
+        #    completely different function from molutil.c's external
+        #    `dist(MOLECULE_T*, char[], char[])` (distance between two
+        #    named atom-expression selections) -- they only collide because
+        #    they share a name. Since molio.c's version is static (used
+        #    only within molio.c), rename just that one, decl+def+2 call
+        #    sites, to something that can't collide.
+        #  - get: molutil.c and prm.c each independently wrote their own
+        #    static char *get(size_t) malloc-wrapper helper -- same
+        #    signature, different (copy-pasted) functions. molutil.c's has
+        #    only one call site, so rename that one rather than prm.c's ~50.
+        "text_fixups": {
+            "molio.c": [
+                ("void reducerror(int);", "int reducerror(int);"),
+                ("void select_atoms(MOLECULE_T *, char[]);",
+                 "int select_atoms(MOLECULE_T *, char[]);"),
+                ("static REAL_T dist(ATOM_T *, ATOM_T *);",
+                 "static REAL_T molio_dist(ATOM_T *, ATOM_T *);"),
+                ("static REAL_T dist(ATOM_T * ap1, ATOM_T * ap2)",
+                 "static REAL_T molio_dist(ATOM_T * ap1, ATOM_T * ap2)"),
+                ("res2->r_resname, ap2->a_atomname,\n                                    dist(ap1, ap2));",
+                 "res2->r_resname, ap2->a_atomname,\n                                    molio_dist(ap1, ap2));"),
+                ("d = dist(ap1, ap2);", "d = molio_dist(ap1, ap2);"),
+            ],
+            "prm.c": [
+                ("void reducerror(int);", "int reducerror(int);"),
+            ],
+            "molutil.c": [
+                ("static char * get(size)\nsize_t\tsize;",
+                 "static char * molutil_get(size)\nsize_t\tsize;"),
+                ("iptmp = (int *) get(sizeof(int)*12*prm->Natom);",
+                 "iptmp = (int *) molutil_get(sizeof(int)*12*prm->Natom);"),
+            ],
+        },
     },
 }
 
@@ -336,9 +381,18 @@ def gen_one(kname: str, cfg: dict):
 
     extra = [sf for sf in cfg["sources"] if sf != cfg["entry_file"]]
     pieces = [defines_h, POLYBENCH_C.read_text()]
+    fixups = cfg.get("text_fixups", {})
     for sf in extra:
         p = src_root / sf
-        pieces.append(f"\n/* ==== {sf} ==== */\n" + p.read_text(errors="replace"))
+        text = p.read_text(errors="replace")
+        for old, new in fixups.get(sf, []):
+            n = text.count(old)
+            if n != 1:
+                return None, (f"text_fixup for {sf} expected exactly 1 match of "
+                              f"{old!r}, found {n} -- source may have changed, "
+                              f"re-check the fixup")
+            text = text.replace(old, new)
+        pieces.append(f"\n/* ==== {sf} ==== */\n" + text)
     (udir / "polybench.c").write_text("\n".join(pieces))
     shutil.copy(POLYBENCH_H, udir / "polybench.h")
 
