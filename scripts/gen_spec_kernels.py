@@ -33,8 +33,9 @@ no uniform schema to auto-parse):
     against the program's own real stdout (src/correctness.py numeric/hash
     tiers) -- see docs/GENERIC_HARNESS_DESIGN.md for why.
 
-Each generated kernel is actually test-compiled with clang-11 and only
-kept in the manifest if it succeeds.
+Each generated kernel is actually test-compiled with the pinned LLVM 21
+toolchain (CLANG constant below) and only kept in the manifest if it
+succeeds.
 
 Candidates covered so far (pure C, single `main`, small-to-medium file
 count -- see docs/SPEC2017_STATUS.md for the full 43-benchmark survey and
@@ -82,18 +83,23 @@ inside the wrapper would leak into the timed region) and the wrapper does
 one cheap chdir() into that directory before calling kernel_<name>, with
 argv left as the plain short name SPEC's own harness would pass.
 """
+import argparse
+import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
 
-SPEC_ROOT = Path("/home/hanning/spec2017/benchspec/CPU")
-DATA_ROOT = Path("/home/hanning/spec2017/benchspec/CPU")
-POLYBENCH_C = Path("/home/hanning/comet/PolyBenchC_no_rag/utilities/polybench.c")
-POLYBENCH_H = Path("/home/hanning/comet/PolyBenchC_no_rag/utilities/polybench.h")
-OUT_ROOT = Path("/home/hanning/comet/SPEC_shim_root")
-TMP_DIR = Path("/home/hanning/comet/tmp")
-CLANG = "/usr/bin/clang-11"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SPEC_ROOT = Path(os.environ.get(
+    "SPEC_CPU_ROOT", "/home/hanning/spec2017/benchspec/CPU"))
+DATA_ROOT = SPEC_ROOT
+POLYBENCH_C = PROJECT_ROOT / "PolyBenchC_no_rag/utilities/polybench.c"
+POLYBENCH_H = PROJECT_ROOT / "PolyBenchC_no_rag/utilities/polybench.h"
+OUT_ROOT = PROJECT_ROOT / "SPEC_shim_root"
+TMP_DIR = PROJECT_ROOT / "tmp"
+CLANG = os.environ.get(
+    "COMET_CLANG_21", str(PROJECT_ROOT / "scripts/toolchain/clang-21"))
 
 SPEC_DEFINES_H = "#ifndef SPEC\n#define SPEC 1\n#endif\n#ifndef NDEBUG\n#define NDEBUG 1\n#endif\n"
 
@@ -203,6 +209,16 @@ BENCHMARKS = {
                  "iptmp = (int *) molutil_get(sizeof(int)*12*prm->Natom);"),
             ],
         },
+    },
+    "specrand_ir": {
+        "bench_dir": "999.specrand_ir",
+        "entry_file": "main.c",
+        "sources": ["main.c", "specrand-common/specrand.c"],
+        "skip_dirs": set(),
+        # data/test/input/control. The ref workload (1255432124, 234923) is
+        # reserved for final remote measurements; generation uses test input
+        # only as a compile/run integration gate.
+        "argv": lambda bdir: ["kernel_specrand_ir", "324342", "24239"],
     },
 }
 
@@ -416,9 +432,20 @@ def try_compile(kernel_c: Path) -> tuple:
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--only", choices=list(BENCHMARKS), default=None,
+                        help="generate only this benchmark (default: all configured). "
+                             "Useful when SPEC_CPU_ROOT is a partial checkout that "
+                             "doesn't have every benchmark's src/ -- e.g. this repo's "
+                             "local sandbox copy only has 999.specrand_ir's sources, "
+                             "not mcf_r/lbm_r/nab_r's, so running unscoped there always "
+                             "fails those three with 'No such file or directory'.")
+    args = parser.parse_args()
+    targets = {args.only: BENCHMARKS[args.only]} if args.only else BENCHMARKS
+
     TMP_DIR.mkdir(exist_ok=True)
     ok, fail = [], []
-    for kname, cfg in BENCHMARKS.items():
+    for kname, cfg in targets.items():
         try:
             kernel_c, err = gen_one(kname, cfg)
         except Exception as e:
@@ -444,8 +471,26 @@ def main():
 
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
     manifest = OUT_ROOT / "manifest.txt"
-    manifest.write_text("\n".join(path for _, path in ok) + ("\n" if ok else ""))
-    print(f"\nmanifest written: {manifest} ({len(ok)} kernels)")
+    # Merge, don't overwrite: a scoped `--only` run (or a run against a
+    # partial SPEC_CPU_ROOT checkout that's missing other benchmarks' src/)
+    # must not destroy manifest entries for benchmarks this invocation never
+    # touched. Only replace the line(s) for benchmarks actually in `targets`
+    # this run -- if one of them now fails, its stale entry is correctly
+    # dropped ("only kept in the manifest if it succeeds", per this module's
+    # own docstring); if it succeeds, its entry is refreshed.
+    existing_lines = (manifest.read_text().splitlines() if manifest.exists() else [])
+    existing_lines = [l for l in existing_lines if l.strip()]
+
+    def _kname_from_manifest_line(line: str) -> "str | None":
+        m = re.search(r"/kernels/([^/]+)/", line)
+        return m.group(1) if m else None
+
+    kept = [l for l in existing_lines if _kname_from_manifest_line(l) not in targets]
+    new_lines = [str(Path(path).relative_to(PROJECT_ROOT)) for _, path in ok]
+    manifest.write_text(
+        "\n".join(kept + new_lines) + ("\n" if (kept or new_lines) else ""))
+    print(f"\nmanifest written: {manifest} "
+         f"({len(new_lines)} kernel(s) from this run, {len(kept)} unchanged from before)")
 
 
 if __name__ == "__main__":
