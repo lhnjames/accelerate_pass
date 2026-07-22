@@ -10,6 +10,7 @@ Each round a single LLM call receives:
   ⑤ Hardware profile           (CPU model, SIMD width, cache sizes)
   ⑥ Optimization history       (every prior round: strategy, speedup, error)
   ⑦ Strategy memory            (what worked, what regressed, what to avoid)
+  ⑧ Pre-tuning pass/runtime audit (every pass purpose, IR status, runtime mismatch)
 
 The LLM outputs a multi-strategy JSON covering three channels:
   Ch1  -mllvm threshold flags  — LLVM pass cost-model knobs
@@ -52,6 +53,8 @@ from tune_param import (
     _pick_probe_value,
     extract_rich_remarks_yaml,
     format_rich_remark_for_prompt,
+    is_cost_model_override,
+    is_unsafe_discovered_option,
 )
 
 from tune_source import (
@@ -82,6 +85,11 @@ from src.remarks import (
 from src.diagnostics import clean_clang_diagnostics
 from src.correctness import detect_correctness_mode, check_correctness
 from src.hotspot import select_hotspot_target, select_hotspot_targets
+from src.build_utils import set_default_cxx_compiler
+from src.toolchain_guard import verify_llvm21_toolchain
+from src.skill_executor import (
+    SkillRecorder, run_skill_messages, set_skill_recorder,
+)
 
 
 # ── Single-shot timing (for interleaved confirmation runs) ───────────────────
@@ -966,6 +974,307 @@ def _build_evidence_sections(ev: dict, baseline_perf: dict, missed_lines: list) 
     }
 
 
+def _pass_runtime_evidence_text(kernel_name: str, ev: dict,
+                                history: "OptimizationHistory | None" = None,
+                                baseline_time: float = -1.0,
+                                source_text: str = "",
+                                quick_check: bool = False) -> str:
+    """Build compact evidence for the mandatory pre-tuning pass audit."""
+    remarks = ev.get("kernel_remarks", {}) or {}
+    diffs = ev.get("ir_pass_diffs", {}) or {}
+    options = ev.get("discovered_opts", {}) or {}
+    targeted = {p.get("pass_name"): p for p in ev.get("targeted_passes", [])}
+    passes = list(dict.fromkeys(ev.get("kernel_passes", []) or []))
+    rows = []
+    for index, pname in enumerate(passes, 1):
+        entries = remarks.get(pname, []) or []
+        missed = [e for e in entries if e.get("type") == "missed"]
+        passed = [e for e in entries if e.get("type") == "passed"]
+        analyses = [e for e in entries if e.get("type") == "analysis"]
+        diff = diffs.get(pname, {}) or {}
+        if diff.get("skipped"):
+            ir_status = f"skipped ({diff.get('passes_flag', 'no mapping')})"
+        elif diff:
+            ir_status = "FIRED/changed" if diff.get("changed") else "ran/no-op"
+        else:
+            ir_status = "not measured"
+        opt_text = "; ".join(
+            f"{o.get('flag')}<{o.get('type')}>: {str(o.get('desc', ''))[:100]}"
+            for o in (options.get(pname, []) or [])[:5]
+        ) or "none discovered"
+        remark_text = "; ".join(
+            f"{e.get('type')}@{e.get('line')}: {str(e.get('msg', ''))[:120]}"
+            for e in (missed + analyses + passed)[:3]
+        ) or "no kernel remark"
+        rows.append(
+            f"{index}. PASS={pname}\n"
+            f"   IR={ir_status}; missed={len(missed)}; passed={len(passed)}; "
+            f"targeted={pname in targeted}\n"
+            f"   remarks: {remark_text}\n"
+            f"   available numeric options: {opt_text}"
+        )
+    perf = ev.get("baseline_perf", {}) or {}
+    runtime = {
+        "kernel": kernel_name,
+        "hotspot_target": ev.get("hotspot_target", kernel_name),
+        "hotspot_targets": ev.get("hotspot_targets", []),
+        "hotspot_reason": ev.get("hotspot_reason", ""),
+        "correctness_mode": ev.get("correctness_mode", "unknown"),
+        "dataset_mode": ("LARGE_DATASET timing; SMALL/STANDARD correctness gate"
+                         if ev.get("utils") else "static/exit-only"),
+        "baseline_time_ms": baseline_time,
+        "quick_check": quick_check,
+        "baseline_ir_stats": ev.get("baseline_stats", {}),
+        "perf": perf,
+        "bottleneck_hints": perf.get("bottleneck_hints", []),
+    }
+    history_text = history.to_prompt_section() if history else "(no prior optimization steps)"
+    if len(history_text) > 12000:
+        history_text = history_text[-12000:]
+    source_text = source_text or ev.get("kernel_text", "") or ""
+    if len(source_text) > 24000:
+        source_text = source_text[:24000] + "\n/* source truncated */"
+    return (
+        "## Runtime contract and observed execution\n"
+        f"{json.dumps(runtime, ensure_ascii=False, indent=2)}\n\n"
+        "## Optimization history and measured effects\n"
+        f"{history_text}\n\n"
+        "## Kernel source (current version)\n"
+        f"```c\n{source_text}\n```\n\n"
+        "## Complete O3 pass inventory and evidence\n" + "\n".join(rows)
+    )
+
+
+def _canonical_debug_flag(raw_flag: str) -> str:
+    """Normalize an LLM flag to the one-dash spelling used by COMET plans.
+
+    Also strips a literal leading "-mllvm"/"--mllvm" token if the LLM
+    embedded it directly inside the flag string instead of treating -mllvm
+    as its own separate compiler argument. Observed live: an action-decision
+    response returned "-mllvm -licm-max-num-uses-traversed" as ONE flag
+    string. Before this fix, only leading dashes were stripped, so its
+    comparison key became "mllvm -licm-max-num-uses-traversed" -- which
+    never matched the pass-audit's own correctly-bare "licm-max-num-uses-
+    traversed" entry, so a real, audit-approved flag was wrongly discarded
+    every time the LLM happened to format it this way (it still got tried
+    via the separate auto-supplement path, which builds flags straight from
+    discovered_opts rather than the LLM's raw string, masking the bug's
+    effect on search coverage rather than the search failing outright).
+    """
+    flag = str(raw_flag or "").strip()
+    while True:
+        m = re.match(r"^-{1,2}mllvm\s+(.*)$", flag, re.IGNORECASE)
+        if not m:
+            break
+        flag = m.group(1).strip()
+    flag = flag.split("=", 1)[0]
+    if flag.startswith("--"):
+        return "-" + flag[2:]
+    return flag if flag.startswith("-") else "-" + flag
+
+
+def _canonical_flag_key(raw_flag: str) -> str:
+    """Bare, dash-free, lowercased comparison key -- the form used for set
+    membership checks (audit_allowed/seen_spec_flags/discovered) throughout
+    the try_flags audit-matching logic. Always route through
+    _canonical_debug_flag() first so an embedded "-mllvm" prefix, a "--"
+    vs "-" spelling difference, and a trailing "=value" are all normalized
+    away identically regardless of which of the many call sites is asking."""
+    return _canonical_debug_flag(raw_flag).lstrip("-").lower()
+
+
+def _normalize_pass_runtime_analysis(parsed: dict, ev: dict) -> dict:
+    """Validate pass-audit parameters against the LLVM 21 discovery inventory."""
+    discovered = {}
+    for pname, opts in (ev.get("discovered_opts", {}) or {}).items():
+        for option in opts or []:
+            key = option.get("flag", "").lstrip("-").lower()
+            if key:
+                discovered[key] = (pname, option)
+    pass_names = list(dict.fromkeys(ev.get("kernel_passes", []) or []))
+    by_name = {}
+    for row in parsed.get("passes", []) if isinstance(parsed, dict) else []:
+        if not isinstance(row, dict):
+            continue
+        raw_name = str(row.get("pass") or row.get("name") or "").strip()
+        match = next((p for p in pass_names if p == raw_name or p.endswith(raw_name)
+                      or raw_name.endswith(p)), None)
+        if match:
+            by_name[match] = row
+
+    normalized_rows = []
+    debug_parameters = []
+    seen_flags = set()
+    for pname in pass_names:
+        row = by_name.get(pname, {})
+        raw_params = row.get("debug_parameters", row.get("parameters", []))
+        if not isinstance(raw_params, list):
+            raw_params = []
+        valid_for_pass = []
+        for param in raw_params:
+            if not isinstance(param, dict):
+                continue
+            flag = _canonical_debug_flag(param.get("flag") or param.get("parameter"))
+            key = flag.lstrip("-").lower()
+            if key not in discovered or is_cost_model_override(flag):
+                continue
+            _, option = discovered[key]
+            if is_unsafe_discovered_option(option.get("flag", ""), option.get("desc", "")):
+                continue
+            candidates = param.get("candidates", param.get("values", []))
+            if not isinstance(candidates, list):
+                candidates = []
+            clean = []
+            for value in candidates:
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    continue
+                if value not in clean:
+                    clean.append(value)
+            if not clean:
+                clean = _infer_candidates_from_desc(
+                    key, option.get("type", "uint"), option.get("desc", ""))
+            if not clean or key in seen_flags:
+                continue
+            item = {
+                "flag": flag,
+                "candidates": clean[:6],
+                "pass": pname,
+                "rationale": str(param.get("why") or param.get("rationale") or
+                                  row.get("problem") or row.get("purpose") or "")[:500],
+            }
+            valid_for_pass.append(item)
+            debug_parameters.append(item)
+            seen_flags.add(key)
+        normalized_rows.append({
+            "pass": pname,
+            "purpose": str(row.get("purpose") or row.get("role") or "")[:800],
+            "status": str(row.get("status") or row.get("ir_status") or "")[:200],
+            "evidence": str(row.get("evidence") or row.get("observed") or "")[:1000],
+            "problem": str(row.get("problem") or row.get("mismatch") or "")[:1000],
+            "debug_parameters": valid_for_pass,
+        })
+    # Validate explicit combinations proposed by the audit LLM.  These are
+    # intentionally sparse (not a Cartesian product) and are used by
+    # --quick-check to test hypotheses the LLM actually reasoned about.
+    combinations = []
+    for combo in (parsed.get("debug_combinations", [])
+                  if isinstance(parsed, dict) else []):
+        if not isinstance(combo, dict):
+            continue
+        raw_items = combo.get("parameters", combo.get("flags", []))
+        if not isinstance(raw_items, list):
+            continue
+        items = []
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            flag = _canonical_debug_flag(item.get("flag") or item.get("parameter"))
+            key = flag.lstrip("-").lower()
+            if key not in discovered or is_cost_model_override(flag):
+                continue
+            value = item.get("value", item.get("val"))
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            items.append({"flag": flag, "value": value})
+        if items:
+            combinations.append({
+                "parameters": items,
+                "why": str(combo.get("why") or combo.get("rationale") or "")[:500],
+            })
+        if len(combinations) >= 8:
+            break
+    return {
+        "runtime_logic": str(parsed.get("runtime_logic", ""))[:4000]
+        if isinstance(parsed, dict) else "",
+        "global_diagnosis": str(parsed.get("global_diagnosis", parsed.get("diagnosis", "")))[:5000]
+        if isinstance(parsed, dict) else "",
+        "priority": [str(x) for x in (parsed.get("priority", [])
+                                      if isinstance(parsed, dict) else [])[:20]],
+        "passes": normalized_rows,
+        "debug_parameters": debug_parameters,
+        "debug_combinations": combinations,
+        "allowed_flags": sorted({_canonical_flag_key(p["flag"]) for p in debug_parameters}),
+    }
+
+
+def run_pass_runtime_analysis(llm: LLMClient, kernel_name: str, ev: dict,
+                              history: "OptimizationHistory | None" = None,
+                              current_source: str = "", baseline_time: float = -1.0,
+                              max_tokens: int = 10000,
+                              quick_check: bool = False) -> dict:
+    """Run the mandatory LLM pass/runtime audit before parameter debugging."""
+    evidence = _pass_runtime_evidence_text(
+        kernel_name, ev, history=history, baseline_time=baseline_time,
+        source_text=current_source, quick_check=quick_check)
+    quick_instruction = (
+        "这是 quick-check：只输出最多 3 个最有希望的参数，并额外输出最多 3 个 "
+        "由你推理得到的显式参数组合；禁止为每个 pass 穷举参数。"
+        if quick_check else
+        "正式模式：可为有证据的问题 pass 输出参数，但仍须避免无依据的穷举。"
+    )
+    prompt = f"""你现在执行参数调优前的强制审计，不要直接跳过分析。
+
+请先分析完整 LLVM 21 O3 pipeline 中的每一个 pass：
+1. 说明该 pass 的具体作用，以及它在当前 kernel 的运行逻辑中应该影响什么；
+2. 根据 FIRED/no-op/skipped、remarks、IR 变化、perf 计数器、热点和已有实测速度，
+   判断当前 pass 的执行是否与真实瓶颈匹配，指出具体问题；
+3. 只有发现可行动问题时，输出该 pass 的 numeric cost-model 调试参数。
+   参数必须逐字来自 available numeric options，不能发明选项。
+
+运行时速度、正确性模式和历史测量是真实证据；不要把“pass 运行过”误写成
+“pass 有效”，也不要把静态 missed remark 当成已证实的性能收益。force/disable、
+unroll-count 和 testing-only 选项禁止输出。
+
+{evidence}
+
+{quick_instruction}
+
+严格输出 JSON，不要 markdown：
+{{
+  "runtime_logic": "当前程序从入口到热点的实际执行逻辑，以及计时/正确性边界",
+  "global_diagnosis": "根据数据和实测效果归纳的主要问题",
+  "priority": ["PassName", "PassName"],
+  "debug_combinations": [
+    {{"parameters": [{{"flag": "-flag", "value": 1}}], "why": "组合假设"}}
+  ],
+  "passes": [
+    {{
+      "pass": "必须是上面 inventory 中的 pass 名称",
+      "purpose": "该 pass 的具体作用",
+      "status": "FIRED/changed、ran/no-op、skipped 或 unknown",
+      "evidence": "结合本 pass 的 remarks/IR/perf 证据",
+      "problem": "当前运行逻辑中发现的问题；没有问题则说明原因",
+      "debug_parameters": [
+        {{"flag": "-exact-flag-from-inventory", "candidates": [0, 1, 2], "why": "..."}}
+      ]
+    }}
+  ]
+}}
+必须为 inventory 中的每一个 pass 输出一条 passes 记录；没有合适参数时
+`debug_parameters` 为空。"""
+    print("  [Pass audit] 分析完整 pass pipeline、运行逻辑和实测瓶颈...")
+    response = run_skill_messages(
+        llm, "pass-analysis", [
+            {"role": "system", "content": "You are an LLVM pass/runtime audit system. Output strict JSON only."},
+            {"role": "user", "content": prompt},
+        ], max_tokens=max_tokens, temperature=0.1, timeout=120)
+    if not response:
+        print("  [Pass audit] LLM 无响应；回退到原有 evidence-driven 参数筛选")
+        return {"error": "no LLM response", "debug_parameters": [], "passes": []}
+    try:
+        parsed = json.loads(strip_json_fences(response))
+    except Exception as exc:
+        print(f"  [Pass audit] JSON 解析失败；回退到原有筛选: {exc}")
+        return {"error": f"JSON parse: {exc}", "debug_parameters": [], "passes": []}
+    normalized = _normalize_pass_runtime_analysis(parsed, ev)
+    normalized["error"] = ""
+    print(f"  [Pass audit] 覆盖 {len(normalized['passes'])}/{len(ev.get('kernel_passes', []))} 个 pass；"
+          f"输出 {len(normalized['debug_parameters'])} 个已验证调试参数")
+    if normalized.get("global_diagnosis"):
+        print(f"  [Pass audit] Diagnosis: {normalized['global_diagnosis'][:300]}")
+    return normalized
+
+
 def _current_hotspot_context(ev: dict, base_src_text: str,
                              current_best_source: "str | None" = None) -> tuple:
     """Current body text of the cached hotspot target (ev["hotspot_target"],
@@ -1146,6 +1455,37 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
     ir_diff_str  = ("\n".join(ev['ir_diff_info'])
                     if ev.get('ir_diff_info') else "  (无探针 IR 变化)")
     hist_str     = history_section if history_section else "## History  (第1步，无历史)"
+    pass_audit = ev.get("pass_runtime_analysis", {}) or {}
+    pass_audit_lines = []
+    if pass_audit and not pass_audit.get("error"):
+        if pass_audit.get("runtime_logic"):
+            pass_audit_lines.append(f"运行逻辑诊断：{pass_audit['runtime_logic']}")
+        if pass_audit.get("global_diagnosis"):
+            pass_audit_lines.append(f"总体问题诊断：{pass_audit['global_diagnosis']}")
+        if pass_audit.get("priority"):
+            pass_audit_lines.append("优先 pass：" + ", ".join(pass_audit["priority"]))
+        if pass_audit.get("debug_combinations"):
+            pass_audit_lines.append(
+                "LLM 推理组合：" + "; ".join(
+                    ", ".join(f"{p['flag']}={p['value']}"
+                              for p in c.get("parameters", []))
+                    for c in pass_audit["debug_combinations"][:4]
+                )
+            )
+        for row in pass_audit.get("passes", []):
+            params = row.get("debug_parameters", [])
+            param_text = "; ".join(
+                f"{p['flag']}={p['candidates']}" for p in params
+            ) or "(无已验证调试参数)"
+            pass_audit_lines.append(
+                f"- {row['pass']}: purpose={row.get('purpose','')}; "
+                f"status={row.get('status','')}; evidence={row.get('evidence','')}; "
+                f"problem={row.get('problem','')}; debug={param_text}"
+            )
+    pass_audit_str = ("\n".join(pass_audit_lines)
+                      if pass_audit_lines else "(本步骤尚未完成 pass/runtime audit)")
+    if len(pass_audit_str) > 70000:
+        pass_audit_str = pass_audit_str[:70000] + "\n[pass audit display truncated; full audit is saved in results JSON]"
 
     prompt = f"""你是一名专业的 LLVM 编译器优化工程师，以 agent 模式运行。
 
@@ -1173,6 +1513,12 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
 【逆向推断】根据以上瓶颈，以下 O3 pass 最值得优先调整：
 （只列出：① 确实在 O3 pipeline 中运行过，② 有 missed remarks，③ 有可调 cost-model 参数）
 {targeted_pass_str}
+
+══════════════════════════════════════════════════════════════
+## ②.5 强制 LLM Pass/Runtime 审计（先分析，再输出调试参数）
+{pass_audit_str}
+{("只能从上面 audit 输出的 debug 参数中选择 try_flags；如果 debug 为空，说明没有"
+   "被数据支持的参数，不要凭空发明 flag。" if forced_action == "try_flags" else "")}
 
 ══════════════════════════════════════════════════════════════
 ## ③ Kernel 源码（目标函数：`{display_kernel_label}`）
@@ -1695,7 +2041,8 @@ def analyze_rewrite_bottleneck(llm, kernel_name: str, ev: dict,
         if attempt > 0:
             time.sleep(min(2 ** attempt, 8) + random.uniform(0, 1))
         try:
-            resp = llm.call(
+            resp = run_skill_messages(
+                llm, "rewrite-analysis",
                 [{"role": "system", "content": _REWRITE_ANALYSIS_SYSTEM},
                  {"role": "user",   "content": prompt}],
                 max_tokens=max_tokens,
@@ -1769,7 +2116,8 @@ one concrete different thing to try next."""
 
     for attempt in range(2):
         try:
-            resp = llm.call(
+            resp = run_skill_messages(
+                llm, "failure-reflection",
                 [{"role": "system", "content": _REFLECTION_SYSTEM},
                  {"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
@@ -1846,7 +2194,8 @@ Output ONLY strict JSON, no prose:
 Valid action names: try_flags, rewrite_source, try_pragma"""
 
     try:
-        resp = llm.call(
+        resp = run_skill_messages(
+            llm, "meta-planning",
             [{"role": "system",
               "content": "Compiler optimization meta-planner. Output strict JSON only."},
              {"role": "user", "content": prompt}],
@@ -2615,7 +2964,8 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                    step_num: int, max_steps: int,
                    baseline_time: float,
                    snapshot_dir: "Path | None" = None,
-                   forced_action: "str | None" = None) -> dict:
+                   forced_action: "str | None" = None,
+                   quick_check: bool = False) -> dict:
     """
     Agent 单步：LLM 决定执行什么 action，系统执行并验证。
 
@@ -2634,6 +2984,20 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
     cpu_info  = get_cpu_info()
     cpu_cache = ts_get_cache_info()
 
+    # Parameter debugging has an explicit evidence-audit stage.  It runs
+    # before the action-decision prompt, so the action LLM receives a concrete
+    # explanation of every pass and cannot jump directly from a pass name to a
+    # guessed flag.  Re-run it after a source rewrite: the runtime history and
+    # current source may have changed even when the original O3 inventory is
+    # still the same.
+    if forced_action == "try_flags":
+        _audit_source = current_best_source or ev.get("kernel_text", "")
+        ev["pass_runtime_analysis"] = run_pass_runtime_analysis(
+            llm, kernel_name, ev, history=history,
+            current_source=_audit_source, baseline_time=baseline_time,
+            max_tokens=min(max_tokens, 10000), quick_check=quick_check,
+        )
+
     prompt = _build_agent_prompt(
         kernel_name, ev, cpu_info, cpu_cache,
         history, current_best_source, current_best_flags,
@@ -2642,7 +3006,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
     )
 
     print(f"  Querying LLM (step {step_num})...")
-    resp = llm.call([
+    resp = run_skill_messages(llm, "action-decision", [
         {"role": "system",
          "content": "You are a compiler optimization agent. Output strict JSON only."},
         {"role": "user", "content": prompt},
@@ -2701,7 +3065,55 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
 
         # ── try_flags ─────────────────────────────────────────────────────────
         def _do_try_flags() -> dict:
-            flag_specs = list(plan.get("flags", []))
+            pass_audit = ev.get("pass_runtime_analysis", {}) or {}
+            audit_params = pass_audit.get("debug_parameters", [])
+            quick_mode = bool(quick_check)
+            if quick_mode and audit_params:
+                # The audit LLM has already ranked the parameters.  Keep only
+                # its first few hypotheses and a tiny value neighborhood.
+                audit_params = [
+                    dict(p, candidates=list(p.get("candidates", []))[:3])
+                    for p in audit_params[:3]
+                ]
+            audit_allowed = set(pass_audit.get("allowed_flags", []))
+            if quick_mode and audit_params:
+                audit_allowed = {_canonical_flag_key(p.get("flag", ""))
+                                 for p in audit_params}
+            flag_specs = []
+            seen_spec_flags = set()
+            # The audit is authoritative when available: these are already
+            # checked against opt-21 --help-hidden and carry the pass-level
+            # rationale into the measured search.
+            for audited in audit_params:
+                flag = audited.get("flag", "")
+                key = _canonical_flag_key(flag)
+                if not key or key in seen_spec_flags:
+                    continue
+                flag_specs.append({
+                    "flag": flag,
+                    "candidates": audited.get("candidates", []),
+                    "rationale": audited.get("rationale", ""),
+                    "source": "pass_runtime_analysis",
+                    "pass": audited.get("pass", ""),
+                })
+                seen_spec_flags.add(key)
+            # Preserve the action LLM's choices only when they are in the
+            # audit's validated set.  If the audit failed, retain the legacy
+            # behavior and let the existing safety gate decide.
+            for spec in plan.get("flags", []):
+                if not isinstance(spec, dict):
+                    continue
+                raw_flag = spec.get("flag", "")
+                key = _canonical_flag_key(raw_flag)
+                if is_cost_model_override(raw_flag):
+                    continue
+                if audit_allowed and key not in audit_allowed:
+                    print(f"    [Pass audit] 丢弃未被审计批准的参数: {raw_flag}")
+                    continue
+                if key in seen_spec_flags:
+                    continue
+                flag_specs.append(spec)
+                seen_spec_flags.add(key)
 
             # ── Auto-supplement: add targeted_passes params not already in LLM suggestions ──
             # Selection criteria (pass must hold at least one):
@@ -2729,13 +3141,17 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             # optimization (see comments there for per-parameter justification).
             _discovered = ev.get("discovered_opts", {})
             _already = {spec.get("flag", "").lstrip("-") for spec in flag_specs}
-            for _tp in ev.get("targeted_passes", []):
+            for _tp in ([] if quick_mode else ev.get("targeted_passes", [])):
                 if _tp.get("missed_count", 0) == 0 and not _tp.get("params"):
                     continue  # neither signal present -- nothing to act on
                 pname = _tp["pass_name"]
                 for _param in _tp.get("params", []):
+                    if is_cost_model_override(_param):
+                        continue
                     _key = _param.lstrip("-")
                     if _key in _already:
+                        continue
+                    if audit_allowed and _key.lower() not in audit_allowed:
                         continue
                     # Verify: parameter must exist in discovered_opts (opt --help-hidden validated)
                     _opt_entry = next(
@@ -2826,6 +3242,41 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     best_t = flag_best_t
                     best_flags = ["-mllvm", f"{flag}={flag_best_v}"]
 
+            # In quick-check mode, test only the sparse combinations explicitly
+            # reasoned about by the pass-audit LLM.  This replaces the old
+            # winner-product search; it is still measured, but never silently
+            # expands into a Cartesian sweep.
+            if quick_mode:
+                for cidx, combo in enumerate(pass_audit.get("debug_combinations", [])[:3]):
+                    joint_flags = []
+                    desc = []
+                    for item in combo.get("parameters", []):
+                        flag = item.get("flag", "")
+                        value = item.get("value")
+                        if not flag or isinstance(value, bool) or not isinstance(value, (int, float)):
+                            continue
+                        joint_flags += ["-mllvm", f"{flag}={value}"]
+                        desc.append(f"{flag}={value}")
+                    if not joint_flags:
+                        continue
+                    cand = tmpdir / f"tf_quick_combo_{cidx}"
+                    ok, _ = compile_binary(
+                        clang, str(base_file), polybench_c, utils, source_dir,
+                        cand, extra_flags=joint_flags, timeout=120)
+                    if not ok:
+                        print(f"    [quick-combo] {', '.join(desc)} -> compile FAILED")
+                        continue
+                    t = tp_run_timing(str(cand), runs=runs, pin_cpu=pin_cpu)
+                    if t <= 0:
+                        continue
+                    sp = baseline_time / t
+                    print(f"    [quick-combo] {', '.join(desc)} -> {sp:.3f}x")
+                    all_results.append({"flags": ', '.join(desc), "time_ms": t,
+                                        "speedup": sp, "kind": "llm_combo"})
+                    if t < best_t:
+                        best_t = t
+                        best_flags = joint_flags
+
             # Phase B: joint combination of best flags (top-2/3)
             # Dynamically exclude flags whose Phase-A compile took >_JOINT_COMPILE_WARN_S:
             # these likely trigger exponential optimizer search when combined with other flags.
@@ -2835,7 +3286,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                  and flag_compile_time.get(fn, 0) <= _JOINT_COMPILE_WARN_S],
                 key=lambda x: x[2]
             )
-            if len(winners) >= 2:
+            if len(winners) >= 2 and not quick_mode:
                 # Try top-2, then top-3 (only if top-2 succeeds quickly)
                 for n_joint in [2, 3]:
                     if n_joint > len(winners):
@@ -3066,7 +3517,8 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     "exactly what it recommends. Output ONLY the marked function blocks the "
                     "prompt asks for — no prose, no markdown, no fences."
                 )
-                impl_resp = llm.call(
+                impl_resp = run_skill_messages(
+                    llm, "source-rewrite",
                     [{"role": "system", "content": impl_system},
                      {"role": "user",   "content": impl_prompt}],
                     max_tokens=max_tokens,
@@ -3094,7 +3546,8 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     "Read the analysis carefully, then implement exactly what it recommends. "
                     "Output ONLY the C kernel function — no prose, no markdown, no fences."
                 )
-                impl_resp = llm.call(
+                impl_resp = run_skill_messages(
+                    llm, "source-rewrite",
                     [{"role": "system", "content": impl_system},
                      {"role": "user",   "content": impl_prompt}],
                     max_tokens=max_tokens,
@@ -3235,7 +3688,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                     fix_prompt = _build_precision_fix_prompt(
                         target_name, orig_kernel_txt or base_src_text,
                         raw_kernel, err_msg, diagnosis=diagnosis)
-                    fix_resp = llm.call([
+                    fix_resp = run_skill_messages(llm, "precision-repair", [
                         {"role": "system",
                          "content": "You are a C performance expert. Fix the precision error. "
                                     "Output C code only."},
@@ -3272,7 +3725,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                         base_src_text, target_name)
                     fix_prompt = _build_compile_fix_prompt(
                         target_name, orig_kernel_txt or base_src_text, raw_kernel, err_msg)
-                    fix_resp = llm.call([
+                    fix_resp = run_skill_messages(llm, "compile-repair", [
                         {"role": "system",
                          "content": "You are a C compiler expert. Fix ONLY the compile "
                                     "error, keep the rest of the code unchanged as much "
@@ -3451,6 +3904,29 @@ def run_param_round(src: str, config, llm: LLMClient,
                         f" (Δ{delta_vec:+d}), total_instr Δ{delta_instr:+d}"
                     )
 
+    # Mandatory audit shared with normal agent mode.  Legacy --param-only mode
+    # now receives the same pass-purpose/runtime diagnosis before the tuning LLM
+    # is allowed to emit parameter candidates.
+    pass_audit_ev = {
+        "kernel_passes": kernel_passes,
+        "kernel_remarks": kernel_remarks,
+        "ir_pass_diffs": {},
+        "discovered_opts": discovered_opts,
+        "targeted_passes": [],
+        "baseline_stats": baseline_stats,
+        "baseline_perf": {},
+        "correctness_mode": "numeric/hash/exit_only (detected by build gate)",
+        "utils": utils,
+        "source_dir": source_dir,
+        "kernel_text": kernel_ir_text,
+    }
+    pass_audit = run_pass_runtime_analysis(
+        llm, kernel_name, pass_audit_ev,
+        current_source=Path(src).read_text(errors="replace"),
+        baseline_time=-1.0,
+        max_tokens=10000,
+    )
+
     # Step 7: build LLM prompt
     cpu_info = get_cpu_info()
     missed_block = []
@@ -3495,6 +3971,9 @@ Baseline stats: {baseline_stats}
 ## Available tunable flags per pass (from opt --help-hidden, numeric threshold only)
 {chr(10).join(opts_block) if opts_block else "(none discovered)"}
 
+## Mandatory pass/runtime audit (completed before parameter selection)
+{json.dumps(pass_audit, ensure_ascii=False, indent=2)[:30000]}
+
 ## Selection rules
 1. MANDATORY: Select ONE flag from EACH pass listed in "Available tunable flags".
    If a pass has multiple flags, pick the most impactful one for that pass.
@@ -3517,7 +3996,7 @@ Output strict JSON (no markdown):
 }}"""
 
     print("  Querying LLM for flag selection...")
-    resp = llm.call([
+    resp = run_skill_messages(llm, "parameter-tuning", [
         {"role": "system",
          "content": "You are a compiler parameter tuning system. Output strict JSON only."},
         {"role": "user", "content": prompt},
@@ -3530,7 +4009,9 @@ Output strict JSON (no markdown):
     except Exception as e:
         print(f"  JSON parse error: {e}"); return {}
 
-    params   = parsed.get("parameters", [])
+    params   = (pass_audit.get("debug_parameters", [])
+                if pass_audit.get("debug_parameters")
+                else parsed.get("parameters", []))
     analysis = parsed.get("analysis", "")
     if not params:
         print("  LLM returned no parameters"); return {}
@@ -3541,6 +4022,10 @@ Output strict JSON (no markdown):
     # Guarantee coverage: add one heuristic flag per top pass not already selected
     selected_flags = {p["flag"] for p in params}
     for _, pname, _, _, _ in top_passes:
+        if pass_audit.get("debug_parameters"):
+            # The mandatory audit is authoritative when it produced validated
+            # parameters; do not silently reintroduce heuristic flags here.
+            continue
         opts = discovered_opts.get(pname, [])
         added = False
         for o in opts:
@@ -3647,7 +4132,7 @@ Output strict JSON:
 }}"""
 
         print("  LLM refinement (Phase A → refined candidates)...")
-        resp2 = llm.call([
+        resp2 = run_skill_messages(llm, "parameter-tuning", [
             {"role": "system", "content": "Output strict JSON only."},
             {"role": "user",   "content": refine_prompt},
         ])
@@ -3737,6 +4222,7 @@ Output strict JSON:
         "best_flags_list": best_flags_list,
         "best_time_ms":  best_joint_time,
         "best_speedup":  best_speedup,
+        "pass_runtime_analysis": pass_audit,
     }
     out_dir = Path("outputs"); out_dir.mkdir(exist_ok=True)
     with open(out_dir / f"{name}_param_results.json", "w") as f:
@@ -3803,7 +4289,7 @@ def run_source_round(rewrite_src: str, ref_src: str, config, llm: LLMClient,
     # Use low temperature for deterministic, high-quality rewrites.
     # Each round builds on the previous best, so diversity comes from the
     # iterative improvement loop, not from random sampling.
-    response = llm.call([
+    response = run_skill_messages(llm, "source-rewrite", [
         {"role": "system", "content": "You are a performance code rewriter. Output C code only."},
         {"role": "user",   "content": prompt},
     ], max_tokens=max_tokens, temperature=0.2)
@@ -3864,7 +4350,7 @@ def run_source_round(rewrite_src: str, ref_src: str, config, llm: LLMClient,
                 diagnosis=diagnosis,
                 precision_history=(precision_failures[:-1] if precision_failures else None),
             )
-            fix_resp = llm.call([
+            fix_resp = run_skill_messages(llm, "precision-repair", [
                 {"role": "system",
                  "content": "You are a C performance expert. Fix the precision error. "
                             "Output C code only."},
@@ -3954,6 +4440,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                         help="Dataset type: auto|polybench|tsvc|cbench (default=auto)")
     parser.add_argument("--no-log",        action="store_true",
                         help="Disable run logger (no runs/ directory)")
+    parser.add_argument("--skills-off", action="store_true",
+                        help="Matched skills-off ablation; keep generic model/task only")
     # Mode flags
     parser.add_argument("--unified-only",  action="store_true",
                         help="Run only the agent optimization (skip legacy param/source)")
@@ -3962,6 +4450,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     # Legacy mode flags (kept for backwards-compat)
     parser.add_argument("--param-only",    action="store_true")
     parser.add_argument("--source-only",   action="store_true")
+    parser.add_argument("--quick-check", action="store_true",
+                        help="Fast smoke experiment: audit-driven <=3 flags, small candidate budget, no exhaustive supplement")
     return parser
 
 
@@ -3972,8 +4462,19 @@ def main():
 
     loader  = ConfigLoader(config_dir=os.path.abspath(args.config))
     config  = loader.load_all()
+    toolchain_identity = verify_llvm21_toolchain(config.compiler)
+    skill_recorder = SkillRecorder()
+    set_skill_recorder(skill_recorder, enabled=not args.skills_off)
     pin_cpu = args.pin_cpu if args.pin_cpu is not None else config.runtime.pin_cpu
     clang   = config.compiler.clang_path
+    # Registers the EXPLICITLY configured clang_cxx_path as the process-wide
+    # default clang++ (see set_default_cxx_compiler's docstring in
+    # src/build_utils.py) so every select_compiler() call anywhere in this
+    # run -- including the ~15+ indirect ones inside collect_all_evidence/
+    # run_agent_step/run_param_round/run_source_round that only have `clang`
+    # (not clang_cxx) in scope -- resolves C++ sources against the real
+    # configured compiler, not just a naming-convention guess.
+    set_default_cxx_compiler(config.compiler.clang_cxx_path)
     _llm    = LLMClient(config.llm)
 
     # ── Dataset detection ─────────────────────────────────────────────────
@@ -3991,12 +4492,19 @@ def main():
     if not args.no_log:
         try:
             _run_logger = RunLogger(program_name=name, dataset=dataset_type)
+            _run_logger.update_meta({
+                "toolchain": toolchain_identity.to_dict(),
+                "compiler_timeout_seconds": config.compiler.timeout_seconds,
+                "skills_enabled": not args.skills_off,
+            })
             _current_step = [0]
             llm = LoggingLLMClient(_llm, _run_logger,
                                    step_getter=lambda: _current_step[0])
         except Exception as _log_err:
             print(f"[warn] RunLogger init failed: {_log_err}, logging disabled")
     print(f"  Dataset type: {dataset_type}")
+    print("  Toolchain: LLVM 21 verified "
+          f"({toolchain_identity.identity_sha256[:12]})")
 
     print(f"{'='*60}")
     print(f"COMET agent: {name}  max_steps={max_steps}")
@@ -4182,6 +4690,7 @@ def main():
                 baseline_time=baseline_time,
                 snapshot_dir=snapshot_dir,
                 forced_action=_forced,
+                quick_check=args.quick_check,
             )
             history.record(step, result)
 
@@ -4416,6 +4925,7 @@ def main():
         with open(json_out, "w") as f:
             json.dump({
                 "program":            name,
+                "quick_check":        args.quick_check,
                 "baseline_ms":        baseline_time,
                 "max_steps":          max_steps,
                 "steps_taken":        len(history.steps),
@@ -4427,6 +4937,8 @@ def main():
                 "has_source_rewrite": best_source is not None,
                 "flags_timeline":     history.flags_timeline,
                 "history":            history.to_dict(),
+                "skills":             skill_recorder.to_dict(),
+                "pass_runtime_analysis": ev.get("pass_runtime_analysis", {}),
             }, f, indent=2, ensure_ascii=False)
         print(f"结果 JSON:       {json_out}")
 
@@ -4443,6 +4955,7 @@ def main():
                 _run_logger.save_results({
                     "program":          name,
                     "dataset":          dataset_type,
+                    "quick_check":       args.quick_check,
                     "baseline_ms":      baseline_time,
                     "best_speedup":     (confirmation.get("confirmed_speedup")
                                           if confirmation.get("ok")
@@ -4450,6 +4963,8 @@ def main():
                     "best_flags":       best_flags,
                     "steps_taken":      len(history.steps),
                     "flags_timeline":   history.flags_timeline,
+                    "skills":           skill_recorder.to_dict(),
+                    "pass_runtime_analysis": ev.get("pass_runtime_analysis", {}),
                 })
                 if best_source:
                     _run_logger.snapshot(f"{name}_optimized.c", best_source)

@@ -29,7 +29,10 @@ from src.config import ConfigLoader
 from src.compiler_manager import CompilerRunner
 from src.llm_client import LLMClient
 from src.polybench_paths import find_polybench_utilities
-from src.build_utils import run_timing, compile_c
+from src.build_utils import (run_timing, compile_c, select_compiler,
+                             CompilerNotFoundError, set_default_cxx_compiler)
+from src.toolchain_guard import verify_llvm21_toolchain
+from src.skill_executor import run_skill_messages
 from src.remarks import (REMARK_PASS_MAP, make_noinline_src,
                          extract_rich_remarks_yaml,
                          format_rich_remarks_for_source_prompt as format_rich_remark_for_prompt)
@@ -120,6 +123,8 @@ BLACKLISTED_FLAGS = {
     "force-target-max-vector-interleave",
     "unroll-count",                  # forces a specific count regardless of cost
     "unroll-full-max-count",
+    "unroll-max-count",              # LLVM marks this testing-only
+    "unroll-peel-count",             # explicit peel count, testing-only
     "unroll-and-jam-count",
     "disable-loop-unrolling",
     "disable-inlining",
@@ -133,6 +138,40 @@ BLACKLISTED_FLAGS = {
     "instcombine-infinite-loop-threshold",
     "nvptx-fma-level",
 }
+
+
+def is_cost_model_override(flag: str) -> bool:
+    """Reject parameters that force/disable an optimization decision.
+
+    Exact-name blacklisting was insufficient: LLVM 21 exposes options such
+    as ``unroll-force-peel-count`` where ``force`` is an interior token.  The
+    LLM prompt already forbids the entire force/disable family; enforce that
+    invariant in code so automatic option supplementation cannot bypass it.
+
+    Also strips a literal leading "-mllvm"/"--mllvm" token before tokenizing
+    -- matches optimize.py's _canonical_debug_flag() fix for the same LLM
+    formatting quirk (an action-decision response embedding "-mllvm" inside
+    the flag string itself, e.g. "-mllvm -licm-max-num-uses-traversed" as
+    ONE string). Without this, "mllvm" and the real option name get smashed
+    into one un-split blob by name.split("-") wherever the model happens to
+    leave a space instead of the usual comma/separate-argument formatting,
+    which is a narrower bug than the audit-matching one but the same root
+    cause, so it gets the same fix here.
+    """
+    flag = re.sub(r"^-{1,2}mllvm\s+", "", str(flag or "").strip(), flags=re.IGNORECASE)
+    name = flag.lstrip("-").lower()
+    if name in BLACKLISTED_FLAGS:
+        return True
+    tokens = name.split("-")
+    return "force" in tokens or "disable" in tokens
+
+
+def is_unsafe_discovered_option(flag: str, description: str = "") -> bool:
+    """Reject overrides plus LLVM options explicitly documented as test knobs."""
+    if is_cost_model_override(flag):
+        return True
+    normalized_description = re.sub(r"[^a-z]", "", description.lower())
+    return "fortestingpurposes" in normalized_description
 
 
 # ── Helpers: discovery ────────────────────────────────────────────────────────
@@ -196,7 +235,7 @@ def discover_options_from_help(opt_path: str, pass_names: list) -> dict:
         if not m:
             continue
         flag, typ, desc = m.group(1), m.group(2) or "bool", m.group(3)
-        if flag in BLACKLISTED_FLAGS:
+        if is_unsafe_discovered_option(flag, desc):
             continue
         if typ.lower() not in ("int", "uint", "number"):
             continue
@@ -252,14 +291,23 @@ def get_cpu_info() -> str:
 # ── Helpers: remarks + IR ─────────────────────────────────────────────────────
 
 def extract_remarks_by_pass(clang: str, src: str, utils: Path,
-                             source_dir: Path) -> dict:
+                             source_dir: Path, clang_cxx: "str | None" = None) -> dict:
     """
     Compile with -Rpass-missed=.* and parse into {opt_pass_name: [entries]}.
     Each entry: {"file", "line", "msg", "type"}.
     """
     polybench_c = utils / "polybench.c"
+    try:
+        compiler, is_cxx = select_compiler([src, str(polybench_c)], clang, clang_cxx)
+    except CompilerNotFoundError:
+        return {}
+    # gnu99, not strict c99: same reasoning as src/build_utils.py::compile_c
+    # (strict c99 hides POSIX/BSD declarations like fileno() behind feature-
+    # test macros gnu99 exposes by default -- confirmed live under LLVM 21
+    # against a real SPEC-shaped source). Not forced at all for C++.
+    std_flags = [] if is_cxx else ["-std=gnu99"]
     cmd = [
-        clang, "-O3", "-std=c99",
+        compiler, "-O3"] + std_flags + [
         f"-I{utils}", f"-I{source_dir}",
         "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
         "-Rpass=.*", "-Rpass-missed=.*", "-Rpass-analysis=.*",
@@ -307,13 +355,20 @@ def filter_remarks_to_kernel(remarks_by_pass: dict,
 
 
 def _gen_o3_ir(clang: str, src: str, utils: "Path", source_dir: "Path",
-               kernel_name: str, extra_mllvm: list = None) -> "str | None":
+               kernel_name: str, extra_mllvm: list = None,
+               clang_cxx: "str | None" = None) -> "str | None":
     """Compile noinline-patched source to O3 IR. Returns IR path or None."""
     tmp_src = make_noinline_src(src, kernel_name)
     fd, out_ir = tempfile.mkstemp(suffix=".ll")
     os.close(fd)
+    try:
+        compiler, is_cxx = select_compiler([tmp_src], clang, clang_cxx)
+    except CompilerNotFoundError:
+        os.unlink(tmp_src)
+        return None
+    std_flags = [] if is_cxx else ["-std=gnu99"]
     cmd = [
-        clang, "-O3", "-S", "-emit-llvm", "-std=c99",
+        compiler, "-O3", "-S", "-emit-llvm"] + std_flags + [
         f"-I{utils}", f"-I{source_dir}",
         "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
         tmp_src, "-o", out_ir,
@@ -382,7 +437,8 @@ def extract_o3_passes_for_kernel(opt: str, ir_path: str,
 
 
 def get_ir_stats(clang: str, src: str, utils: Path, source_dir: Path,
-                 kernel_name: str, extra_mllvm: list = None) -> dict:
+                 kernel_name: str, extra_mllvm: list = None,
+                 clang_cxx: "str | None" = None) -> dict:
     """
     Compile with clang -O3 -mllvm <flags> -S -emit-llvm.
     To prevent the kernel from being inlined into main (which would hide it from IR),
@@ -390,7 +446,11 @@ def get_ir_stats(clang: str, src: str, utils: Path, source_dir: Path,
     This keeps the same O3 + mllvm-flags as real compilation.
     Returns: {vector_ops, fmul, fadd, total_instr, phi_nodes, vec_widths}
     """
-    fd_src, tmp_src = tempfile.mkstemp(suffix=".c"); os.close(fd_src)
+    # Suffix must match `src`'s own -- see make_noinline_src's docstring
+    # (src/remarks.py) for why a hardcoded ".c" here would silently force
+    # C++ sources through the wrong compile path.
+    _src_suffix = Path(src).suffix or ".c"
+    fd_src, tmp_src = tempfile.mkstemp(suffix=_src_suffix); os.close(fd_src)
     fd_ir,  out_ir  = tempfile.mkstemp(suffix=".ll"); os.close(fd_ir)
     try:
         # Patch the source: add __attribute__((noinline)) to kernel function
@@ -412,8 +472,13 @@ def get_ir_stats(clang: str, src: str, utils: Path, source_dir: Path,
             f.write(patched)
 
         # clang -O3 with mllvm flags — same as real build
+        try:
+            compiler, is_cxx = select_compiler([tmp_src], clang, clang_cxx)
+        except CompilerNotFoundError:
+            return {}
+        std_flags = [] if is_cxx else ["-std=gnu99"]
         cmd = [
-            clang, "-O3", "-S", "-emit-llvm", "-std=c99",
+            compiler, "-O3", "-S", "-emit-llvm"] + std_flags + [
             f"-I{utils}", f"-I{source_dir}",
             "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
             tmp_src, "-o", out_ir,
@@ -514,10 +579,18 @@ def score_passes(kernel_passes: list, kernel_remarks: dict,
 # ── Helpers: timing ───────────────────────────────────────────────────────────
 
 def compile_binary(clang, src, polybench_c, utils, source_dir, out_bin,
-                   extra_flags=None, dataset="LARGE_DATASET", timeout=180):
+                   extra_flags=None, dataset="LARGE_DATASET", timeout=180,
+                   clang_cxx=None):
+    """clang_cxx: optional explicit clang++ path, forwarded to compile_c()'s
+    select_compiler() as an override. Not required for C++ sources to work --
+    compile_c() derives a clang++-N path from `clang` automatically if this
+    is left None -- but callers that already have config.compiler.clang_cxx_path
+    on hand should pass it through so an explicitly configured override wins
+    over the naming-convention guess."""
     defines = [f"-D{dataset}", "-DPOLYBENCH_TIME"]
     return compile_c(clang, [src, str(polybench_c)], [str(utils), str(source_dir)],
-                     defines, out_bin, extra_flags=extra_flags, timeout=timeout)
+                     defines, out_bin, extra_flags=extra_flags, timeout=timeout,
+                     clang_cxx_path=clang_cxx)
 
 
 # ── Clang driver flags (separate from -mllvm thresholds) ─────────────────────
@@ -707,10 +780,15 @@ def main():
 
     loader  = ConfigLoader(config_dir=os.path.abspath(args.config))
     config  = loader.load_all()
+    toolchain_identity = verify_llvm21_toolchain(config.compiler)
     pin_cpu = args.pin_cpu if args.pin_cpu is not None else config.runtime.pin_cpu
     clang   = config.compiler.clang_path
     opt     = config.compiler.opt_path
-    print(f"Compiler: {clang}  opt: {opt}  pin_cpu: {pin_cpu}")
+    # See set_default_cxx_compiler's docstring (src/build_utils.py): registers
+    # the configured clang_cxx_path as the process-wide C++ compiler default.
+    set_default_cxx_compiler(config.compiler.clang_cxx_path)
+    print(f"Compiler: {clang}  opt: {opt}  pin_cpu: {pin_cpu}  "
+          f"LLVM21={toolchain_identity.identity_sha256[:12]}")
 
     src = args.program
     if not os.path.exists(src):
@@ -886,7 +964,7 @@ Output strict JSON (no markdown):
 
     llm = LLMClient(config.llm)
     print(f"\n[Step 7] Querying LLM ({config.llm.model})...")
-    resp = llm.call([
+    resp = run_skill_messages(llm, "parameter-tuning", [
         {"role": "system",
          "content": "You are a compiler parameter tuning system. Output strict JSON only."},
         {"role": "user", "content": prompt},
