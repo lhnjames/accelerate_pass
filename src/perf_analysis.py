@@ -122,8 +122,13 @@ def collect_perf_stats(binary_path: str, runs: int = 3,
     ]
 
     try:
+        # Benchmark stdout may be arbitrary binary data (cBench compression,
+        # image/audio codecs).  perf writes its counters to stderr, so never
+        # decode or retain target stdout here; doing so used to raise
+        # UnicodeDecodeError before a single counter could be parsed.
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=120
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            text=True, errors="replace", timeout=120
         )
         raw = result.stderr  # perf stat writes to stderr
     except Exception as e:

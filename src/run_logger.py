@@ -58,6 +58,15 @@ class RunLogger:
         }
         (self.run_dir / "meta.json").write_text(json.dumps(meta, indent=2))
 
+    def update_meta(self, fields: Dict[str, Any]):
+        """Merge auditable run metadata without discarding initial fields."""
+        path = self.run_dir / "meta.json"
+        meta = json.loads(path.read_text()) if path.exists() else {}
+        meta.update(fields)
+        temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+        temporary.write_text(json.dumps(meta, indent=2, ensure_ascii=False))
+        temporary.replace(path)
+
     def log_llm_call(self, call_type: str, messages: List[Dict],
                      response: Optional[str], elapsed_s: float,
                      step: int = -1, temperature: Optional[float] = None,

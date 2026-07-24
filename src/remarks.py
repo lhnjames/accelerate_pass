@@ -26,8 +26,18 @@ REMARK_PASS_MAP = {
 
 def make_noinline_src(src: str, kernel_name: str) -> str:
     """Write a temp copy of src with __attribute__((noinline)) on kernel_name.
-    Returns path to temp file (caller must unlink)."""
-    fd, tmp = tempfile.mkstemp(suffix=".c")
+    Returns path to temp file (caller must unlink).
+
+    The temp file's suffix MUST match `src`'s own (.c vs .cc/.cpp/.cxx/...) --
+    every downstream compile of this temp file's path uses is_cxx_source()/
+    select_compiler() (src/build_utils.py) to decide C vs C++, keyed purely
+    off the file extension. A hardcoded ".c" suffix here (the previous
+    behavior) silently forced every C++ source through the C compile path
+    no matter what `src` actually was, with no error -- it would just try to
+    parse valid C++ as C and fail (or, worse, "succeed" on a .cpp file
+    trivial enough to also be valid C, silently skipping real C++ analysis).
+    """
+    fd, tmp = tempfile.mkstemp(suffix=Path(src).suffix or ".c")
     os.close(fd)
     with open(src, errors="replace") as f:
         code = f.read()
@@ -50,7 +60,8 @@ def extract_rich_remarks_yaml(clang: str, src: str,
                                utils: "Path",
                                source_dir: "Path",
                                kernel_name: str,
-                               timeout: int = 120) -> dict:
+                               timeout: int = 120,
+                               clang_cxx_path: "str | None" = None) -> dict:
     """
     Extract LLVM optimization remarks using clang -O3 -fsave-optimization-record=yaml.
     Compiles only the kernel source (not polybench.c) with __attribute__((noinline))
@@ -61,13 +72,28 @@ def extract_rich_remarks_yaml(clang: str, src: str,
        vf, ic, fail_reason, cost, source_snippet}
     """
     import yaml as _yaml
+    from src.build_utils import is_cxx_source, select_compiler, CompilerNotFoundError
 
     fd_rem, rem_yaml = tempfile.mkstemp(suffix=".remarks.yaml")
     os.close(fd_rem)
     tmp_src = make_noinline_src(src, kernel_name)
 
+    # gnu99, not strict c99 -- matches src/build_utils.py::compile_c (strict
+    # c99 hides POSIX/BSD declarations like fileno() behind feature-test
+    # macros gnu99 exposes by default; confirmed live under LLVM 21 against
+    # a real SPEC-shaped C source). Not forced at all for C++, where any
+    # -std=<C standard> flag is a hard error under clang's C++ frontend.
+    # tmp_src keeps `src`'s original extension (make_noinline_src preserves
+    # it -- see that function's docstring), so is_cxx_source(tmp_src) here
+    # correctly mirrors the same check compile_c() uses for the real build.
+    try:
+        compiler, is_cxx = select_compiler([tmp_src], clang, clang_cxx_path)
+    except CompilerNotFoundError:
+        return {}
+    std_flags = [] if is_cxx else ["-std=gnu99"]
+
     cmd = [
-        clang, "-O3", "-std=c99", "-g", "-c",
+        compiler, "-O3"] + std_flags + ["-g", "-c",
         f"-I{utils}", f"-I{source_dir}",
         "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
         "-fsave-optimization-record=yaml",

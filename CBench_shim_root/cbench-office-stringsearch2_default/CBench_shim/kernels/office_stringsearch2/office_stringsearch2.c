@@ -239,7 +239,7 @@ static void _cat_file_to_stdout(const char* path)
 int main(int argc, char** argv)
 {
   char out_path[512];
-  snprintf(out_path, sizeof(out_path), "/home/hanning/comet/tmp/office_stringsearch2_out_%d.tmp", (int)getpid());
+  snprintf(out_path, sizeof(out_path), "/home/hanning/accelerate/comet/tmp/office_stringsearch2_out_%d.tmp", (int)getpid());
 
   char* fargv[] = { "kernel_office_stringsearch2", "/home/hanning/ctuning-datasets-min/dataset/txt-0001/data.txt", "/home/hanning/ctuning-datasets-min/dataset/txt-0001/data.s.txt", out_path , NULL };
   int fargc = 4;

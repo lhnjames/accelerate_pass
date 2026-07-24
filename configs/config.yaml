@@ -4,11 +4,11 @@ system:
   description: Compiler Observable-Guided Monte Carlo Exploration for LLVM pass parameter tuning
 
 compiler:
-  clang_path: /usr/bin/clang-11
-  clang_cxx_path: /usr/bin/clang-11++
-  opt_path: /usr/bin/opt-11
-  llc_path: /usr/bin/llc-11
-  timeout_seconds: 300
+  clang_path: /home/hanning/accelerate/comet/scripts/toolchain/clang-21
+  clang_cxx_path: /home/hanning/accelerate/comet/scripts/toolchain/clang++-21
+  opt_path: /home/hanning/accelerate/comet/scripts/toolchain/opt-21
+  llc_path: /home/hanning/accelerate/comet/scripts/toolchain/llc-21
+  timeout_seconds: 60  # local CBench/PolyBench candidate compile cap; remote SPEC override remains 300
 
 mcts:
   iterations: 150
@@ -28,7 +28,7 @@ mcts:
   #   alpha floor = 0.85 when runtime_measured + memory_bound, 0.6 otherwise
 
 llm:
-  model: deepseek-v4-flash
+  model: deepseek-v4-pro
   base_url: https://api.deepseek.com
   timeout_seconds: 120
   max_tokens: 4000

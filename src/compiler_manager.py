@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.config import COMETConfig
 from src.polybench_paths import find_polybench_utilities, POLYBENCH_DIR_NAMES
+from src.build_utils import select_compiler, CompilerNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -38,17 +39,40 @@ class CompilerRunner:
                         and any(n in input_file for n in self._POLYBENCH_DIR_NAMES)):
                     extra_args += ['-DPOLYBENCH_TIME', '-DLARGE_DATASET']
 
-            if input_file.endswith('.c'):
+            try:
+                compiler, is_cxx = select_compiler(
+                    [input_file], self.config.clang_path, self.config.clang_cxx_path)
+            except CompilerNotFoundError as e:
+                os.unlink(ir_file)
+                return False, None, str(e)
+
+            if is_cxx:
+                # -disable-O0-optnone is required here too, not just for C:
+                # without it every function in the O0 IR carries `optnone`,
+                # which makes opt -O3's per-pass analysis (pass_graph.py,
+                # ir_diff.py) silently report everything as "skipped due to
+                # optnone attribute" -- indistinguishable from "nothing in
+                # this kernel is optimizable" unless you already know to
+                # look for that exact phrase. This branch was missing the
+                # flag (present on the .c branch below) until this fix.
                 cmd = [
-                    self.config.clang_path,
-                    '-S', '-emit-llvm', '-O0',
+                    compiler, '-S', '-emit-llvm', '-O0',
                     '-Xclang', '-disable-O0-optnone',
-                    '-std=c99',
                 ] + extra_args + [input_file, '-o', ir_file]
-            elif input_file.endswith('.cpp'):
+            elif input_file.endswith('.c'):
+                # gnu99, not strict c99: matches src/build_utils.py::compile_c's
+                # same choice, for the same reason -- strict c99 hides POSIX/BSD
+                # declarations (e.g. bzip2's use of fileno()) behind feature-test
+                # macros that gnu99 exposes by default. Confirmed live under
+                # LLVM 21: c99 made a real SPEC-shaped C source fail to compile
+                # here ("implicit declaration of function 'fileno'") even though
+                # the exact same source compiles fine elsewhere in this pipeline
+                # (which always used gnu99) -- this was the one remaining place
+                # still hardcoding the stricter standard.
                 cmd = [
-                    self.config.clang_cxx_path,
-                    '-S', '-emit-llvm', '-O0',
+                    compiler, '-S', '-emit-llvm', '-O0',
+                    '-Xclang', '-disable-O0-optnone',
+                    '-std=gnu99',
                 ] + extra_args + [input_file, '-o', ir_file]
             else:
                 os.unlink(ir_file)

@@ -1,10 +1,26 @@
 #!/bin/bash
-# Run full PolyBench suite: 3 parallel workers
-set -e
+# Run full PolyBench suite with bounded parallel workers.
+# ROUNDS/RUNS/PIN_CPU/QUICK_CHECK/CONCURRENCY/LOGDIR are intentionally
+# configurable so a full workflow smoke does not require an expensive paper
+# budget, while the default remains the historical 5-round/3-run experiment.
+set -u -o pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-LOGDIR="logs"
+LOGDIR="${LOGDIR:-logs}"
 mkdir -p "$LOGDIR"
+ROUNDS="${ROUNDS:-5}"
+RUNS="${RUNS:-3}"
+CONCURRENCY="${CONCURRENCY:-3}"
+STATUS_FILE="$LOGDIR/status.tsv"
+: > "$STATUS_FILE"
+
+OPT_ARGS=(--rounds "$ROUNDS" --runs "$RUNS" --dataset polybench)
+if [[ -n "${PIN_CPU:-}" ]]; then
+  OPT_ARGS+=(--pin-cpu "$PIN_CPU")
+fi
+if [[ "${QUICK_CHECK:-0}" == "1" ]]; then
+  OPT_ARGS+=(--quick-check)
+fi
 
 PROGS=(
   "PolyBenchC_no_rag/datamining/correlation/correlation.c"
@@ -39,7 +55,6 @@ PROGS=(
   "PolyBenchC_no_rag/stencils/seidel-2d/seidel-2d.c"
 )
 
-CONCURRENCY=${CONCURRENCY:-3}
 pids=()
 
 run_one() {
@@ -48,13 +63,18 @@ run_one() {
   name=$(basename "$prog" .c)
   local log="$LOGDIR/${name}.log"
   echo "[$(date '+%H:%M:%S')] START $name"
-  python optimize.py --program "$prog" --rounds 5 --runs 3 > "$log" 2>&1
-  local code=$?
-  if [ $code -eq 0 ]; then
+  local started finished code
+  started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  if python3 optimize.py --program "$prog" "${OPT_ARGS[@]}" > "$log" 2>&1; then
+    code=0
     echo "[$(date '+%H:%M:%S')] DONE  $name"
   else
+    code=$?
     echo "[$(date '+%H:%M:%S')] FAIL  $name (exit $code)"
   fi
+  finished=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$code" "$started" "$finished" "$log" >> "$STATUS_FILE"
+  return 0
 }
 
 for prog in "${PROGS[@]}"; do
@@ -74,6 +94,7 @@ echo ""
 echo "========================================"
 echo "All 30 benchmarks complete."
 echo "========================================"
+echo "status: $STATUS_FILE"
 echo ""
 echo "=== RESULTS SUMMARY ==="
 printf "%-22s  %-12s  %-10s  %s\n" "benchmark" "baseline(ms)" "best" "flags"

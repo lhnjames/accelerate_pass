@@ -1,0 +1,8 @@
+# Remote SPEC host override. Merge these values over config.yaml when running
+# on ubuntu@132.145.22.86, where LLVM 21 is installed system-wide.
+compiler:
+  clang_path: /usr/bin/clang-21
+  clang_cxx_path: /usr/bin/clang++-21
+  opt_path: /usr/bin/opt-21
+  llc_path: /usr/bin/llc-21
+  timeout_seconds: 300

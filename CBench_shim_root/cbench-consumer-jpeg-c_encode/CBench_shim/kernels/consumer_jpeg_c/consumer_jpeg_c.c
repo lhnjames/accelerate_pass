@@ -627,7 +627,7 @@ static void _cat_file_to_stdout(const char* path)
 int main(int argc, char** argv)
 {
   char out_path[512];
-  snprintf(out_path, sizeof(out_path), "/home/hanning/comet/tmp/consumer_jpeg_c_out_%d.tmp", (int)getpid());
+  snprintf(out_path, sizeof(out_path), "/home/hanning/accelerate/comet/tmp/consumer_jpeg_c_out_%d.tmp", (int)getpid());
 
   char* fargv[] = { "kernel_consumer_jpeg_c", "-dct", "int", "-progressive", "-opt", "-outfile", out_path, "/home/hanning/ctuning-datasets-min/dataset/image-ppm-0001/data.ppm" , NULL };
   int fargc = 8;

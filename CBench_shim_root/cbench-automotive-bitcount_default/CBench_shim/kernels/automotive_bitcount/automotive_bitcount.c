@@ -168,7 +168,7 @@ static void _cat_file_to_stdout(const char* path)
 int main(int argc, char** argv)
 {
 
-  char* fargv[] = { "kernel_automotive_bitcount", "/home/hanning/comet/tmp/1125000" , NULL };
+  char* fargv[] = { "kernel_automotive_bitcount", "/home/hanning/accelerate/comet/tmp/1125000" , NULL };
   int fargc = 2;
 
   kernel_automotive_bitcount(fargc, fargv);

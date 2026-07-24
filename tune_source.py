@@ -15,9 +15,12 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from src.config import ConfigLoader
+from src.toolchain_guard import verify_llvm21_toolchain
+from src.skill_executor import run_skill_messages
 from src.llm_client import LLMClient
 from src.polybench_paths import find_polybench_utilities
-from src.build_utils import run_timing, compile_c
+from src.build_utils import (run_timing, compile_c, select_compiler,
+                             CompilerNotFoundError, set_default_cxx_compiler)
 from src.remarks import extract_rich_remarks_yaml, format_rich_remarks_for_source_prompt
 from src.diagnostics import clean_clang_diagnostics
 
@@ -55,7 +58,8 @@ def get_cpu_cache_info() -> str:
 
 
 def extract_vectorization_remarks(clang: str, src: str,
-                                   utils: Path, source_dir: Path) -> list:
+                                   utils: Path, source_dir: Path,
+                                   clang_cxx: "str | None" = None) -> list:
     """
     Compile with -Rpass=loop-vectorize|slp-vectorizer|loop-unroll and return
     a list of strings like:
@@ -63,8 +67,15 @@ def extract_vectorization_remarks(clang: str, src: str,
       "line 90: vectorized loop width=4 [loop-vectorize]"
     """
     polybench_c = utils / "polybench.c"
+    try:
+        compiler, is_cxx = select_compiler([src, str(polybench_c)], clang, clang_cxx)
+    except CompilerNotFoundError:
+        return []
+    # gnu99, not strict c99 -- see src/build_utils.py::compile_c's comment;
+    # not forced at all for C++.
+    std_flags = [] if is_cxx else ["-std=gnu99"]
     cmd = [
-        clang, "-O3", "-std=c99",
+        compiler, "-O3"] + std_flags + [
         f"-I{utils}", f"-I{source_dir}",
         "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
         "-Rpass=loop-vectorize|slp-vectorizer|loop-unroll",
@@ -401,7 +412,8 @@ def analyze_kernel_patterns(llm, kernel_src: str, vect_remarks: list,
         if attempt > 0:
             delay = min(2 ** min(attempt, 5), 32) + random.uniform(0, 2)
             time.sleep(delay)
-        resp = llm.call(
+        resp = run_skill_messages(
+            llm, "rewrite-analysis",
             [{"role": "system", "content": _ANALYSIS_SYSTEM},
              {"role": "user",   "content": prompt}],
             max_tokens=max_tokens,
@@ -588,7 +600,8 @@ def analyze_precision_failure(llm, original_kernel: str, failed_code: str,
     for attempt in range(6):
         if attempt > 0:
             time.sleep(min(2 ** attempt, 16) + random.uniform(0, 1))
-        resp = llm.call(
+        resp = run_skill_messages(
+            llm, "precision-repair",
             [{"role": "system", "content": _PRECISION_ANALYSIS_SYSTEM},
              {"role": "user",   "content": prompt}],
             max_tokens=2048,
@@ -866,8 +879,14 @@ def main():
 
     loader = ConfigLoader(config_dir=os.path.abspath(args.config))
     config = loader.load_all()
+    toolchain_identity = verify_llvm21_toolchain(config.compiler)
     pin_cpu = args.pin_cpu if args.pin_cpu is not None else config.runtime.pin_cpu
     clang   = config.compiler.clang_path
+    # See set_default_cxx_compiler's docstring (src/build_utils.py): registers
+    # the configured clang_cxx_path as the process-wide C++ compiler default.
+    set_default_cxx_compiler(config.compiler.clang_cxx_path)
+    print(f"LLVM 21 toolchain verified: "
+          f"{toolchain_identity.identity_sha256[:12]}")
 
     # Parse param flags string → list of ["-mllvm", "flag=val", ...]
     param_extra_flags = []
@@ -984,7 +1003,7 @@ def main():
                                    param_context=param_ctx,
                                    rich_remarks=rich_remarks if rich_remarks else None,
                                    precision_history=precision_failures or None)
-            response = llm.call([
+            response = run_skill_messages(llm, "source-rewrite", [
                 {"role": "system",
                  "content": "You are a performance code rewriter. Output C code only."},
                 {"role": "user", "content": prompt},
@@ -1060,7 +1079,7 @@ def main():
                     kernel_name, original_kernel, opt_code, msg,
                     diagnosis=diagnosis,
                     precision_history=precision_failures[:-1] or None)
-                fix_resp = llm.call([
+                fix_resp = run_skill_messages(llm, "precision-repair", [
                     {"role": "system",
                      "content": "You are a C performance expert. Fix the precision error. "
                                 "Output C code only."},

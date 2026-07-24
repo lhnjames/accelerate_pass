@@ -1,0 +1,4 @@
+#!/bin/sh
+LLVM21_ROOT=${COMET_LLVM21_ROOT:-/home/hanning/Software/llvm-21/usr}
+export LD_LIBRARY_PATH="$LLVM21_ROOT/lib/x86_64-linux-gnu:$LLVM21_ROOT/lib/llvm-21/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$LLVM21_ROOT/bin/clang-21" "$@"

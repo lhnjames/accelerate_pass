@@ -42,6 +42,10 @@ _TOKEN_RE = re.compile(
     r"[A-Za-z_][A-Za-z_0-9]*"
     r"|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 )
+_NONFINITE_RE = re.compile(
+    r"(?<![A-Za-z_0-9])[-+]?(nan|inf(?:inity)?)(?![A-Za-z_0-9])",
+    re.IGNORECASE,
+)
 
 NumbersOrError = Union[list, str]
 
@@ -83,6 +87,10 @@ def extract_numbers(text: str) -> NumbersOrError:
     NaN/Inf always indicate a broken computation, never an accepted
     difference, so they short-circuit as errors rather than being silently
     dropped or compared."""
+    nonfinite = _NONFINITE_RE.search(text)
+    if nonfinite:
+        token = nonfinite.group(0).lower()
+        return "NaN in output" if "nan" in token else "Inf in output"
     values = []
     for m in _TOKEN_RE.finditer(text):
         tok = m.group(0)
@@ -119,7 +127,10 @@ def compare_numeric(v1: NumbersOrError, v2: NumbersOrError,
 
     max_err, bad_idx = 0.0, -1
     for i, (a, b) in enumerate(zip(v1, v2)):
-        denom = max(abs(a), 1e-8)
+        # Mixed relative/absolute tolerance: near zero, epsilon acts as an
+        # absolute tolerance; at larger magnitudes it scales relatively.
+        # Include both operands so comparison remains symmetric.
+        denom = max(abs(a), abs(b), 1.0)
         err = abs(a - b) / denom
         if err > max_err:
             max_err, bad_idx = err, i
@@ -133,6 +144,29 @@ def _hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _decode_text_output(data: bytes) -> "Optional[str]":
+    """Return decoded text only when ``data`` is genuinely textual.
+
+    Codec/compression benchmarks often emit arbitrary bytes that happen to
+    contain ASCII digits.  Treating a latin1 view of those bytes as numeric
+    output made bzip2 select the tolerant numeric checker instead of exact
+    hashing.  UTF-8 validity alone is not sufficient (NUL/control-heavy data
+    can still be valid), so require a high printable/whitespace ratio too.
+    """
+    if not data:
+        return ""
+    if b"\x00" in data:
+        return None
+    try:
+        text = data.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        return None
+    printable = sum(ch.isprintable() or ch in "\r\n\t" for ch in text)
+    if printable / max(1, len(text)) < 0.95:
+        return None
+    return text
+
+
 def detect_correctness_mode(bin_path: str, output_file: "Optional[Path]" = None,
                             timeout: int = 20) -> str:
     """Auto-detect which tier applies to an already-built reference binary.
@@ -143,10 +177,12 @@ def detect_correctness_mode(bin_path: str, output_file: "Optional[Path]" = None,
     if run1 is None or run1[0] != 0:
         return "exit_only"
     _, out1, file1 = run1
-    combined1 = out1.decode("latin1") + (file1.decode("latin1") if file1 is not None else "")
-    nums = extract_numbers(combined1)
-    if isinstance(nums, list) and len(nums) >= 1:
-        return "numeric"
+    payload1 = out1 + (file1 or b"")
+    text1 = _decode_text_output(payload1)
+    if text1 is not None:
+        nums = extract_numbers(text1)
+        if isinstance(nums, list) and len(nums) >= 1:
+            return "numeric"
 
     run2 = _run_capture(bin_path, timeout=timeout, output_file=output_file)
     if run2 is None or run2[0] != 0:

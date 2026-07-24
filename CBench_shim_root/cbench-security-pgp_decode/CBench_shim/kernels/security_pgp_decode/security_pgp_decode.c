@@ -694,7 +694,7 @@ static void _cat_file_to_stdout(const char* path)
 int main(int argc, char** argv)
 {
   char out_path[512];
-  snprintf(out_path, sizeof(out_path), "/home/hanning/comet/tmp/security_pgp_decode_out_%d.tmp", (int)getpid());
+  snprintf(out_path, sizeof(out_path), "/home/hanning/accelerate/comet/tmp/security_pgp_decode_out_%d.tmp", (int)getpid());
 
   char* fargv[] = { "kernel_security_pgp_decode", "/home/hanning/ctuning-datasets-min/dataset/pgp-0001/data.pgp", "-o", out_path , NULL };
   int fargc = 4;

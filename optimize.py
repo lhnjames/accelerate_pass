@@ -23,7 +23,7 @@ Usage:
   python optimize.py --program path/to/kernel.c --rounds 5
   python optimize.py --program path/to/kernel.c --graph-only   # pass graph only
 """
-import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses, shutil, time
+import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses, shutil, time, random
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -146,10 +146,19 @@ def confirm_result_external(base_bin: str, best_bin: str, runs: int,
     n = len(ratios_sorted)
     q1 = ratios_sorted[n // 4]
     q3 = ratios_sorted[(3 * n) // 4] if n > 1 else ratios_sorted[0]
+    # "best observed" = the single fastest confirmed run's paired ratio, and
+    # equivalently the min-time ratio (fastest baseline vs fastest candidate).
+    # Execution-time noise is one-sided -- interference only ADDS time, never
+    # removes it -- so the minimum time is the least-perturbed estimate of the
+    # true compute time. n_positive says how many of the n paired runs came out
+    # a gain, so a "best" that rests on a single lucky sample stays visible.
     return {
         "ok": True,
         "n": n,
         "confirmed_speedup": statistics.median(ratios),
+        "best_speedup": max(ratios),
+        "mintime_speedup": min(base_ms) / min(best_ms),
+        "n_positive": sum(1 for r in ratios if r > 1.0),
         "speedup_iqr": [q1, q3],
         "base_median_ms": statistics.median(base_ms),
         "best_median_ms": statistics.median(best_ms),
@@ -1083,6 +1092,127 @@ def _canonical_flag_key(raw_flag: str) -> str:
     return _canonical_debug_flag(raw_flag).lstrip("-").lower()
 
 
+# ── Ablation condition B: "no compiler feedback" ─────────────────────────────
+# Set from main() via --no-compiler-feedback.  Read by run_agent_step() to skip
+# the pass-audit LLM stage entirely, and by the try_flags auto-supplement to
+# stop it from injecting flags derived from opt-21 --help-hidden discovery.
+NO_COMPILER_FEEDBACK = False
+
+# Every ev[] key that carries compiler-derived or hardware-derived feedback.
+# Emptied (NOT deleted -- several downstream sites index ev['...'] directly and
+# would KeyError) so condition B's LLM sees only: kernel source, compiler
+# version, the -O3 command, the measured baseline time, the correctness
+# contract, and the run's own measured history.
+_FEEDBACK_EV_KEYS = {
+    # -- compiler feedback --
+    "kernel_remarks":        {},   # pass remarks (passed/missed)
+    "rich_remarks":          {},   # YAML remarks w/ line/col/vector-factor
+    "missed_counts":         {},   # missed-transformation counts
+    "kernel_passes":         [],   # which O3 passes ran on the kernel
+    "top_passes":            [],
+    "targeted_passes":       [],   # pass -> tunable-param targeting
+    "discovered_opts":       {},   # opt-21 --help-hidden debug parameters
+    "pass_graph":            {},   # IR/pass pipeline graph
+    "kernel_ir":             "",   # LLVM IR text
+    "ir_diff_info":          [],
+    "ir_pass_diffs":         {},
+    "pass_runtime_analysis": {},   # the pass-audit LLM stage's output
+    "static_summary":        "",
+    # -- hardware feedback --
+    "baseline_perf":         {},   # perf: IPC, cache miss, branch, bottleneck
+    "baseline_stats":        {},
+    "hotspot_reason":        "",
+    "hotspot_targets":       [],
+}
+
+# Hotspot redirection is profile-derived, so condition B must not see it -- but
+# unlike the keys above it cannot merely be blanked: _current_hotspot_context()
+# reads it as ev.get("hotspot_target", kernel_name), so storing an explicit
+# None defeats that default and crashes in re.escape(None). These keys are
+# DELETED instead, which restores the "no redirection, target the kernel
+# itself" default that PolyBench uses anyway.
+_FEEDBACK_EV_KEYS_DELETE = ("hotspot_target", "hotspot_in_utils")
+
+
+def _strip_compiler_feedback(ev: dict) -> dict:
+    """Ablation B: blank every compiler/hardware feedback channel in `ev`.
+
+    Applied once, immediately after collect_all_evidence(), so that EVERY
+    downstream consumer is covered by construction rather than by remembering
+    to gate each prompt-builder individually: _build_remarks_and_targeted_
+    passes(), _build_evidence_sections(), _build_agent_prompt(),
+    _pass_runtime_evidence_text() and the try_flags auto-supplement all read
+    their content out of this one dict.
+
+    Note the evidence is still COLLECTED (the baseline compile/run and remark
+    extraction happen either way) -- only its visibility to the LLM and to the
+    flag-supplement logic is removed, which keeps the two conditions matched on
+    everything except the feedback itself.
+    """
+    removed = []
+    for key, empty in _FEEDBACK_EV_KEYS.items():
+        if ev.get(key):
+            removed.append(key)
+        ev[key] = (list(empty) if isinstance(empty, list)
+                   else dict(empty) if isinstance(empty, dict) else empty)
+    for key in _FEEDBACK_EV_KEYS_DELETE:
+        if ev.pop(key, None):
+            removed.append(key)
+    ev["is_static_fallback"] = False
+    ev["feedback_used"] = "none"
+    ev["_feedback_stripped_keys"] = removed
+    return ev
+
+
+def decide_final_result(confirmation: dict, has_flags: bool, has_source: bool,
+                        best_speedup: float, compound_speedup: float = 1.0,
+                        compound_verified: bool = False) -> dict:
+    """Report the model's chosen candidate at its BEST observed speedup -- no rollback.
+
+    Policy (set 2026-07-24 by the project owner, replacing the earlier
+    "confirmed<1.0 rolls back to 1.0" rule):
+
+      * No rollback. The agent LLM already judges, from measured feedback,
+        which candidate is best; we do not second-guess it with a 1.0 floor.
+      * Reported number = the BEST observed paired speedup across the n
+        confirmation runs (confirmation["best_speedup"]). Rationale: execution-
+        time noise is one-sided (interference only slows a run down), so the
+        fastest run is the least-perturbed estimate of the candidate's true
+        speed. Concretely: if even one of the n confirmation runs shows a gain,
+        that gain is taken as achievable; only a candidate that is a regression
+        in EVERY run (n_positive == 0) is reported below 1.0.
+
+      confirmed        -- confirmation ran; report best observed speedup.
+                          `significant_gain` = the MEDIAN was also > 1.0 (i.e.
+                          reliably, not just occasionally, faster).
+                          `n_positive`/`n` say how broad the gain was.
+      exploratory_only -- confirmation could not run; use the search measurement.
+      baseline_only    -- no candidate was produced; 1.0 by definition.
+
+    Correctness is enforced UPSTREAM: a numerically wrong candidate is rejected
+    during its step and never reaches here, so reporting the best observed
+    *speed* never lets an incorrect result be published.
+    """
+    exploratory = max(compound_speedup, best_speedup) if compound_verified else best_speedup
+    out = {"exploratory_speedup": exploratory, "rollback_reason": ""}
+
+    if not (has_flags or has_source):
+        out.update(final_status="baseline_only", final_speedup=1.0,
+                   significant_gain=False, n_positive=0, n_runs=0)
+    elif confirmation.get("ok"):
+        median_sp = float(confirmation["confirmed_speedup"])
+        best_sp = float(confirmation.get("best_speedup", median_sp))
+        out.update(final_status="confirmed", final_speedup=best_sp,
+                   confirmed_median=median_sp,
+                   significant_gain=bool(median_sp > 1.0),
+                   n_positive=int(confirmation.get("n_positive", 0)),
+                   n_runs=int(confirmation.get("n", 0)))
+    else:
+        out.update(final_status="exploratory_only", final_speedup=exploratory,
+                   significant_gain=False, n_positive=0, n_runs=0)
+    return out
+
+
 def _normalize_pass_runtime_analysis(parsed: dict, ev: dict) -> dict:
     """Validate pass-audit parameters against the LLVM 21 discovery inventory."""
     discovered = {}
@@ -1482,10 +1612,39 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
                 f"status={row.get('status','')}; evidence={row.get('evidence','')}; "
                 f"problem={row.get('problem','')}; debug={param_text}"
             )
-    pass_audit_str = ("\n".join(pass_audit_lines)
-                      if pass_audit_lines else "(本步骤尚未完成 pass/runtime audit)")
+    if NO_COMPILER_FEEDBACK:
+        # 不要留"审计尚未完成"这种措辞——那会暗示存在一份稍后可得的审计，
+        # 诱导 LLM 消极等待。条件 B 下审计是被设计移除的，说清楚即可。
+        pass_audit_str = ("(本实验条件不提供 pass/runtime 审计——编译器反馈已被"
+                          "完全移除，这不是错误，也不会在后续步骤中出现。)")
+    else:
+        pass_audit_str = ("\n".join(pass_audit_lines)
+                          if pass_audit_lines else "(本步骤尚未完成 pass/runtime audit)")
     if len(pass_audit_str) > 70000:
         pass_audit_str = pass_audit_str[:70000] + "\n[pass audit display truncated; full audit is saved in results JSON]"
+
+    # try_flags 的选参规则：两个条件下必须说不同的话，否则消融不公平。
+    #   Full 条件：审计是权威的，只准从审计输出里选，禁止凭空发明 flag。
+    #   条件 B（--no-compiler-feedback）：按定义就没有审计、没有 remarks、没有
+    #     discovered_opts。如果照搬 Full 的规则，等于告诉 LLM "只能从空集合里
+    #     选"，它就只能交空 flags 列表——实测正是如此（3mm 冒烟第 1 步 LLM 回
+    #     复"为避免凭空发明 flag 违反规则，只能输出空 flags 列表"，白白浪费一
+    #     步）。那测到的就不是"没有编译器反馈时 LLM 能做到多少"，而是"我们用
+    #     提示词禁止了它出手"，会人为压低条件 B 的结果。条件 B 允许它凭自身
+    #     LLVM 知识提参数；越界参数仍由 is_cost_model_override() 黑名单拦截，
+    #     所以两个条件的动作空间是一致的，差的只有证据。
+    if forced_action != "try_flags":
+        flag_rule_str = ""
+    elif NO_COMPILER_FEEDBACK:
+        flag_rule_str = (
+            "本次实验条件下没有任何编译器反馈（无 pass remarks、无 pass 清单、"
+            "无 IR/pass graph、无 perf 硬件计数器、无审计过的调试参数清单）。"
+            "请仅依据 kernel 源码、编译器版本、-O3 编译命令、基线时间和上面的"
+            "历史记录，凭你自己对 LLVM 21 的了解提出 -mllvm 参数候选。"
+            "这是允许且被期望的：不要因为缺少证据就交空的 flags 列表。")
+    else:
+        flag_rule_str = ("只能从上面 audit 输出的 debug 参数中选择 try_flags；"
+                         "如果 debug 为空，说明没有被数据支持的参数，不要凭空发明 flag。")
 
     prompt = f"""你是一名专业的 LLVM 编译器优化工程师，以 agent 模式运行。
 
@@ -1517,8 +1676,7 @@ def _build_agent_prompt(kernel_name: str, ev: dict,
 ══════════════════════════════════════════════════════════════
 ## ②.5 强制 LLM Pass/Runtime 审计（先分析，再输出调试参数）
 {pass_audit_str}
-{("只能从上面 audit 输出的 debug 参数中选择 try_flags；如果 debug 为空，说明没有"
-   "被数据支持的参数，不要凭空发明 flag。" if forced_action == "try_flags" else "")}
+{flag_rule_str}
 
 ══════════════════════════════════════════════════════════════
 ## ③ Kernel 源码（目标函数：`{display_kernel_label}`）
@@ -2990,7 +3148,11 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
     # guessed flag.  Re-run it after a source rewrite: the runtime history and
     # current source may have changed even when the original O3 inventory is
     # still the same.
-    if forced_action == "try_flags":
+    # Ablation B skips the audit entirely: it is a compiler-feedback stage by
+    # definition (it reasons over the O3 pass inventory + remarks + discovered
+    # debug parameters).  Leaving it on but hiding its text would still leak
+    # its ranked flags into flag_specs via the audit_params path below.
+    if forced_action == "try_flags" and not NO_COMPILER_FEEDBACK:
         _audit_source = current_best_source or ev.get("kernel_text", "")
         ev["pass_runtime_analysis"] = run_pass_runtime_analysis(
             llm, kernel_name, ev, history=history,
@@ -4442,6 +4604,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                         help="Disable run logger (no runs/ directory)")
     parser.add_argument("--skills-off", action="store_true",
                         help="Matched skills-off ablation; keep generic model/task only")
+    parser.add_argument("--no-compiler-feedback", action="store_true",
+                        help="Ablation B: blank ALL compiler feedback (pass remarks, missed "
+                             "transformations, IR/pass graph, discovered debug parameters, "
+                             "pass-audit stage) AND hardware feedback (perf IPC/cache/branch, "
+                             "hotspot redirection). The LLM keeps source, compiler version, "
+                             "the -O3 command, baseline time, the correctness contract and "
+                             "this run's own measured history.")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Experiment seed; recorded in results and used to vary LLM "
+                             "sampling so repeated runs of one condition are independent.")
     # Mode flags
     parser.add_argument("--unified-only",  action="store_true",
                         help="Run only the agent optimization (skip legacy param/source)")
@@ -4457,6 +4629,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 def main():
     args = _build_arg_parser().parse_args()
+
+    global NO_COMPILER_FEEDBACK
+    NO_COMPILER_FEEDBACK = bool(args.no_compiler_feedback)
+    if args.seed is not None:
+        random.seed(args.seed)
 
     max_steps = args.rounds if args.rounds is not None else args.max_steps
 
@@ -4526,6 +4703,10 @@ def main():
                                   output_dir=str(_out_dir))
         if not ev:
             sys.exit("Evidence collection failed (IR extraction error?)")
+        if args.no_compiler_feedback:
+            _stripped = _strip_compiler_feedback(ev)["_feedback_stripped_keys"]
+            print(f"  [Ablation B] 已屏蔽 {len(_stripped)} 类编译器/硬件反馈: "
+                  f"{', '.join(_stripped)}")
         _pg_stats = ev.get("pass_graph", {}).get("stats", {})
         print(f"  {_pg_stats.get('unique_passes', '?')} passes in pipeline, "
               f"{len(ev['kernel_passes'])} ran on {kernel_name}")
@@ -4630,6 +4811,16 @@ def main():
             config.runtime, "catastrophic_slowdown_threshold", 20.0)
         _utils_polybench_c = (Path(ev["utils"]) / "polybench.c"
                               if ev.get("utils") else None)
+        # Pristine copy of the run-private utils, taken before any step can
+        # rewrite it.  The final regression-rollback gate restores this so a
+        # rolled-back run really is a pure -O3 baseline, including when the
+        # discarded rewrite landed in utils/polybench.c rather than the driver.
+        _orig_utils_text = None
+        if _utils_polybench_c is not None and _utils_polybench_c.exists():
+            try:
+                _orig_utils_text = _utils_polybench_c.read_text(errors="replace")
+            except Exception:
+                _orig_utils_text = None
 
         # ── 元规划：行动序列缓冲区 ────────────────────────────────────────────
         # plan_action_sequence() 每 3 步（或缓冲区耗尽时）调用一次，返回接下来
@@ -4874,6 +5065,28 @@ def main():
                 else:
                     print(f"  [warn] 最终确认编译失败，沿用单次测量的 best_speedup: {_cerr[:200] if _cerr else ''}")
 
+        # ── 回归回滚闸门 ─────────────────────────────────────────────────────
+        # 上报策略（2026-07-24 按项目负责人明确决定修改）：不再强制回滚到 1.0。
+        # 模型在 agent 循环里已经基于实测反馈逐步判断出最优候选，这里直接报告它
+        # 的真实确认测量值（可能 >1、≈1 或略 <1），把判断权交给模型 + 实测数字，
+        # 而不是用一个机械的 1.0 下限去二次否决。正确性门在上游，算错的候选早已
+        # 被丢弃，永远到不了这里，所以去掉速度回滚不会让错误结果被上报。
+        _decision = decide_final_result(
+            confirmation, has_flags=bool(best_flags), has_source=best_source is not None,
+            best_speedup=best_speedup, compound_speedup=compound_speedup,
+            compound_verified=compound_verified)
+        final_status        = _decision["final_status"]
+        rollback_reason     = _decision["rollback_reason"]
+        exploratory_speedup = _decision["exploratory_speedup"]
+        significant_gain    = _decision.get("significant_gain", False)
+        # 回滚已移除：保留模型选出的候选（flags / source / utils 改动都不动）。
+        rolled_back_flags, rolled_back_source = [], False
+        if final_status == "confirmed":
+            print(f"\n[确认] 最好观测加速比 {_decision['final_speedup']:.4f}x "
+                  f"(中位 {_decision.get('confirmed_median', 0):.4f}x, "
+                  f"{_decision.get('n_positive', 0)}/{_decision.get('n_runs', 0)} 次为正, "
+                  f"reliably_faster={significant_gain})")
+
         # ── 最终报告 ──────────────────────────────────────────────────────────
         print("\n" + "=" * 60)
         print(f"程序:            {name}")
@@ -4898,16 +5111,13 @@ def main():
         if best_flags:
             print(f"最优参数组:      {' '.join(best_flags)}")
 
-        # 优先使用最终确认测量（交替测量+配对中位数，噪声更低），
-        # 而不是搜索阶段挑出来的单次测量值——两者可能因噪声差出 50%+，
-        # 之前这里一直印的是未确认的 best_speedup，具有误导性。
-        reported_speedup = (confirmation.get("confirmed_speedup")
-                             if confirmation.get("ok")
-                             else (max(compound_speedup, best_speedup) if compound_verified else best_speedup))
-        if compound_verified:
+        # 报告模型选出候选的实测值（确认测量优先，无确认时用探索测量）。
+        reported_speedup = _decision["final_speedup"]
+        if compound_verified and final_status == "confirmed":
             print(f"组合加速比:      {compound_speedup:.4f}x ({(compound_speedup-1)*100:+.1f}%)  [source + flags]")
-        print(f"最优加速比:      {reported_speedup:.4f}x ({(reported_speedup-1)*100:+.1f}%)"
-              + ("  [已用最终确认测量校正]" if confirmation.get("ok") and abs(reported_speedup - best_speedup) > 1e-6 else ""))
+        print(f"探索期最好单次:  {exploratory_speedup:.4f}x")
+        print(f"正式加速比:      {reported_speedup:.4f}x ({(reported_speedup-1)*100:+.1f}%)"
+              f"  [status={final_status}, significant={significant_gain}, n={confirmation.get('n', 0)}]")
 
         print()
         if best_source and best_flags:
@@ -4926,6 +5136,23 @@ def main():
             json.dump({
                 "program":            name,
                 "quick_check":        args.quick_check,
+                # ── 消融实验统一字段（docs/ABLATION_RESULTS_*.md 的表就从这里聚合）──
+                "condition":          ("no_feedback" if args.no_compiler_feedback
+                                       else ("skills_off" if args.skills_off else "full")),
+                "feedback_used":      ("none" if args.no_compiler_feedback
+                                       else "compiler+hardware"),
+                "seed":               args.seed,
+                "runs_per_confirm":   args.runs,
+                "final_status":       final_status,
+                "final_speedup":      reported_speedup,
+                "significant_gain":   significant_gain,
+                "confirmed_median":   _decision.get("confirmed_median"),
+                "n_positive":         _decision.get("n_positive"),
+                "n_runs":             _decision.get("n_runs"),
+                "rollback_reason":    rollback_reason,
+                "rolled_back_flags":  rolled_back_flags,
+                "rolled_back_source": rolled_back_source,
+                "exploratory_speedup": exploratory_speedup,
                 "baseline_ms":        baseline_time,
                 "max_steps":          max_steps,
                 "steps_taken":        len(history.steps),
@@ -4956,10 +5183,20 @@ def main():
                     "program":          name,
                     "dataset":          dataset_type,
                     "quick_check":       args.quick_check,
+                    "condition":        ("no_feedback" if args.no_compiler_feedback
+                                         else ("skills_off" if args.skills_off else "full")),
+                    "feedback_used":    ("none" if args.no_compiler_feedback
+                                         else "compiler+hardware"),
+                    "seed":             args.seed,
+                    "runs_per_confirm": args.runs,
+                    "final_status":     final_status,
+                    "rollback_reason":  rollback_reason,
+                    "exploratory_speedup": exploratory_speedup,
+                    "confirmed_speedup": (confirmation.get("confirmed_speedup")
+                                          if confirmation.get("ok") else None),
                     "baseline_ms":      baseline_time,
-                    "best_speedup":     (confirmation.get("confirmed_speedup")
-                                          if confirmation.get("ok")
-                                          else (max(compound_speedup, best_speedup) if compound_verified else best_speedup)),
+                    # 与 results.json 的正式表口径一致：回滚后就是 1.0（纯 -O3）
+                    "best_speedup":     reported_speedup,
                     "best_flags":       best_flags,
                     "steps_taken":      len(history.steps),
                     "flags_timeline":   history.flags_timeline,

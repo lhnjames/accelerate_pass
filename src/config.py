@@ -222,10 +222,10 @@ class ConfigLoader:
             raise ValueError(f"Configuration not found for {path}")
 
         compiler = CompilerConfig(
-            clang_path=get_value("compiler.clang_path", "/usr/bin/clang"),
-            clang_cxx_path=get_value("compiler.clang_cxx_path", "/usr/bin/clang++"),
-            opt_path=get_value("compiler.opt_path", "/usr/bin/opt"),
-            llc_path=get_value("compiler.llc_path", "/usr/bin/llc"),
+            clang_path=get_value("compiler.clang_path", "/usr/bin/clang-21"),
+            clang_cxx_path=get_value("compiler.clang_cxx_path", "/usr/bin/clang++-21"),
+            opt_path=get_value("compiler.opt_path", "/usr/bin/opt-21"),
+            llc_path=get_value("compiler.llc_path", "/usr/bin/llc-21"),
             timeout_seconds=get_value("compiler.timeout_seconds", 300),
         )
 

@@ -1,0 +1,18 @@
+[
+  {
+    "flag": "--slp-threshold",
+    "values": [-10, -5, 0, 5, 10]
+  },
+  {
+    "flag": "--unroll-threshold",
+    "values": [100, 200, 400, 800, 1000]
+  },
+  {
+    "flag": "--licm-max-num-uses-traversed",
+    "values": [8, 16, 32, 64, 128]
+  },
+  {
+    "flag": "--vectorizer-min-trip-count",
+    "values": [0, 1, 2, 4, 8]
+  }
+]

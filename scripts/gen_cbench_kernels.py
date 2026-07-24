@@ -54,17 +54,24 @@ reference run and a candidate run, or any future concurrent evaluation)
 can never collide on the same path.
 """
 import json
+import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
 
-CBENCH_ROOT = Path("/home/hanning/cbench/program")
-DATASET_ROOT = Path("/home/hanning/ctuning-datasets-min/dataset")
-POLYBENCH_C = Path("/home/hanning/comet/PolyBenchC_no_rag/utilities/polybench.c")
-POLYBENCH_H = Path("/home/hanning/comet/PolyBenchC_no_rag/utilities/polybench.h")
-OUT_ROOT = Path("/home/hanning/comet/CBench_shim_root")
-CLANG = "/usr/bin/clang-11"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+CBENCH_ROOT = Path(os.environ.get("CBENCH_ROOT", "/home/hanning/cbench/program"))
+DATASET_ROOT = Path(os.environ.get(
+    "CBENCH_DATASET_ROOT", "/home/hanning/ctuning-datasets-min/dataset"))
+POLYBENCH_C = PROJECT_ROOT / "PolyBenchC_no_rag/utilities/polybench.c"
+POLYBENCH_H = PROJECT_ROOT / "PolyBenchC_no_rag/utilities/polybench.h"
+OUT_ROOT = PROJECT_ROOT / "CBench_shim_root"
+TMP_DIR = PROJECT_ROOT / "tmp"
+# LLVM 21 is mandatory.  The repository launcher supplies the private shared
+# library path on the local host; COMET_CLANG_21 can point at /usr/bin/clang-21
+# on the remote SPEC host.
+CLANG = os.environ.get("COMET_CLANG_21", str(PROJECT_ROOT / "scripts/toolchain/clang-21"))
 
 # program -> variant -> dataset resolution.
 # Each entry resolves the CK $#dataset_...#$ placeholders in that variant's
@@ -241,7 +248,7 @@ def gen_one(prog_name: str, variant: str, resolved: dict):
     entry_text = (prog_dir / entry_file).read_text(errors="replace")
     entry_text = rename_entry(entry_text, entry, f"kernel_{kname}")
 
-    argv, stdin_file = build_argv(kname, variant, template, resolved, Path("/home/hanning/comet/tmp"))
+    argv, stdin_file = build_argv(kname, variant, template, resolved, TMP_DIR)
     out_idx = None
     for i, a in enumerate(argv[1:], start=1):
         if a.endswith(".tmp") or "tmp-output" in a:
@@ -259,7 +266,7 @@ def gen_one(prog_name: str, variant: str, resolved: dict):
             "out_path" if i == out_idx else f'"{a}"' for i, a in enumerate(argv))
         out_path_decl = (
             "  char out_path[512];\n"
-            f'  snprintf(out_path, sizeof(out_path), "/home/hanning/comet/tmp/{kname}_out_%d.tmp", (int)getpid());\n'
+            f'  snprintf(out_path, sizeof(out_path), "{TMP_DIR}/{kname}_out_%d.tmp", (int)getpid());\n'
         )
         cat_output = "  _cat_file_to_stdout(out_path);\n"
     else:
@@ -325,7 +332,7 @@ def try_compile(kernel_c: Path) -> tuple:
 
 
 def main():
-    Path("/home/hanning/comet/tmp").mkdir(exist_ok=True)
+    TMP_DIR.mkdir(exist_ok=True)
     ok, fail = [], []
     for (prog, variant), resolved in DATASETS.items():
         try:
@@ -350,8 +357,10 @@ def main():
         print(f"  {prog}/{variant}:")
         print("    " + (err or "").replace("\n", "\n    ")[:500])
 
-    manifest = Path("/home/hanning/comet/CBench_shim_root/manifest.txt")
-    manifest.write_text("\n".join(path for _, _, path in ok) + "\n")
+    manifest = OUT_ROOT / "manifest.txt"
+    # Repository-relative entries keep the manifest valid after rsync/deploy.
+    manifest.write_text("\n".join(
+        str(Path(path).relative_to(PROJECT_ROOT)) for _, _, path in ok) + "\n")
     print(f"\nmanifest written: {manifest} ({len(ok)} kernels)")
 
 
