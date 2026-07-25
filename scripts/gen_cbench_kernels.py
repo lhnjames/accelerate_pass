@@ -67,7 +67,7 @@ DATASET_ROOT = Path(os.environ.get(
 POLYBENCH_C = PROJECT_ROOT / "PolyBenchC_no_rag/utilities/polybench.c"
 POLYBENCH_H = PROJECT_ROOT / "PolyBenchC_no_rag/utilities/polybench.h"
 OUT_ROOT = PROJECT_ROOT / "CBench_shim_root"
-TMP_DIR = PROJECT_ROOT / "tmp"
+TMP_DIR = Path("/tmp")
 # LLVM 21 is mandatory.  The repository launcher supplies the private shared
 # library path on the local host; COMET_CLANG_21 can point at /usr/bin/clang-21
 # on the remote SPEC host.
