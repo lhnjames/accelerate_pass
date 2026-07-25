@@ -2179,7 +2179,7 @@ static void _cat_file_to_stdout(const char* path)
 int main(int argc, char** argv)
 {
   char out_path[512];
-  snprintf(out_path, sizeof(out_path), "/home/hanning/accelerate/comet/tmp/automotive_susan_smoothing_out_%d.tmp", (int)getpid());
+  snprintf(out_path, sizeof(out_path), "/tmp/automotive_susan_smoothing_out_%d.tmp", (int)getpid());
 
   char* fargv[] = { "kernel_automotive_susan_smoothing", "/home/hanning/ctuning-datasets-min/dataset/image-pgm-0001/data.pgm", out_path, "-s" , NULL };
   int fargc = 4;

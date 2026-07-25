@@ -379,7 +379,7 @@ static void _cat_file_to_stdout(const char* path)
 int main(int argc, char** argv)
 {
   char out_path[512];
-  snprintf(out_path, sizeof(out_path), "/home/hanning/accelerate/comet/tmp/consumer_tiff2median_out_%d.tmp", (int)getpid());
+  snprintf(out_path, sizeof(out_path), "/tmp/consumer_tiff2median_out_%d.tmp", (int)getpid());
 
   char* fargv[] = { "kernel_consumer_tiff2median", "/home/hanning/ctuning-datasets-min/dataset/image-tiff-0001/data.tiff", out_path , NULL };
   int fargc = 3;

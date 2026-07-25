@@ -330,7 +330,7 @@ static void _cat_file_to_stdout(const char* path)
 int main(int argc, char** argv)
 {
   char out_path[512];
-  snprintf(out_path, sizeof(out_path), "/home/hanning/accelerate/comet/tmp/security_rijndael_encode_out_%d.tmp", (int)getpid());
+  snprintf(out_path, sizeof(out_path), "/tmp/security_rijndael_encode_out_%d.tmp", (int)getpid());
 
   char* fargv[] = { "kernel_security_rijndael_encode", "/home/hanning/ctuning-datasets-min/dataset/enc-0001/data.enc", out_path, "e", "1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321" , NULL };
   int fargc = 5;
