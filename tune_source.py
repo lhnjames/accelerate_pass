@@ -497,7 +497,8 @@ def _detect_strided_inner_loop(kernel_src: str):
         arr, idx1, idx2 = m.group(1), m.group(2).strip(), m.group(3).strip()
         iv_first = bool(re.fullmatch(rf'{re.escape(iv)}(\s*[+\-]\s*\w+)?', idx1))
         iv_last  = bool(re.fullmatch(rf'{re.escape(iv)}(\s*[+\-]\s*\w+)?', idx2))
-        other = re.match(r'(\w+)', idx2).group(1) if idx2 else None
+        _other_m = re.match(r'(\w+)', idx2) if idx2 else None
+        other = _other_m.group(1) if _other_m else None
         if iv_first and not re.search(rf'\b{re.escape(iv)}\b', idx2) and other and other != iv:
             strided.setdefault(arr, other)
         elif iv_last and not re.search(rf'\b{re.escape(iv)}\b', idx1):
