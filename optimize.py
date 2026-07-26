@@ -95,31 +95,46 @@ from src.skill_executor import (
 # ── Single-shot timing (for interleaved confirmation runs) ───────────────────
 
 def _single_shot_ms_external(bin_path: str, pin_cpu: "int | None" = None) -> float:
-    """One execution, EXTERNAL wall-clock timing (time.monotonic() wrapped
-    around the subprocess) -- deliberately does not trust the binary's own
-    stdout-reported time, unlike an earlier version of this measurement
-    (confirm_result()/_single_shot_ms(), removed) that parsed the last
-    whitespace token of stdout as an elapsed-seconds value. That convention
-    only holds for PolyBench-shaped kernels; it silently breaks for any
-    program that prints its own output (SPEC benchmarks): observed live,
-    lbm_r's confirm step once reported a bogus "134.346x" because the parsed
-    "time" only covered a fraction of true wall time, and later, nab_r's
-    and mcf_r's confirm step failed outright (every alternating sample <=0)
-    because their last stdout token wasn't a timing value at all (e.g.
-    nab_r's is literally the "0" from "...Done, md returns 0"). External
-    timing works for any program regardless of what it prints to stdout, and
-    matches tp_run_timing()/ts_run_timing() (src/build_utils.run_timing,
-    used everywhere else in this file for baseline_time and Phase A/B flag
+    """One ROBUST alternating-confirmation sample, EXTERNAL wall-clock timing
+    (time.monotonic() wrapped around each subprocess) -- deliberately does
+    not trust the binary's own stdout-reported time, unlike an earlier
+    version of this measurement (confirm_result()/_single_shot_ms(),
+    removed) that parsed the last whitespace token of stdout as an
+    elapsed-seconds value. That convention only holds for PolyBench-shaped
+    kernels; it silently breaks for any program that prints its own output
+    (SPEC benchmarks): observed live, lbm_r's confirm step once reported a
+    bogus "134.346x" because the parsed "time" only covered a fraction of
+    true wall time, and later, nab_r's and mcf_r's confirm step failed
+    outright (every alternating sample <=0) because their last stdout token
+    wasn't a timing value at all (e.g. nab_r's is literally the "0" from
+    "...Done, md returns 0"). External timing works for any program
+    regardless of what it prints to stdout, and matches
+    tp_run_timing()/ts_run_timing() (src/build_utils.run_timing, used
+    everywhere else in this file for baseline_time and Phase A/B flag
     screening), so there is no risk of mixing two different measurement
-    methodologies against the same baseline_time."""
+    methodologies against the same baseline_time.
+
+    Despite the name, this is no longer literally one execution: like
+    run_timing()'s per-sample measurement, it runs the binary 4 times and
+    averages the middle 2 (dropping the fastest and slowest), so a single
+    scheduling blip can't flip which side of the alternating base/candidate
+    comparison looks faster."""
     cmd = (["taskset", "-c", str(pin_cpu)] if pin_cpu is not None else []) + [str(bin_path)]
-    t0 = time.monotonic()
-    try:
-        res = subprocess.run(cmd, capture_output=True, timeout=120)
-    except Exception:
-        return -1.0
-    elapsed_ms = (time.monotonic() - t0) * 1000.0
-    return elapsed_ms if res.returncode == 0 else -1.0
+    times = []
+    for _ in range(4):
+        t0 = time.monotonic()
+        try:
+            res = subprocess.run(cmd, capture_output=True, timeout=120)
+        except Exception:
+            continue
+        elapsed_ms = (time.monotonic() - t0) * 1000.0
+        if res.returncode == 0:
+            times.append(elapsed_ms)
+    if len(times) < 3:
+        return statistics.mean(times) if times else -1.0
+    times_sorted = sorted(times)
+    trimmed = times_sorted[1:-1]
+    return statistics.mean(trimmed) if trimmed else -1.0
 
 
 def confirm_result_external(base_bin: str, best_bin: str, runs: int,

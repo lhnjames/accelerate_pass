@@ -139,9 +139,42 @@ def select_compiler(sources: Sequence["str | Path"], clang_path: str,
     )
 
 
+def _trimmed_mean_ms(cmd: list, timeout: int, n: int = 4) -> float:
+    """One ROBUST timing sample: execute `cmd` n times, drop the single
+    highest and single lowest wall-clock reading, return the mean of what's
+    left. Replaces "one raw execution = one sample" everywhere a program is
+    timed (exploration screening AND final confirmation) so that a single
+    unlucky/lucky OS scheduling blip can no longer masquerade as a real
+    speedup or regression -- see docs on the exploratory-vs-confirmed
+    speedup gap this was introduced to shrink."""
+    times = []
+    for _ in range(n):
+        t0 = time.monotonic()
+        try:
+            res = subprocess.run(cmd, capture_output=True, timeout=timeout)
+        except Exception:
+            continue
+        elapsed_ms = (time.monotonic() - t0) * 1000.0
+        if res.returncode == 0:
+            times.append(elapsed_ms)
+    if len(times) < n - 1:
+        # Too many failed/timed-out runs to safely drop both extremes.
+        return statistics.mean(times) if times else -1.0
+    times_sorted = sorted(times)
+    trimmed = times_sorted[1:-1] if len(times_sorted) > 2 else times_sorted
+    return statistics.mean(trimmed) if trimmed else -1.0
+
+
 def run_timing(bin_path: str, runs: int = 5, pin_cpu: "int | None" = None,
                timeout_seconds: int = 600) -> float:
-    """Run a compiled benchmark binary `runs` times (+1 warmup), return median ms.
+    """Run a compiled benchmark binary and return its timing in ms.
+
+    Each of the `runs` samples is itself a ROBUST measurement: 4 raw
+    executions (+1 warmup, discarded, upfront) with the single fastest and
+    single slowest dropped and the remaining 2 averaged (see
+    _trimmed_mean_ms). `run_timing` then returns the median across the
+    `runs` such samples -- unchanged from before except that each sample
+    is no longer a single noisy execution.
 
     Pure external wall-clock timing (time.monotonic() wrapped around the
     subprocess) -- the binary's own stdout is not parsed for a self-reported
@@ -159,17 +192,12 @@ def run_timing(bin_path: str, runs: int = 5, pin_cpu: "int | None" = None,
         subprocess.run(cmd, capture_output=True, timeout=timeout)  # warmup, discarded
     except Exception:
         pass
-    times = []
-    for _ in range(runs):
-        t0 = time.monotonic()
-        try:
-            res = subprocess.run(cmd, capture_output=True, timeout=timeout)
-        except Exception:
-            continue
-        elapsed_ms = (time.monotonic() - t0) * 1000.0
-        if res.returncode == 0:
-            times.append(elapsed_ms)
-    return statistics.median(times) if times else -1.0
+    samples = []
+    for _ in range(max(1, runs)):
+        m = _trimmed_mean_ms(cmd, timeout)
+        if m > 0:
+            samples.append(m)
+    return statistics.median(samples) if samples else -1.0
 
 
 def compile_c(clang_path: str, sources: Sequence[str],
