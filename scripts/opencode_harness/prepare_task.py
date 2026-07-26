@@ -57,7 +57,7 @@ def main():
     measure_sh = scratch_dir / "measure.sh"
     measure_sh.write_text(
         "#!/bin/sh\n"
-        f'exec python3 /home/hanning/comet/scripts/opencode_harness/measure_cli.py "{utils}" "{scratch_dir}" {ms}\n'
+        f'exec /home/hanning/comet/.venv/bin/python3 /home/hanning/comet/scripts/opencode_harness/measure_cli.py "{utils}" "{scratch_dir}" {ms}\n'
     )
     measure_sh.chmod(measure_sh.stat().st_mode | stat.S_IEXEC)
 
