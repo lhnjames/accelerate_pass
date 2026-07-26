@@ -2,13 +2,14 @@
 # Run the OpenCode+DeepSeek baseline for one comet benchmark program, driven
 # by an explicit N-round loop (matching comet's --rounds budget) rather than
 # a single long autonomous session capped by wall-clock time.
-# Usage: run_one.sh <program_rel_path> <scratch_dir> [rounds] [confirm_runs] [round_timeout_s]
+# Usage: run_one.sh <program_rel_path> <scratch_dir> [rounds] [confirm_runs] [round_timeout_s] [pin_cpu]
 set -u -o pipefail
 PROGRAM="$1"
 SCRATCH="$2"
 ROUNDS="${3:-9}"           # matches --rounds 9 used for conditions 1/2/3
 CONFIRM_RUNS="${4:-3}"     # matches --runs 3 used for conditions 1/2/3
 ROUND_TIMEOUT_S="${5:-600}"  # safety cap per round, not the driving budget
+PIN_CPU="${6:-}"           # dedicated core for this worker's compile/time subprocesses
 
 export PATH="$HOME/Software/nodejs/bin:$PATH"
 export DEEPSEEK_API_KEY="$(grep '^DEEPSEEK_API_KEY=' /home/hanning/comet/.env | cut -d= -f2)"
@@ -16,8 +17,8 @@ export DEEPSEEK_API_KEY="$(grep '^DEEPSEEK_API_KEY=' /home/hanning/comet/.env | 
 VENV_PY=/home/hanning/comet/.venv/bin/python3
 MODEL="deepseek/deepseek-v4-pro"
 
-echo "[$(date '+%H:%M:%S')] preparing $PROGRAM -> $SCRATCH"
-"$VENV_PY" /home/hanning/comet/scripts/opencode_harness/prepare_task.py "$PROGRAM" "$SCRATCH" || exit 1
+echo "[$(date '+%H:%M:%S')] preparing $PROGRAM -> $SCRATCH (pin_cpu=${PIN_CPU:-none})"
+"$VENV_PY" /home/hanning/comet/scripts/opencode_harness/prepare_task.py "$PROGRAM" "$SCRATCH" "$PIN_CPU" || exit 1
 
 cd "$SCRATCH" || exit 1
 SESSION_ID=""

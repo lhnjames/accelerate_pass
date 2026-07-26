@@ -20,7 +20,7 @@ CLANG = _cfg["compiler"]["clang_path"]
 
 def compile_and_time(kernel_c: str, utils: str, source_dir: str, runs: int = 1,
                       dataset: str = "LARGE_DATASET", out_bin: str = "/tmp/oc_bin",
-                      extra_flags=None):
+                      extra_flags=None, pin_cpu=None):
     """Compile kernel_c against utils/polybench.c and time it. Returns
     (ok: bool, ms: float, err: str)."""
     polybench_c = Path(utils) / "polybench.c"
@@ -28,7 +28,7 @@ def compile_and_time(kernel_c: str, utils: str, source_dir: str, runs: int = 1,
                               Path(out_bin), extra_flags=extra_flags, dataset=dataset)
     if not ok:
         return False, -1.0, err
-    ms = run_timing(out_bin, runs=runs)
+    ms = run_timing(out_bin, runs=runs, pin_cpu=pin_cpu)
     if ms <= 0:
         return False, -1.0, "run_timing returned <= 0 (crash or timeout)"
     return True, ms, ""

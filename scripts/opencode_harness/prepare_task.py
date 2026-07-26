@@ -20,6 +20,7 @@ from src.correctness import detect_correctness_mode        # noqa: E402
 
 def main():
     program_rel, scratch_dir = sys.argv[1], Path(sys.argv[2])
+    pin_cpu = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else None
     program_path = COMET_ROOT / program_rel
     scratch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -39,7 +40,8 @@ def main():
     # confirmation) computed ONCE, up front, against the untouched original.
     ref_bin = scratch_dir / "ref_bin"
     ok, ms, err = compile_and_time(str(scratch_dir / "kernel.c"), str(utils),
-                                    str(scratch_dir), runs=3, out_bin=str(ref_bin))
+                                    str(scratch_dir), runs=3, out_bin=str(ref_bin),
+                                    pin_cpu=pin_cpu)
     if not ok:
         sys.exit(f"baseline compile/time failed: {err}")
 
@@ -52,12 +54,14 @@ def main():
         "baseline_ms": ms,
         "correctness_mode": mode,
         "ref_bin": str(ref_bin),
+        "pin_cpu": pin_cpu,
     }, indent=1))
 
     measure_sh = scratch_dir / "measure.sh"
+    pin_arg = str(pin_cpu) if pin_cpu is not None else ""
     measure_sh.write_text(
         "#!/bin/sh\n"
-        f'exec /home/hanning/comet/.venv/bin/python3 /home/hanning/comet/scripts/opencode_harness/measure_cli.py "{utils}" "{scratch_dir}" {ms}\n'
+        f'exec /home/hanning/comet/.venv/bin/python3 /home/hanning/comet/scripts/opencode_harness/measure_cli.py "{utils}" "{scratch_dir}" {ms} {pin_arg}\n'
     )
     measure_sh.chmod(measure_sh.stat().st_mode | stat.S_IEXEC)
 
