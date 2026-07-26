@@ -4611,6 +4611,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                              "hotspot redirection). The LLM keeps source, compiler version, "
                              "the -O3 command, baseline time, the correctness contract and "
                              "this run's own measured history.")
+    parser.add_argument("--rewrite-only", action="store_true",
+                        help="Ablation A (three-condition study, condition 1): force every "
+                             "step of the unified agent loop to action=rewrite_source -- "
+                             "never try_flags/try_pragma. Runs on the SAME evidence-collection/"
+                             "measurement pipeline as the full and no-compiler-feedback "
+                             "conditions (unlike the legacy --source-only path) so the three "
+                             "conditions are apples-to-apples. Typically combined with "
+                             "--no-compiler-feedback for a true 'source-only, zero feedback' "
+                             "condition.")
     parser.add_argument("--seed", type=int, default=None,
                         help="Experiment seed; recorded in results and used to vary LLM "
                              "sampling so repeated runs of one condition are independent.")
@@ -4837,7 +4846,12 @@ def main():
             # ── 决定本步骤的 forced_action ────────────────────────────────────
             _forced: "str | None" = None
 
-            if step == 1:
+            if args.rewrite_only:
+                # Ablation condition 1: never let flags/pragma actions happen,
+                # every step is a source rewrite attempt. Skip meta-planner/
+                # anti-repeat entirely -- there is nothing to rotate between.
+                _forced = "rewrite_source"
+            elif step == 1:
                 # 第1步：强制调参，建立 flags 基线
                 _forced = "try_flags"
             elif step == 2:
