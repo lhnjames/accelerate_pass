@@ -4725,6 +4725,27 @@ def main():
         print(f"  {_pg_stats.get('unique_passes', '?')} passes in pipeline, "
               f"{len(ev['kernel_passes'])} ran on {kernel_name}")
 
+        # Establish baseline once (静态分析兜底路径下跳过计时). Compiled BEFORE
+        # hotspot selection (moved up from its old spot after) so the same
+        # binary can also runtime-verify the hotspot candidates below --
+        # kept around (not unlinked) until that verification is done.
+        baseline_time: float = -1.0
+        _bbin_path: "str | None" = None
+        if ev.get("utils") is None:
+            print("  静态分析模式：跳过基线计时（无 PolyBench utilities）")
+            print("  只支持 exit_only 正确性验证，无量化加速比")
+        else:
+            polybench_c = ev["utils"] / "polybench.c"
+            _bbin = tempfile.NamedTemporaryFile(delete=False, suffix="_base")
+            _bbin.close()
+            _bbin_path = _bbin.name
+            ok, _ = compile_binary(clang, src, polybench_c, ev["utils"],
+                                   ev["source_dir"], Path(_bbin_path))
+            baseline_time = tp_run_timing(_bbin_path, runs=args.runs, pin_cpu=pin_cpu)
+            if baseline_time <= 0:
+                sys.exit("基线计时失败，请检查编译配置")
+            print(f"  基线 -O3: {baseline_time:.2f} ms")
+
         # ── 热点函数：整个 run 只选一次，选完缓存进 ev ──────────────────────
         # 必须在 agent 步骤循环开始前做，不能等到某一步的 rewrite_source 处理
         # 里才选：外层 agent 决策 prompt（_build_agent_prompt，决定 action +
@@ -4750,6 +4771,37 @@ def main():
         # select_hotspot_target) for the common case where one function
         # really does dominate -- see src/hotspot.py's docstring.
         _hotspots0 = select_hotspot_targets(kernel_name, _driver_text_hs, _utils_text_hs)
+
+        # ── 运行时校验：静态可达 != 实际执行 ──────────────────────────────
+        # select_hotspot_targets 只做静态调用图分析，不知道 kernel 里像
+        # `switch(mode)` 这种由运行时 CLI flag 决定走哪条分支的调度——
+        # 真实案例：automotive_susan_smoothing 的 shim 硬编码用 "-s"
+        # （mode=0，只调用 susan_smoothing），但 susan_thin 只在 mode=1
+        # （edges 分支，这次调用从未走到）才可达，纯静态打分却让它赢过了
+        # susan_smoothing——导致 agent 一直在改从未执行过的死代码。用 gdb
+        # 断点验证每个候选是否真的被这次调用命中，命中不了的直接排除，
+        # 按原排名回落到下一个；断点都设不上（可能被内联消除）的候选保留
+        # 原判——"设不上"不等于"没执行过"。
+        if _bbin_path and len(_hotspots0) > 0:
+            from src.perf_analysis import verify_functions_executed
+            _cand_names = [h["name"] for h in _hotspots0 if h["name"] != kernel_name]
+            _exec_check = verify_functions_executed(_bbin_path, _cand_names)
+            if _exec_check is not None:
+                _dead = {fn for fn, hit in _exec_check.items() if not hit}
+                if _dead:
+                    _kept = [h for h in _hotspots0 if h["name"] not in _dead]
+                    _dropped = [h for h in _hotspots0 if h["name"] in _dead]
+                    for h in _dropped:
+                        print(f"  [热点筛选] ⚠ {h['name']} 静态分数最高但从未被这次调用执行"
+                              f"（gdb断点验证），排除，回落到下一候选")
+                    _hotspots0 = _kept if _kept else [
+                        {"name": kernel_name, "body": "", "in_utils": False,
+                         "reason": "所有静态候选均验证为未执行，回落到 kernel_name 本身"}]
+        try:
+            os.unlink(_bbin_path)
+        except Exception:
+            pass
+
         ev["hotspot_targets"]  = [h["name"] for h in _hotspots0]
         ev["hotspot_target"]   = _hotspots0[0]["name"]
         ev["hotspot_in_utils"] = _hotspots0[0]["in_utils"]
@@ -4778,26 +4830,6 @@ def main():
             if pg.get("summary"):
                 print(f"\n{pg['summary']}")
             return
-
-        # Establish baseline once (静态分析兜底路径下跳过计时)
-        baseline_time: float = -1.0
-        if ev.get("utils") is None:
-            print("  静态分析模式：跳过基线计时（无 PolyBench utilities）")
-            print("  只支持 exit_only 正确性验证，无量化加速比")
-        else:
-            polybench_c = ev["utils"] / "polybench.c"
-            _bbin = tempfile.NamedTemporaryFile(delete=False, suffix="_base")
-            _bbin.close()
-            ok, _ = compile_binary(clang, src, polybench_c, ev["utils"],
-                                   ev["source_dir"], Path(_bbin.name))
-            baseline_time = tp_run_timing(_bbin.name, runs=args.runs, pin_cpu=pin_cpu)
-            try:
-                os.unlink(_bbin.name)
-            except Exception:
-                pass
-            if baseline_time <= 0:
-                sys.exit("基线计时失败，请检查编译配置")
-            print(f"  基线 -O3: {baseline_time:.2f} ms")
 
         # 快照目录：每步保存修改版本，供回退和审查（存入 run_logger 目录）
         out_dir = _out_dir

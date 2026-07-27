@@ -411,6 +411,58 @@ def collect_combined_profile(binary_path: str,
     return stats
 
 
+def verify_functions_executed(binary_path: str, function_names: List[str],
+                              timeout: int = 30) -> Optional[Dict[str, bool]]:
+    """
+    Confirms whether each candidate function in `function_names` is actually
+    reached at runtime by THIS binary's hardcoded invocation, as opposed to
+    merely being *reachable* in the static call graph (src/hotspot.py's
+    select_hotspot_target only does static analysis and has no notion of
+    which branch of a runtime dispatcher -- e.g. a `switch(mode)` on a CLI
+    flag -- is actually taken). Observed live on automotive_susan_smoothing:
+    the shim always invokes with "-s" (smoothing), but the static call-graph
+    walk picked susan_thin -- only reachable via the mode==1 (edges) branch,
+    never taken here -- because it scored higher on arithmetic density.
+    Every agent-driven rewrite of that kernel was silently editing dead code.
+
+    Uses a gdb breakpoint per candidate rather than `perf record` (unusable
+    here: /proc/sys/kernel/perf_event_paranoid=4, no CAP_PERFMON, and this
+    must not require a kernel-security-setting change) -- comet's shim
+    binaries hardcode their own argv internally, so no args need be passed
+    to gdb/the inferior.
+
+    Returns {function_name: was_hit_bool}, but OMITS any function whose
+    breakpoint could not even be *set* (e.g. fully inlined away, stripped
+    symbol) -- that is "inconclusive", not "confirmed dead", and must not
+    be treated as evidence the function never ran. Returns None if gdb
+    itself isn't usable at all (missing binary, spawn failure, timeout) so
+    callers can fall back to the static score unfiltered rather than
+    silently treating "verification failed" as "nothing executed".
+    """
+    if not function_names:
+        return {}
+    cmd = ["gdb", "-batch", "-q", "-nx"]
+    for fn in function_names:
+        cmd += ["-ex", f"break {fn}"]
+    cmd += ["-ex", "run", "-ex", "quit", binary_path]
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=timeout,
+                          stdin=subprocess.DEVNULL)
+    except Exception:
+        return None
+    out = (r.stdout.decode("latin1", errors="replace")
+           + r.stderr.decode("latin1", errors="replace"))
+
+    result: Dict[str, bool] = {}
+    for fn in function_names:
+        if re.search(rf'No symbol "{re.escape(fn)}" in current context', out):
+            continue  # inconclusive -- omit, don't mark dead
+        hit = bool(re.search(
+            rf"Breakpoint \d+, (?:0x[0-9a-f]+ in )?{re.escape(fn)}\b", out))
+        result[fn] = hit
+    return result if result else None
+
+
 def format_targeted_passes(targeted: List[dict], discovered_opts: dict) -> str:
     """生成给 LLM 的定向 pass 分析文本。
     params 直接来自 discovered_opts (runtime 发现)，无需二次查找。
