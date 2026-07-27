@@ -84,7 +84,7 @@ from src.remarks import (
 )
 from src.diagnostics import clean_clang_diagnostics
 from src.correctness import detect_correctness_mode, check_correctness
-from src.hotspot import select_hotspot_target, select_hotspot_targets
+from src.hotspot import select_hotspot_target, select_hotspot_targets, rank_all_reachable
 from src.build_utils import set_default_cxx_compiler
 from src.toolchain_guard import verify_llvm21_toolchain
 from src.skill_executor import (
@@ -4794,9 +4794,36 @@ def main():
                     for h in _dropped:
                         print(f"  [热点筛选] ⚠ {h['name']} 静态分数最高但从未被这次调用执行"
                               f"（gdb断点验证），排除，回落到下一候选")
-                    _hotspots0 = _kept if _kept else [
-                        {"name": kernel_name, "body": "", "in_utils": False,
-                         "reason": "所有静态候选均验证为未执行，回落到 kernel_name 本身"}]
+                    if _kept:
+                        _hotspots0 = _kept
+                    else:
+                        # Every candidate select_hotspot_targets returned (its
+                        # small top cluster, not the full ranking) was dead --
+                        # walk the FULL reachable ranking past them instead of
+                        # dropping straight to kernel_name, verifying one at a
+                        # time until something is confirmed executed (or its
+                        # breakpoint can't even be set -- fully inlined away,
+                        # not evidence it never ran, so acceptable).
+                        _all_ranked = rank_all_reachable(kernel_name, _driver_text_hs,
+                                                         _utils_text_hs)
+                        _already_dead = set(_dead)
+                        _fallback = None
+                        for _cand in _all_ranked:
+                            if _cand["name"] == kernel_name:
+                                _fallback = _cand
+                                break
+                            if _cand["name"] in _already_dead:
+                                continue
+                            _check = verify_functions_executed(_bbin_path, [_cand["name"]])
+                            if _check is None or _check.get(_cand["name"], True):
+                                _fallback = _cand
+                                break
+                            _already_dead.add(_cand["name"])
+                            print(f"  [热点筛选] ⚠ {_cand['name']} 同样验证为未执行，继续回落")
+                        _hotspots0 = [dict(_fallback or
+                                           {"name": kernel_name, "body": "", "in_utils": False},
+                                           reason="逐个gdb验证回落后选中" if _fallback else
+                                                  "所有可达候选均验证为未执行，回落到 kernel_name 本身")]
         try:
             os.unlink(_bbin_path)
         except Exception:

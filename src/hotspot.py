@@ -261,6 +261,26 @@ def _build_and_score(kernel_name: str, driver_text: str,
     return scored, len(graph), called_in_loop
 
 
+def rank_all_reachable(kernel_name: str, driver_text: str,
+                       utils_text: "Optional[str]" = None,
+                       max_hops: int = 4) -> list:
+    """Full ranked candidate list (score descending), not just the top
+    cluster select_hotspot_targets() returns -- for callers that need to
+    fall through PAST the top pick(s) when a runtime check (see
+    src/perf_analysis.py's verify_functions_executed) shows they're
+    actually unreachable for a given invocation (e.g. only live on a
+    switch(mode) branch this run's CLI args never take), rather than
+    dropping straight to kernel_name itself just because it's the only
+    other candidate this module's caller happened to already have on
+    hand. Returns a list of {"name", "body", "in_utils"} dicts, same
+    shape as select_hotspot_target's return value minus "reason"
+    (there's no cluster-boundary reasoning to report for the full list)."""
+    scored, _, _ = _build_and_score(kernel_name, driver_text, utils_text, max_hops)
+    if scored is None:
+        return [{"name": kernel_name, "body": "", "in_utils": False}]
+    return [{"name": n, "body": b, "in_utils": u} for _, n, b, u in scored]
+
+
 def select_hotspot_target(kernel_name: str, driver_text: str,
                           utils_text: "Optional[str]" = None,
                           max_hops: int = 4) -> dict:
