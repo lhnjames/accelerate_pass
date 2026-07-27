@@ -21,7 +21,7 @@ CANONICAL_PASSES = [
     "instcombine",
     "reassociate",
     "gvn",
-    "licm",
+    "loop-mssa(licm)",   # bare "licm" errors: "LICM requires MemorySSA (loop-mssa)"
     "loop-rotate",
     "simple-loop-unswitch",
     "indvars",
