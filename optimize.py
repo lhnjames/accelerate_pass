@@ -3544,30 +3544,10 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             sp    = baseline_time / best_t if best_t < baseline_time else 1.0
             strat = f"flags: {' '.join(best_flags)}" if best_flags else "无改善"
 
-            # ── 正确性验证：-mllvm cost-model flags 会改变 vectorizer/unroller
-            # 的实际决策（例如 SLP 向量化会重排浮点加法），并非纯粹"无副作用"的
-            # 调参 —— 之前 try_flags 分支完全没有调用 _correctness_check，一个
-            # 使程序算错但恰好更快的 flag 组合会被无声地当作"改进"接受。
-            # 用与 try_pragma/rewrite_source 相同的两层 SMALL+STANDARD 数值验证。
-            if best_flags and sp > 1.0:
-                ok1, err1 = _correctness_check(
-                    clang, str(base_file), str(base_file), "SMALL_DATASET",
-                    tmpdir, "tf_correct1", utils, source_dir,
-                    epsilon, timeout=45, mode="polybench_dump", extra_flags=best_flags)
-                ok2 = True
-                err2 = ""
-                if ok1:
-                    ok2, err2 = _correctness_check(
-                        clang, str(base_file), str(base_file), "STANDARD_DATASET",
-                        tmpdir, "tf_correct2", utils, source_dir,
-                        epsilon * 2.0, timeout=120, mode="polybench_dump", extra_flags=best_flags)
-                if not (ok1 and ok2):
-                    print(f"  ⚠ try_flags 候选 {strat} 数值验证失败，拒绝该 flags 组合: "
-                          f"{(err1 or err2)[:200]}")
-                    return {"action": action, "speedup": 1.0, "strategy": "",
-                            "error": f"flags 数值验证失败: {(err1 or err2)[:300]}",
-                            "reasoning": reasoning, "improvement_analysis": improvement_analysis,
-                            "flags": [], "source": None, "perf_stats": {}}
+            # ── 正确性验证已按要求移除：调参（try_flags）路径不再做数值验证，
+            # 只有 rewrite_source 才审查正确性。这重新打开了此前修复过的口子——
+            # 一个使程序算错但恰好更快的 flag 组合会被无声地当作"改进"接受，
+            # 决策者已知晓并接受这个风险。
 
             print(f"  try_flags 最优: {sp:.3f}x  [{strat}]")
             return {"action": action, "speedup": sp, "strategy": strat, "error": "",
