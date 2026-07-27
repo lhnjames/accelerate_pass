@@ -4635,6 +4635,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                              "conditions are apples-to-apples. Typically combined with "
                              "--no-compiler-feedback for a true 'source-only, zero feedback' "
                              "condition.")
+    parser.add_argument("--params-only", action="store_true",
+                        help="Ablation condition 4 (four-condition study): force every step "
+                             "of the unified agent loop to action=try_flags -- never "
+                             "rewrite_source/try_pragma. Isolates the pure compiler-parameter-"
+                             "tuning contribution (source code is never touched) on the same "
+                             "evidence-collection/measurement pipeline as the other conditions. "
+                             "try_pragma is excluded too: the forced-action override only has "
+                             "a working empty-plan fallback for try_flags/rewrite_source, and "
+                             "pragma hints require the LLM's own plan to have chosen pragma "
+                             "already, which forcing would starve of real content.")
     parser.add_argument("--seed", type=int, default=None,
                         help="Experiment seed; recorded in results and used to vary LLM "
                              "sampling so repeated runs of one condition are independent.")
@@ -4866,6 +4876,11 @@ def main():
                 # every step is a source rewrite attempt. Skip meta-planner/
                 # anti-repeat entirely -- there is nothing to rotate between.
                 _forced = "rewrite_source"
+            elif args.params_only:
+                # Ablation condition 4: never let rewrite/pragma actions happen,
+                # every step is a try_flags attempt (source untouched). Skip
+                # meta-planner/anti-repeat entirely, same as rewrite_only above.
+                _forced = "try_flags"
             elif step == 1:
                 # 第1步：强制调参，建立 flags 基线
                 _forced = "try_flags"
