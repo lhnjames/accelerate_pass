@@ -105,8 +105,10 @@ def main():
         {"best_passes": best_passes, "best_speedup": best_speedup}, indent=1))
 
     # ── Finalize: rebuild the best order into a clean binary, correctness
-    # check against ref_bin, then the SAME alternating-measurement
-    # confirmation every other condition in this study uses. ──────────────
+    # check against ref_bin_dump (POLYBENCH_DUMP_ARRAYS -- real computed
+    # output, NOT ref_bin's POLYBENCH_TIME stdout which is only a timer
+    # reading; see measure_lib.compile_baseline's docstring), then the SAME
+    # alternating-measurement confirmation every other condition uses. ────
     opt_bin = str(scratch_dir / "opt_bin")
     ok, err = compile_with_pass_order(str(scratch_dir / "kernel.c"), utils, source_dir,
                                        best_passes, opt_bin, work_dir=str(work_dir))
@@ -119,7 +121,19 @@ def main():
         (scratch_dir / "result.json").write_text(json.dumps(result, indent=1))
         return
 
-    correct, cerr = correctness_check(baseline["ref_bin"], opt_bin, baseline["correctness_mode"])
+    opt_bin_dump = str(scratch_dir / "opt_bin_dump")
+    ok, err = compile_with_pass_order(str(scratch_dir / "kernel.c"), utils, source_dir,
+                                       best_passes, opt_bin_dump, work_dir=str(work_dir),
+                                       output_macro="POLYBENCH_DUMP_ARRAYS")
+    if not ok:
+        result.update(status="compile_failed", error=("DUMP_ARRAYS build: " + err)[:1000],
+                       confirmed_speedup=1.0, significant=False)
+        print(json.dumps(result, indent=1))
+        (scratch_dir / "result.json").write_text(json.dumps(result, indent=1))
+        return
+
+    ref_bin_dump = baseline.get("ref_bin_dump", baseline["ref_bin"])
+    correct, cerr = correctness_check(ref_bin_dump, opt_bin_dump, baseline["correctness_mode"])
     if not correct:
         result.update(status="incorrect", error=cerr, confirmed_speedup=1.0, significant=False)
         print(json.dumps(result, indent=1))

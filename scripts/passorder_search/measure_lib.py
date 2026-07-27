@@ -38,7 +38,19 @@ def compile_baseline(kernel_c: str, utils: str, source_dir: str, out_bin: str,
                       dataset: str = "LARGE_DATASET", runs: int = 3,
                       pin_cpu=None, timeout: int = 180):
     """Plain -O3 compile (both kernel + utils), used for the reference
-    binary and the OC/comet-style baseline speedup denominator."""
+    binary and the OC/comet-style baseline speedup denominator.
+
+    Built with -DPOLYBENCH_TIME -- for TIMING only. Do not also use this
+    binary's stdout for correctness comparison: under POLYBENCH_TIME,
+    polybench_print_instruments expands to polybench_timer_print(), which
+    prints only the elapsed wall-clock time, not the computed array
+    contents (polybench.h ~L208-214). Comparing two POLYBENCH_TIME
+    binaries' stdout as "the computed result" silently compares timing
+    noise instead -- this is exactly what earlier produced the retracted
+    "2mm computes wrong results" / "durbin is numerically unstable"
+    findings elsewhere in this project. Use compile_baseline_dump() below
+    for a binary whose output is actually safe to correctness-check.
+    """
     polybench_c = str(Path(utils) / "polybench.c")
     defines = [f"-D{dataset}", "-DPOLYBENCH_TIME"]
     ok, err = compile_c(CLANG, [kernel_c, polybench_c], [utils, source_dir],
@@ -49,6 +61,21 @@ def compile_baseline(kernel_c: str, utils: str, source_dir: str, out_bin: str,
     if ms <= 0:
         return False, -1.0, "run_timing returned <= 0 (crash or timeout)"
     return True, ms, ""
+
+
+def compile_baseline_dump(kernel_c: str, utils: str, source_dir: str, out_bin: str,
+                          dataset: str = "LARGE_DATASET", timeout: int = 180):
+    """Same source/flags as compile_baseline() but with -DPOLYBENCH_DUMP_ARRAYS
+    instead of -DPOLYBENCH_TIME -- this binary's stdout is the real computed
+    array contents and is safe to use as a correctness reference. Not timed
+    (that's what the -DPOLYBENCH_TIME binary from compile_baseline() is for)."""
+    polybench_c = str(Path(utils) / "polybench.c")
+    defines = [f"-D{dataset}", "-DPOLYBENCH_DUMP_ARRAYS"]
+    ok, err = compile_c(CLANG, [kernel_c, polybench_c], [utils, source_dir],
+                         defines, out_bin, timeout=timeout)
+    if not ok:
+        return False, err
+    return True, ""
 
 
 def _run(cmd, timeout=180):
@@ -65,17 +92,27 @@ def _run(cmd, timeout=180):
 def compile_with_pass_order(kernel_c: str, utils: str, source_dir: str,
                              pass_order: list, out_bin: str,
                              dataset: str = "LARGE_DATASET",
-                             work_dir: "str | None" = None, timeout: int = 180):
+                             work_dir: "str | None" = None, timeout: int = 180,
+                             output_macro: str = "POLYBENCH_TIME"):
     """Compile kernel_c with a CUSTOM pass order (mem2reg always first),
-    utils/polybench.c at plain -O3, link together. Returns (ok, err)."""
+    utils/polybench.c at plain -O3, link together. Returns (ok, err).
+
+    output_macro: "POLYBENCH_TIME" (default, for timing -- stdout is just
+    the elapsed time, NOT safe to correctness-check) or
+    "POLYBENCH_DUMP_ARRAYS" (stdout is the real computed array contents,
+    safe to correctness-check, not meaningfully timeable). Every call site
+    that does BOTH must build twice, once with each macro, into different
+    out_bin paths -- one binary's stdout is never valid for the other
+    purpose. See compile_baseline()'s docstring for why this distinction
+    exists at all (the retracted "2mm/durbin miscompile" findings)."""
     wd = Path(work_dir) if work_dir else Path(kernel_c).parent
     inc = [f"-I{utils}", f"-I{source_dir}"]
-    defines = [f"-D{dataset}", "-DPOLYBENCH_TIME"]
+    defines = [f"-D{dataset}", f"-D{output_macro}"]
 
-    kernel_raw_ll = wd / "kernel_raw.ll"
-    kernel_opt_ll = wd / "kernel_opt.ll"
-    kernel_opt_o = wd / "kernel_opt.o"
-    utils_o = wd / "polybench_o3.o"
+    kernel_raw_ll = wd / f"kernel_raw_{output_macro}.ll"
+    kernel_opt_ll = wd / f"kernel_opt_{output_macro}.ll"
+    kernel_opt_o = wd / f"kernel_opt_{output_macro}.o"
+    utils_o = wd / f"polybench_o3_{output_macro}.o"
     polybench_c = str(Path(utils) / "polybench.c")
 
     # 1. Frontend-compile the kernel with all LLVM passes disabled -- gives
