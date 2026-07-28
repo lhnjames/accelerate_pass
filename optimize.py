@@ -1935,6 +1935,51 @@ def _apply_pragma_hints(source: str, hints: list) -> str:
     return "\n".join(lines)
 
 
+def _generate_pragma_hints_fallback(llm, base_src_text: str, reasoning: str,
+                                    max_tokens: int) -> list:
+    """
+    Dedicated follow-up call for when the decision LLM picked try_pragma but
+    returned empty/unusable pragma_hints in that same JSON response -- see
+    _do_try_pragma's call site for why this is worth a real fix (14% of
+    every step collected across the whole ablation corpus wasted this way).
+    Unlike that first call, THIS one has the real current source text in
+    front of it, mirroring rewrite_source's two-stage analysis+implementation
+    split -- the decision LLM was being asked to both choose the action and
+    quote an exact loop_prefix substring blind, with nothing to copy from.
+    Returns [] on any failure (caller already has a clear error path for
+    that), never raises.
+    """
+    prompt = f"""You already decided to apply a `#pragma clang loop` annotation to a loop in the \
+kernel below (your own stated reasoning: "{reasoning[:300]}"), but no usable pragma_hints came out \
+of that decision. Here is the ACTUAL current source -- pick a real `for` loop from it verbatim.
+
+```c
+{base_src_text}
+```
+
+Rules: only annotate loops with NO loop-carried dependency (never on in-place stencil / \
+triangular-solve / Gauss-Seidel-style updates that read a value another iteration just wrote).
+
+Respond with ONLY this JSON shape, "loop_prefix" copied character-for-character from a real line \
+above (the first ~40-60 characters of the `for (...)` line is enough, whitespace doesn't need to \
+match exactly):
+{{"pragma_hints": [{{"loop_prefix": "for (int i = ...", "pragma": "#pragma clang loop vectorize(enable)"}}]}}
+"""
+    try:
+        resp = run_skill_messages(llm, "action-decision", [
+            {"role": "system",
+             "content": "You are a compiler optimization agent. Output strict JSON only."},
+            {"role": "user", "content": prompt},
+        ], max_tokens=max_tokens, temperature=0.15)
+        if not resp:
+            return []
+        parsed = json.loads(strip_json_fences(resp))
+        hints = parsed.get("pragma_hints", [])
+        return hints if isinstance(hints, list) else []
+    except Exception:
+        return []
+
+
 def _infer_candidates_from_desc(flag: str, opt_type: str, desc: str) -> list:
     """
     Infer candidate values to explore for a numeric LLVM flag based on its
@@ -3559,6 +3604,21 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
         def _do_try_pragma() -> dict:
             hints      = plan.get("pragma_hints", [])
             also_flags = plan.get("also_flags", [])
+            # ── Fallback: decision LLM chose try_pragma but produced no usable
+            # hints in that SAME call -- corpus-wide this was the single
+            # biggest source of wasted rounds (80/568 steps across every run
+            # collected so far, ~14% of the whole agent-loop budget), far more
+            # than rewrite_source's failure rate. rewrite_source never has
+            # this problem because it's already a TWO-STAGE process (decision
+            # LLM only picks strategy+base; a separate analysis+implementation
+            # LLM, shown the real current source, writes the actual code).
+            # try_pragma asked the decision LLM to both pick the action AND
+            # produce an exact loop_prefix substring match in one shot, with
+            # no source text in front of it at decision time -- give it one
+            # dedicated follow-up call, WITH the real source, before giving up.
+            if not hints:
+                hints = _generate_pragma_hints_fallback(
+                    llm, base_src_text, reasoning, max_tokens)
             if not hints:
                 return {"action": action, "speedup": 1.0, "error": "pragma_hints 为空",
                         "reasoning": reasoning, "improvement_analysis": improvement_analysis,
