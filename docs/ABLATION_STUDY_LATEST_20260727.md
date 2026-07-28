@@ -2,6 +2,14 @@
 
 覆盖49个程序（30 PolyBench + 19 cBench），全部在两台DGX机器上运行（不含oracle4）。测量统一采用**4次取样去掉最高最低取中间2次均值**的trimmed-mean方式，并发worker之间通过`taskset --pin-cpu`隔离到独立物理核心。
 
+## 图表
+
+![各条件几何均值加速比对比](assets/geomean_by_condition_20260727.png)
+
+![各条件加速比区间分布](assets/bucket_distribution_20260727.png)
+
+（③只有4个样本、PO的geomean<1.0x，两张图都清楚标注了n，避免样本量差异被误读成同等可比。）
+
 ## 进度
 
 | 条件 | 说明 | 已完成/总数 |
