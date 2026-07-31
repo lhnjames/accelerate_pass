@@ -26,16 +26,29 @@ place this implementation had to fill a gap is commented explicitly):
                         produces a normalized JSON summary of missed-optimization
                         opportunities, mirroring the paper's "-Rpass/-Rpass-missed
                         + semantic hints -> JSON summary" description.
-  3. Reasoning Agent -- DeepSeek proposes the next full pass sequence (from
-                        the 74-pass catalog in pass_list_autopass.py) given
-                        the Analysis Agent's JSON + history of prior
-                        (sequence, speedup) results. Includes a deterministic
-                        repair step (difflib nearest-match) for any
-                        hallucinated pass name, as the paper describes.
+  3. Reasoning Agent -- DeepSeek proposes the next pass sequence (from the
+                        74-pass catalog in pass_list_autopass.py) AND the
+                        numeric pass parameters to go with it (TUNABLE_PARAMS
+                        in the same file -- the paper tunes these too; its
+                        QSort trace study sets unroll_count/unroll_threshold/
+                        inline_threshold/slp_threshold and then walks them
+                        back after a regression), given the Analysis Agent's
+                        JSON + history of prior (sequence, params, speedup)
+                        results. Includes a deterministic repair step (difflib
+                        nearest-match) for any hallucinated pass name, as the
+                        paper describes; unknown PARAMETER names are dropped
+                        rather than fuzzy-matched, since a mis-matched knob
+                        would silently change an unrelated setting.
   4. Evaluation Agent -- compiles + measures the candidate; STRICTLY accepts
                         only if faster than the current best P* (paper: "accepts
                         the candidate only if t(P(t)) < t(P*)"), else rolls
                         back to P* for the next round's starting point.
+
+Known deviation: the paper also feeds hardware counters (L1 misses, IPC)
+back to the Evaluation Agent. perf is unavailable here -- perf_event_paranoid
+is 4 on both measurement nodes and raising it is a host-wide security setting
+this project should not change unilaterally -- so the Evaluation Agent sees
+wall-clock time and correctness only.
 
 Round budget: 3 (matches the paper's primary reported "R3" configuration,
 which reports 1.04x-1.15x geomean over -O3 -- NOT comet's own 9-round
@@ -49,7 +62,7 @@ from pathlib import Path
 
 sys.path.insert(0, "/home/hanning/comet/scripts/passorder_search")
 from measure_lib import compile_with_pass_order, time_binary, correctness_check  # noqa: E402
-from pass_list_autopass import CANONICAL_PASSES_74  # noqa: E402
+from pass_list_autopass import CANONICAL_PASSES_74, TUNABLE_PARAMS  # noqa: E402
 from llm_client import ask_json  # noqa: E402
 
 sys.path.insert(0, "/home/hanning/comet")
@@ -142,9 +155,10 @@ def analysis_agent(kernel_c: str, utils: str, source_dir: str, target_func: str)
 # 3. Reasoning Agent
 # ---------------------------------------------------------------------------
 REASONING_SYSTEM = f"""You are the Reasoning Agent in an LLVM compiler-tuning pipeline \
-(aarch64, LLVM 21, clang/opt/llc). You do NOT edit source code and do NOT tune pass PARAMETERS \
--- only the ORDER (and which subset, and optional repeats) of passes applied to one kernel \
-function, from this fixed 74-pass catalog of valid `opt -passes=` names:
+(aarch64, LLVM 21, clang/opt/llc). You do NOT edit source code. You control (a) the ORDER \
+(and which subset, and optional repeats) of passes applied to one kernel function, and (b) the \
+numeric PARAMETERS of those passes. Passes come from this fixed 74-pass catalog of valid \
+`opt -passes=` names:
 
 {", ".join(CANONICAL_PASSES_74)}
 
@@ -157,7 +171,19 @@ system rolls back and you see the rejection in history. Use the analysis summary
 propose a pass sequence 15-40 entries long (repeats/subsets allowed) that directly targets the \
 listed missed opportunities.
 
-Respond with ONLY JSON: {{"passes": ["name1", "name2", ...], "reasoning": "..."}}"""
+You may ALSO set numeric pass parameters. Available parameters (suggested values shown; any \
+integer is accepted, and you may omit any or all of them):
+
+{chr(10).join(f"  {k}: {v}" for k, v in TUNABLE_PARAMS.items())}
+
+Tuning these is often what actually moves performance -- e.g. raising unroll-threshold/unroll-count \
+to expose more ILP in a hot loop, lowering slp-threshold to make SLP vectorization more eager, or \
+raising inline-threshold to expose cross-call optimization. But over-aggressive values regress: \
+excessive unrolling blows up I-cache and register pressure, and an overly permissive slp-threshold \
+vectorizes code that is cheaper scalar. Read the history and walk values back when a round regressed.
+
+Respond with ONLY JSON:
+{{"passes": ["name1", "name2", ...], "params": {{"unroll-threshold": 600, ...}}, "reasoning": "..."}}"""
 
 
 def _repair_pass_name(name: str) -> "str | None":
@@ -172,8 +198,27 @@ def _repair_pass_name(name: str) -> "str | None":
     return VALID_PASS_BY_BASE[close[0]] if close else None
 
 
+def _repair_params(raw: dict) -> list:
+    """Turn the Reasoning Agent's {"unroll-threshold": 600, ...} into
+    ["-unroll-threshold=600", ...], dropping anything not in TUNABLE_PARAMS
+    or not integer-valued. Unknown parameter names are dropped rather than
+    fuzzy-matched: a wrong pass NAME just means a different transform runs,
+    but a wrong parameter name silently changes an unrelated knob, so the
+    deterministic-repair story from the paper does not transfer here."""
+    out = []
+    for k, v in (raw or {}).items():
+        key = str(k).lstrip("-")
+        if key not in TUNABLE_PARAMS:
+            continue
+        try:
+            out.append(f"-{key}={int(v)}")
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 def reasoning_agent(analysis_json: dict, history: list, round_num: int, rounds: int,
-                     kernel_name: str) -> list:
+                     kernel_name: str) -> tuple:
     lines = [f"Kernel: {kernel_name}. Round {round_num}/{rounds}.",
               f"Analysis summary: {json.dumps(analysis_json)}"]
     if not history:
@@ -182,13 +227,13 @@ def reasoning_agent(analysis_json: dict, history: list, round_num: int, rounds: 
     else:
         lines.append("History (sequence -> result):")
         for h in history[-5:]:
-            if h["accepted"]:
-                lines.append(f"  ACCEPTED speedup={h['speedup']:.4f}x  passes={h['passes']}")
-            else:
-                lines.append(f"  REJECTED (worse than best) speedup={h['speedup']:.4f}x  passes={h['passes']}")
+            tag = "ACCEPTED" if h["accepted"] else "REJECTED (worse than best)"
+            pstr = f"  params={h['params']}" if h.get("params") else ""
+            lines.append(f"  {tag} speedup={h['speedup']:.4f}x  passes={h['passes']}{pstr}")
         best = max((h for h in history if h["accepted"]), key=lambda h: h["speedup"], default=None)
         if best:
-            lines.append(f"Current best P*: {best['speedup']:.4f}x with {best['passes']}")
+            lines.append(f"Current best P*: {best['speedup']:.4f}x with {best['passes']} "
+                          f"params={best.get('params') or '{}'}")
         lines.append("Propose the next sequence, aiming to beat P*.")
     reply = ask_json(REASONING_SYSTEM, "\n".join(lines), max_tokens=700)
     raw_passes = reply.get("passes", []) if isinstance(reply, dict) else []
@@ -200,7 +245,8 @@ def reasoning_agent(analysis_json: dict, history: list, round_num: int, rounds: 
             repaired.append(fixed)
     if not repaired:
         repaired = list(CANONICAL_PASSES_74)  # fallback: full catalog in canonical order
-    return repaired
+    params = _repair_params(reply.get("params") if isinstance(reply, dict) else None)
+    return repaired, params
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +255,8 @@ def reasoning_agent(analysis_json: dict, history: list, round_num: int, rounds: 
 def evaluation_agent(kernel_c: str, utils: str, source_dir: str, passes: list,
                       baseline_ms: float, work_dir: Path, round_num: int,
                       pin_cpu: "int | None", ref_bin_dump: str,
-                      correctness_mode: str, ref_bin: str) -> dict:
+                      correctness_mode: str, ref_bin: str,
+                      opt_params: list) -> dict:
     """Compiles + times the candidate, AND checks correctness against
     ref_bin_dump before returning a speedup -- arbitrary pass reordering is
     not always semantics-preserving (some passes assume invariants normally
@@ -220,13 +267,14 @@ def evaluation_agent(kernel_c: str, utils: str, source_dir: str, passes: list,
     chasing a candidate that fails at finalize time anyway."""
     trial_bin = str(work_dir / f"trial_{round_num}_{uuid.uuid4().hex[:6]}")
     ok, err = compile_with_pass_order(kernel_c, utils, source_dir, passes, trial_bin,
-                                       work_dir=str(work_dir))
+                                       work_dir=str(work_dir), opt_params=opt_params)
     if not ok:
         return {"ok": False, "error": err}
 
     trial_bin_dump = str(work_dir / f"trial_{round_num}_{uuid.uuid4().hex[:6]}_dump")
     ok, err = compile_with_pass_order(kernel_c, utils, source_dir, passes, trial_bin_dump,
-                                       work_dir=str(work_dir), output_macro="POLYBENCH_DUMP_ARRAYS")
+                                       work_dir=str(work_dir), output_macro="POLYBENCH_DUMP_ARRAYS",
+                                       opt_params=opt_params)
     if not ok:
         return {"ok": False, "error": f"DUMP_ARRAYS build: {err}"}
     correct, cerr = correctness_check(ref_bin_dump, trial_bin_dump, correctness_mode)
@@ -297,35 +345,38 @@ def main():
     # compile that unmeasured catalog and report its real speed -- which is
     # how tasks that genuinely found no improvement got recorded as 0.2x-0.6x
     # "results" instead of an honest 1.0x "no improvement over -O3".
-    best_passes, best_speedup = [O3_PIPELINE], 1.0
+    best_passes, best_speedup, best_params = [O3_PIPELINE], 1.0, []
 
     for round_num in range(1, rounds + 1):
         # 3. Reasoning Agent
-        passes = reasoning_agent(analysis, history, round_num, rounds, kernel_name)
+        passes, params = reasoning_agent(analysis, history, round_num, rounds, kernel_name)
 
         # 4. Evaluation Agent
         result = evaluation_agent(kernel_c, utils, source_dir, passes, baseline_ms,
                                    work_dir, round_num, pin_cpu,
                                    baseline["ref_bin_dump"], baseline["correctness_mode"],
-                                   baseline["ref_bin"])
+                                   baseline["ref_bin"], params)
         if not result["ok"]:
-            history.append({"accepted": False, "passes": passes, "speedup": 0.0,
-                             "error": result["error"]})
+            history.append({"accepted": False, "passes": passes, "params": params,
+                             "speedup": 0.0, "error": result["error"]})
             print(f"[round {round_num}/{rounds}] FAILED: {result['error'][:200]}")
             continue
 
         speedup = result["speedup"]
         accepted = speedup > best_speedup   # strict: t(P(t)) < t(P*)  <=>  speedup > best_speedup
-        history.append({"accepted": accepted, "passes": passes, "speedup": speedup})
+        history.append({"accepted": accepted, "passes": passes, "params": params,
+                         "speedup": speedup})
         tag = "ACCEPTED (new P*)" if accepted else "REJECTED, rollback to P*"
-        print(f"[round {round_num}/{rounds}] speedup={speedup:.4f}x  {tag}  passes={passes}")
+        print(f"[round {round_num}/{rounds}] speedup={speedup:.4f}x  {tag}  "
+              f"passes={passes} params={params}")
         if accepted:
-            best_speedup, best_passes = speedup, passes
+            best_speedup, best_passes, best_params = speedup, passes, params
         # else: best_passes/best_speedup untouched -- this IS the rollback.
 
     (scratch_dir / "history.json").write_text(json.dumps(history, indent=1))
     (scratch_dir / "best.json").write_text(json.dumps(
-        {"best_passes": best_passes, "best_speedup": best_speedup,
+        {"best_passes": best_passes, "best_params": best_params,
+         "best_speedup": best_speedup,
          "score_agent_target": target, "analysis_agent": analysis}, indent=1))
 
     # ── Finalize: rebuild P* into a clean binary, correctness check against
@@ -333,13 +384,14 @@ def main():
     # other condition uses. ────────────────────────────────────────────────
     opt_bin = str(scratch_dir / "opt_bin")
     ok, err = compile_with_pass_order(kernel_c, utils, source_dir, best_passes, opt_bin,
-                                       work_dir=str(work_dir))
+                                       work_dir=str(work_dir), opt_params=best_params)
     result = {"program": program_rel, "baseline_ms": baseline_ms,
-              "best_passes": best_passes, "explored_best_speedup": best_speedup,
+              "best_passes": best_passes, "best_params": best_params,
+              "explored_best_speedup": best_speedup,
               # True when no round beat -O3, so P* is still the stock -O3
               # pipeline. Such a task is an honest "AutoPass found nothing
               # better here" (expected to confirm at ~1.0x), NOT a regression.
-              "no_improvement_over_O3": best_passes == [O3_PIPELINE],
+              "no_improvement_over_O3": best_passes == [O3_PIPELINE] and not best_params,
               "score_agent_target": target, "analysis_agent": analysis}
     if not ok:
         result.update(status="compile_failed", error=err[:1000],
@@ -350,7 +402,8 @@ def main():
 
     opt_bin_dump = str(scratch_dir / "opt_bin_dump")
     ok, err = compile_with_pass_order(kernel_c, utils, source_dir, best_passes, opt_bin_dump,
-                                       work_dir=str(work_dir), output_macro="POLYBENCH_DUMP_ARRAYS")
+                                       work_dir=str(work_dir), output_macro="POLYBENCH_DUMP_ARRAYS",
+                                       opt_params=best_params)
     if not ok:
         result.update(status="compile_failed", error=("DUMP_ARRAYS build: " + err)[:1000],
                        confirmed_speedup=1.0, significant=False)

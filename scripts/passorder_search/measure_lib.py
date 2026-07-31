@@ -96,7 +96,8 @@ def compile_with_pass_order(kernel_c: str, utils: str, source_dir: str,
                              pass_order: list, out_bin: str,
                              dataset: str = "LARGE_DATASET",
                              work_dir: "str | None" = None, timeout: int = 180,
-                             output_macro: str = "POLYBENCH_TIME"):
+                             output_macro: str = "POLYBENCH_TIME",
+                             opt_params: "list | None" = None):
     """Compile kernel_c with a CUSTOM pass order (mem2reg always first),
     utils/polybench.c at plain -O3, link together. Returns (ok, err).
 
@@ -145,10 +146,14 @@ def compile_with_pass_order(kernel_c: str, utils: str, source_dir: str,
         passes_str = pass_order[0]
     else:
         passes_str = "mem2reg," + ",".join(pass_order) if pass_order else "mem2reg"
-    ok, err = _run([OPT, f"-passes={passes_str}", "-S",
-                    str(kernel_raw_ll), "-o", str(kernel_opt_ll)], timeout=timeout)
+    # opt_params are plain `-flag=value` tuning knobs (e.g. -unroll-threshold=600)
+    # passed alongside -passes=. AutoPass's Reasoning Agent tunes these as well
+    # as the order -- see TUNABLE_PARAMS in pass_list_autopass.py.
+    param_flags = list(opt_params or [])
+    ok, err = _run([OPT, f"-passes={passes_str}"] + param_flags
+                   + ["-S", str(kernel_raw_ll), "-o", str(kernel_opt_ll)], timeout=timeout)
     if not ok:
-        return False, f"opt -passes={passes_str} failed: {err}"
+        return False, f"opt -passes={passes_str} {' '.join(param_flags)} failed: {err}"
 
     # 3. Codegen the optimized IR to an object file with `llc -O3`.
     #

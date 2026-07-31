@@ -104,3 +104,42 @@ assert len(CANONICAL_PASSES_74) == 74, len(CANONICAL_PASSES_74)
 # when included in any bare `-passes=` pipeline. Confirmed via a minimal
 # `opt -passes=mem2reg,codegenprepare` repro on real kernel IR from this
 # corpus. Replaced with "constraint-elimination" to keep the catalog at 74.
+
+
+# ---------------------------------------------------------------------------
+# Tunable pass PARAMETERS.
+#
+# AutoPass does not only reorder passes -- its Reasoning Agent "iteratively
+# refines pass parameters" too, and the paper's QSort trace study (Sec 6.6)
+# shows a concrete round-1 candidate setting
+#     unroll_count=8, unroll_threshold=600, inline_threshold=800, slp_threshold=-5
+# then walking those values back in round 2 after measuring a regression. An
+# order-only search therefore under-reproduces the method.
+#
+# These are passed to `opt` as ordinary command-line flags (verified accepted
+# by opt-21 alongside -passes=, e.g.
+#     opt -passes='mem2reg,loop-rotate,loop-unroll' -unroll-threshold=600 ...).
+# Every name below was checked against `opt-21 --help-hidden` on the deployed
+# toolchain; the four the paper names explicitly are all present.
+#
+# Values are the suggested exploration set shown to the Reasoning Agent, not a
+# hard constraint -- any integer is accepted for a known flag.
+TUNABLE_PARAMS = {
+    # loop unrolling (paper: unroll_count, unroll_threshold)
+    "unroll-threshold":                    [50, 150, 300, 600, 1200],
+    "unroll-count":                        [2, 4, 8, 16],
+    "unroll-partial-threshold":            [50, 150, 300, 600],
+    "unroll-max-count":                    [2, 4, 8, 16, 32],
+    # inlining (paper: inline_threshold)
+    "inline-threshold":                    [100, 225, 400, 800, 1600],
+    "inlinehint-threshold":                [200, 325, 600, 1200],
+    # SLP / loop vectorization (paper: slp_threshold)
+    "slp-threshold":                       [-10, -5, 0, 5],
+    "force-target-max-vector-interleave":  [1, 2, 4, 8],
+    "vectorizer-min-trip-count":           [4, 8, 16],
+    # scalar cleanup passes
+    "licm-max-num-uses-traversed":         [8, 32, 128],
+    "jump-threading-threshold":            [3, 6, 12, 24],
+    "gvn-max-num-deps":                    [50, 100, 200],
+    "loop-distribute-scev-check-threshold": [4, 8, 16, 32],
+}
