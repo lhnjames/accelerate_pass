@@ -124,7 +124,49 @@ geomean 也仅 1.009x，即大多数程序确实找不到比 -O3 更好的 pass 
 
 ---
 
-## 4. 状态
+## 4. baseline 一致性验证
+
+论文的加速比定义为 `T_O3 / T_opt`，baseline 就是 `clang -O3`。本项目 6 个条件
+（①②③④/OC/PO）**全部**使用同一个 baseline：
+
+- ①②③④ 走 `tune_param.compile_binary` → `build_utils.compile_c`
+- OC 直接复用 `compile_binary`
+- PO 走 `measure_lib.compile_baseline` → 同一个 `compile_c`
+
+四条路径最终都落到 `[compiler, "-O3"]`，dataset 宏同为 `LARGE_DATASET`。
+实测同一程序下 comet baseline 与 PO ref_bin 的二进制 **SHA256 完全一致**，
+证明不是"看起来都是 -O3"而是字面上的同一个产物。
+
+### 分离式构建是否引入偏差
+
+PO 的**候选**走的是分离路径（frontend IR → `opt -passes=` → `llc -O3` → 与单独
+-O3 编译的 utils 链接），而 **baseline** 是单次 `clang -O3 kernel.c polybench.c`。
+若分离路径本身带有与 pass 顺序无关的固有开销，则每个 PO 数字都会继承该偏差。
+
+用 `default<O3>`（语义等价于 -O3 的 pipeline）走分离路径，与单次 `clang -O3`
+做 n=9 交替配对测量：
+
+| 程序 | baseline | 配对加速比 | IQR | n_positive |
+|---|---|---|---|---|
+| gemm | 0.58s | 1.0022x | — | — |
+| atax | 69ms | 1.0183x / 1.0047x（两次独立测量） | [0.998, 1.023] | 6/9 |
+| syrk | 3.4s | 0.9804x | [0.857, 1.116] | 3/9 |
+| jacobi-1d | 7.7ms | 0.9600x / 1.0363x（两次独立测量） | [0.878, 1.063] | 4/9 |
+
+全部围绕 1.0 分布，IQR 均跨越 1.0，且 jacobi-1d 两次独立测量分别落在 0.96 和 1.04
+两侧——**结论：分离式构建无系统性偏差**，早先单次测量看到的 ±11% 散布是噪声而非偏差。
+
+### 附带发现：短基准的测量噪声很大
+
+上表的 IQR 值得单独注意：jacobi-1d [0.878, 1.063]、syrk [0.857, 1.116]，即 **±12%**。
+这是在两台机器都各跑着一个 worker（持续编译+计时）的负载下测得的。对 baseline 只有
+7.7ms 的 jacobi-1d 这类程序，这个量级的噪声意味着任何 10-20% 的"提升"都不可信。
+
+这正是先前观察到的"波动太大"的来源。最终结果均由 `confirm_result_external` 的
+交替配对测量给出（对负载漂移免疫），但**小基准程序的单个结果仍应结合 IQR 与
+n_positive 解读，不能只看中位数**。
+
+## 5. 状态
 
 所有 49 个 PO 任务已作废并重新入队，用修复后的 harness 重跑。
 **修复前产生的任何 PO 数字都不可引用。**
