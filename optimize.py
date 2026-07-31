@@ -1123,6 +1123,14 @@ NO_COMPILER_FEEDBACK = False
 # capping the pathological ones.
 PARAM_SEARCH_BUDGET_S = 2 * 3600
 
+# Same idea, for ONE try_flags agent step (the --params-only path, which does
+# NOT go through run_param_round -- _do_try_flags has its own sweep loop).
+# This one is per STEP and there are up to --rounds of them, so it is set much
+# tighter: 20min x 9 rounds caps a pathological task near 3h instead of 22h,
+# while still being far more than a normal kernel's sweep needs (seconds to
+# a couple of minutes).
+TRY_FLAGS_STEP_BUDGET_S = 20 * 60
+
 # Every ev[] key that carries compiler-derived or hardware-derived feedback.
 # Emptied (NOT deleted -- several downstream sites index ev['...'] directly and
 # would KeyError) so condition B's LLM sees only: kernel source, compiler
@@ -3438,7 +3446,26 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
             _JOINT_COMPILE_WARN_S = 30.0  # flags slower than this to compile stay Phase-A only
             best_per_flag: Dict[str, tuple] = {}
             flag_compile_time: Dict[str, float] = {}  # flag -> fastest compile time (seconds)
+            # Wall-clock ceiling for THIS step's measured flag sweep. Cost per
+            # candidate is (compile + _screen_runs * baseline_time), so a fixed
+            # candidate COUNT costs wildly different wall time across this
+            # corpus: most kernels have a sub-second baseline, but cholesky's is
+            # ~27s and seidel-2d's ~19s, making a few hundred candidates take
+            # many hours. Observed live: single --params-only tasks running 22h
+            # (cholesky) and 12h (seidel-2d) against a ~40min median for the
+            # same condition, stalling the whole serial queue behind them.
+            # Binds only on those outliers; normal kernels exhaust their
+            # candidate list long before the deadline.
+            _tf_deadline = time.time() + TRY_FLAGS_STEP_BUDGET_S
+            _tf_budget_hit = False
             for pidx, spec in enumerate(flag_specs):
+                if time.time() >= _tf_deadline:
+                    if not _tf_budget_hit:
+                        _tf_budget_hit = True
+                        print(f"    ⏱ 已达本步 try_flags 搜索时间预算 "
+                              f"({TRY_FLAGS_STEP_BUDGET_S/60:.0f}min)，"
+                              f"停止继续探索，保留当前最优")
+                    break
                 flag  = spec.get("flag", "")
                 cands = spec.get("candidates", [])
                 if not flag or not cands:
@@ -3448,6 +3475,13 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                 flag_min_compile_s = float("inf")
                 for val in cands:
                     import time as _time
+                    if _time.time() >= _tf_deadline:
+                        if not _tf_budget_hit:
+                            _tf_budget_hit = True
+                            print(f"    ⏱ 已达本步 try_flags 搜索时间预算 "
+                                  f"({TRY_FLAGS_STEP_BUDGET_S/60:.0f}min)，"
+                                  f"停止继续探索，保留当前最优")
+                        break
                     mflags = ["-mllvm", f"{flag}={val}"]
                     cand   = tmpdir / f"tf_{pidx}_{val}"
                     _t0 = _time.monotonic()
