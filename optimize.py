@@ -1113,6 +1113,16 @@ def _canonical_flag_key(raw_flag: str) -> str:
 # stop it from injecting flags derived from opt-21 --help-hidden discovery.
 NO_COMPILER_FEEDBACK = False
 
+# Wall-clock ceiling for ONE run_param_round() measured grid search (Phase A +
+# Phase B combined). See the budget block in run_param_round for why a fixed
+# candidate COUNT is not enough: per-candidate cost scales with the program's
+# own baseline runtime, which spans ~3 orders of magnitude across this corpus
+# (sub-ms cBench kernels vs cholesky's 27s), so the same candidate list costs
+# minutes for most programs and >20h for a few. 2h leaves every normal task
+# unaffected (they finish their candidate lists in well under an hour) while
+# capping the pathological ones.
+PARAM_SEARCH_BUDGET_S = 2 * 3600
+
 # Every ev[] key that carries compiler-derived or hardware-derived feedback.
 # Emptied (NOT deleted -- several downstream sites index ev['...'] directly and
 # would KeyError) so condition B's LLM sees only: kernel source, compiler
@@ -4282,17 +4292,49 @@ Output strict JSON (no markdown):
             print("  Baseline timing failed"); return {}
         print(f"  Baseline -O3: {baseline_time:.2f} ms")
 
+        # Wall-clock budget for the measured search below. Cost per candidate
+        # is ~(compile + runs * baseline_time), so a fixed candidate COUNT
+        # costs wildly different wall time across this corpus: most PolyBench
+        # kernels have a sub-second baseline, but cholesky's is ~27s and
+        # seidel-2d's ~19s. At runs=3 that is >80s per candidate, and a
+        # ~300-candidate Phase A becomes 7+ hours -- observed live as single
+        # params-only tasks running 22h (cholesky) and 12h (seidel-2d) while
+        # every other task in the same condition finished in ~40min, blocking
+        # the whole serial queue behind them.
+        #
+        # Budget is generous enough to be a no-op for normal kernels (they
+        # exhaust their candidate list long before hitting it) and only binds
+        # on the pathological high-baseline ones, where it degrades the search
+        # gracefully instead of hanging the queue.
+        search_deadline = time.time() + PARAM_SEARCH_BUDGET_S
+        budget_hit = False
+
+        def _budget_exhausted(phase: str) -> bool:
+            nonlocal budget_hit
+            if time.time() < search_deadline:
+                return False
+            if not budget_hit:
+                budget_hit = True
+                print(f"  ⏱ {phase}: 已达搜索时间预算 "
+                      f"({PARAM_SEARCH_BUDGET_S/3600:.1f}h)，停止继续探索，"
+                      f"保留当前最优结果")
+            return True
+
         # Phase A: independent flag search
         print("  Phase A — independent flag search:")
         best_per_flag = {}
         all_results   = []
 
         for p_idx, p in enumerate(params):
+            if _budget_exhausted("Phase A"):
+                break
             flag_name  = p["flag"]
             candidates = p["candidates"]
             best_t     = baseline_time
             best_v     = None
             for val in candidates:
+                if _budget_exhausted("Phase A"):
+                    break
                 mllvm = ["-mllvm", f"{flag_name}={val}"]
                 cand  = tmpdir / f"phA_{p_idx}_{val}"
                 ok, _ = compile_binary(clang, src, polybench_c, utils, source_dir,
@@ -4390,6 +4432,8 @@ Output strict JSON:
                 joint_search.append((fn, near))
 
             for combo in itertools.product(*[vs for _, vs in joint_search]):
+                if _budget_exhausted("Phase B"):
+                    break
                 flags = []
                 desc  = []
                 for (fn, _), val in zip(joint_search, combo):
