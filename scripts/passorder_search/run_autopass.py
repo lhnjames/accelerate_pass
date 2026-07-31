@@ -61,6 +61,14 @@ import yaml  # noqa: E402
 _cfg = yaml.safe_load(open("/home/hanning/comet/configs/config.yaml").read())
 CLANG = _cfg["compiler"]["clang_path"]
 
+# LLVM's stock -O3 pipeline, used as the initial P* (the thing candidates
+# must beat). `opt -passes='default<O3>'` on the frontend's raw IR reproduces
+# the -O3 baseline to within noise (measured 1.01x on gemm), so seeding P*
+# with it means "no candidate was better than -O3" finalizes as an honest
+# ~1.0x rather than as whatever the fallback catalog happens to measure.
+O3_PIPELINE = "default<O3>"
+
+
 def _pass_base(p: str) -> str:
     """"loop-mssa(licm)" -> "licm", "loop-mssa(lnicm)" -> "lnicm" -- both
     wrap distinct inner passes under the same "loop-mssa" adaptor, so
@@ -201,7 +209,7 @@ def reasoning_agent(analysis_json: dict, history: list, round_num: int, rounds: 
 def evaluation_agent(kernel_c: str, utils: str, source_dir: str, passes: list,
                       baseline_ms: float, work_dir: Path, round_num: int,
                       pin_cpu: "int | None", ref_bin_dump: str,
-                      correctness_mode: str) -> dict:
+                      correctness_mode: str, ref_bin: str) -> dict:
     """Compiles + times the candidate, AND checks correctness against
     ref_bin_dump before returning a speedup -- arbitrary pass reordering is
     not always semantics-preserving (some passes assume invariants normally
@@ -225,10 +233,21 @@ def evaluation_agent(kernel_c: str, utils: str, source_dir: str, passes: list,
     if not correct:
         return {"ok": False, "error": f"incorrect: {cerr}"}
 
+    # PAIRED measurement: re-time the reference binary right next to the
+    # candidate rather than dividing by the baseline_ms recorded back in
+    # prepare_task. Those two measurements can be hours and several
+    # concurrent workers apart -- on a loaded node the same ref_bin measured
+    # 139ms at prepare time and 618ms during a round, which would turn an
+    # honest 0.82x candidate into a reported 0.18x purely from machine load.
+    # Pairing cancels the drift, the same way confirm_result_external does
+    # for the final number.
+    tok_ref, ref_ms = time_binary(ref_bin, runs=1, pin_cpu=pin_cpu)
     tok, ms = time_binary(trial_bin, runs=1, pin_cpu=pin_cpu)
     if not tok:
         return {"ok": False, "error": "run failed/crashed"}
-    speedup = baseline_ms / ms if ms > 0 else 0.0
+    if not tok_ref or ref_ms <= 0:
+        ref_ms = baseline_ms   # fall back to the recorded baseline
+    speedup = ref_ms / ms if ms > 0 else 0.0
     return {"ok": True, "speedup": speedup}
 
 
@@ -268,7 +287,17 @@ def main():
     print(f"[Analysis Agent] {json.dumps(analysis, ensure_ascii=False)}")
 
     history = []
-    best_passes, best_speedup = list(CANONICAL_PASSES_74), 1.0
+    # P* starts as LLVM's own -O3 pipeline at speedup 1.0 -- that IS the
+    # baseline every candidate must beat, and it's what "rollback" means in
+    # the paper (accept only if t(P) < t(P*); otherwise keep what you had).
+    #
+    # Previously this was seeded with the raw 74-pass catalog at an ASSUMED
+    # speedup of 1.0, which was never measured and is in fact far slower than
+    # -O3. When no round beat 1.0x (the common case), finalize would then
+    # compile that unmeasured catalog and report its real speed -- which is
+    # how tasks that genuinely found no improvement got recorded as 0.2x-0.6x
+    # "results" instead of an honest 1.0x "no improvement over -O3".
+    best_passes, best_speedup = [O3_PIPELINE], 1.0
 
     for round_num in range(1, rounds + 1):
         # 3. Reasoning Agent
@@ -277,7 +306,8 @@ def main():
         # 4. Evaluation Agent
         result = evaluation_agent(kernel_c, utils, source_dir, passes, baseline_ms,
                                    work_dir, round_num, pin_cpu,
-                                   baseline["ref_bin_dump"], baseline["correctness_mode"])
+                                   baseline["ref_bin_dump"], baseline["correctness_mode"],
+                                   baseline["ref_bin"])
         if not result["ok"]:
             history.append({"accepted": False, "passes": passes, "speedup": 0.0,
                              "error": result["error"]})
@@ -306,6 +336,10 @@ def main():
                                        work_dir=str(work_dir))
     result = {"program": program_rel, "baseline_ms": baseline_ms,
               "best_passes": best_passes, "explored_best_speedup": best_speedup,
+              # True when no round beat -O3, so P* is still the stock -O3
+              # pipeline. Such a task is an honest "AutoPass found nothing
+              # better here" (expected to confirm at ~1.0x), NOT a regression.
+              "no_improvement_over_O3": best_passes == [O3_PIPELINE],
               "score_agent_target": target, "analysis_agent": analysis}
     if not ok:
         result.update(status="compile_failed", error=err[:1000],
