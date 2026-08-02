@@ -64,6 +64,31 @@ STD_FLAGS = ["-std=gnu99"]
 # additionally requires the MemorySSA-preserving adaptor.
 _LEVEL_CACHE: dict = {}
 
+# InstCombine ships a self-check that the pass reached a fixpoint within its
+# iteration budget, and when it does not, LLVM does not warn -- it aborts:
+#
+#   LLVM ERROR: Instruction Combining on susan_edges did not reach a fixpoint
+#   after 1 iterations. Use 'instcombine<no-verify-fixpoint>' ... to suppress
+#
+# The stock -O3 pipeline never trips this because instcombine only ever runs
+# in positions its budget was tuned for. An agent proposing pass ORDERS puts
+# it elsewhere constantly, and each abort killed the whole evaluation: this is
+# the single cause of all 19 rounds the first PO sweep lost, and of four
+# programs (susan_smoothing, tiff2bw, dijkstra, security_sha) losing all
+# three of theirs and being recorded at 1.000x as if the search had honestly
+# found nothing.
+#
+# Taking LLVM's own advice suppresses only the VERIFICATION, not any
+# transformation -- where instcombine already converged the emitted IR is
+# unchanged (verified byte-identical), and where it did not, we now get the
+# partially-combined result the pipeline actually produces instead of an
+# aborted run. Not reaching a fixpoint is a property of the pass order being
+# measured, which is the thing under study; it is not a reason to discard the
+# measurement.
+_INSTCOMBINE_SPELLING = {
+    "instcombine": "instcombine<no-verify-fixpoint>",
+}
+
 
 def _probe_pass_level(name: str, probe_ll: str, timeout: int = 60) -> str:
     """"function" | "loop" | "loop-mssa" | "module" | "unknown"."""
@@ -125,6 +150,7 @@ def build_pipeline_string(pass_order: list, probe_ll: str) -> str:
     module_tail: list = []    # module passes can't live inside function(...)
 
     for p in seq:
+        p = _INSTCOMBINE_SPELLING.get(p, p)
         level = _probe_pass_level(p, probe_ll)
         inner = p[len("loop-mssa("):-1] if (p.startswith("loop-mssa(") and p.endswith(")")) else p
         if level in ("loop", "loop-mssa"):
