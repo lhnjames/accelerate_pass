@@ -1,29 +1,47 @@
 #!/usr/bin/env python3
-"""Regenerate docs/RESULTS_FULL_<date>.md from live queue + node state.
+"""Regenerate the results document from queue + node state.
 
-Run it any time; it always reflects whatever has finished so far, so it can be
-re-run mid-sweep for a progress snapshot and again at the end for the final
-table. Nothing is read from a previous version of the document -- every number
-is re-derived, so the doc can never drift from the data.
+Re-runnable at any point -- mid-sweep for a progress snapshot, again at the end
+for the final table. It never reads a previous version of the document, so the
+doc cannot drift from the data.
 
-    python3 scripts/gen_results_doc.py                 # write docs/RESULTS_FULL_<today>.md
-    python3 scripts/gen_results_doc.py -o path.md      # write somewhere else
+    python3 scripts/gen_results_doc.py                    # live queue
+    python3 scripts/gen_results_doc.py --archive          # the pre-fix sweep
+    python3 scripts/gen_results_doc.py --state P --logdir D -o out.md
 
-THE ONE RULE THAT MATTERS: resolve every task to the node the QUEUE says ran
-it. The same task id leaves a log on any node that ever ran it, and re-runs
-routinely land on the other machine, so scanning logs directly will silently
-mix invalidated results from a superseded sweep into the totals. `state.json`'s
-`node` field is the only authority for which log is the live one.
+Three things it does that hand-extraction kept getting wrong:
+
+1. RESOLVE EACH TASK TO THE NODE THE QUEUE SAYS RAN IT. The same task id leaves
+   a log on any node that ever ran it, and re-runs routinely land on the other
+   machine, so scanning logs directly silently mixes results from a superseded
+   sweep into the totals.
+
+2. ONE ROW PER (CONDITION, PROGRAM), the most recently finished. A re-run is
+   enqueued under a new id so its log doesn't clobber the superseded one, which
+   means a cell can appear twice; counting both double-weights that program AND
+   averages a fixed-harness result together with the one it replaced.
+
+3. REPORT THE MEDIAN CONFIRMATION RUN. Data produced before 2026-08-02 stored
+   final_speedup = max of the n paired runs; this recomputes from the stored
+   confirmed_median so old and new sweeps are on one scale, and re-derives
+   `significant` under the current rule (IQR entirely above 1.0 AND every run
+   positive) rather than trusting the stored flag.
+
+It also labels every row with a validity verdict, because several defects found
+on 2026-07-31/08-02 invalidate specific subsets rather than the whole dataset.
 """
-import argparse, json, math, subprocess, sys, datetime
+import argparse, calendar, json, math, subprocess, sys, datetime
 import statistics as st
 from collections import Counter
 from pathlib import Path
 
 QUEUE_HOST = "oracle4"
-QUEUE_STATE = "/home/hanning/comet_queue/state.json"
+LIVE_STATE = "/home/hanning/comet_queue/state.json"
+ARCHIVE_STATE = "/home/hanning/comet_queue/state_archive_20260802_prefix.json"
 NODES = {"dgx-spark-a": "dss-dgx-a", "dgx-spark-b": "dss-dgx-b"}
 COMET = "/home/hanning/comet"
+LIVE_LOGDIR = COMET + "/logs_queue_run_v2"
+ARCHIVE_LOGDIR = COMET + "/logs_queue_run_v2_archive_20260802_prefix"
 
 NAMES = {
     "c1": "① rewrite-only（禁用编译器反馈，每步强制 rewrite_source）",
@@ -34,36 +52,61 @@ NAMES = {
     "po": "PO — AutoPass (arXiv 2606.20373) 四-agent 复现 baseline",
 }
 ORDER = ["c1", "c2", "c3", "c4", "oc", "po"]
+SHORT = {c: NAMES[c].split("（")[0].split(" —")[0] for c in ORDER}
 
-# Runs on each measurement node; prints {task_id: {...}} as JSON.
-COLLECTOR = r'''
+# ── Validity rules ──────────────────────────────────────────────────────────
+# Programs whose correctness tier changed on 2026-08-02 from `numeric`
+# (1e-4 RELATIVE tolerance) to `hash` (byte-exact). On these the old gate was
+# strictly weaker than it should have been -- telecom_crc32 prints a ~4e9
+# checksum, where a 1e-4 relative tolerance admits a ±400000 error -- so any
+# result that ADOPTED a change was never validly checked.
+TIER_CHANGED = {
+    "automotive_qsort1", "bzip2_decode", "network_dijkstra", "network_patricia",
+    "office_stringsearch2", "telecom_crc32", "security_sha",
+    "floyd-warshall", "nussinov", "correlation",
+}
+# Two orphaned (PPID 1) harness processes sat on the pinned measurement core.
+ORPHAN = {
+    "dgx-spark-a": (calendar.timegm((2026, 7, 30, 18, 1, 0, 0, 0, 0)),
+                    calendar.timegm((2026, 7, 31, 17, 30, 0, 0, 0, 0))),
+    "dgx-spark-b": (calendar.timegm((2026, 7, 30, 20, 8, 0, 0, 0, 0)),
+                    calendar.timegm((2026, 7, 31, 17, 30, 0, 0, 0, 0))),
+}
+# InstCombine's fixpoint verifier aborted 19 of the first PO sweep's 147
+# rounds, and four programs lost all three, so every pre-fix PO number is
+# biased toward 1.0 on top of the orphan contamination.
+PO_PREFIX_DISCARDED = True
+
+# Independently re-measured on an idle core, 15 alternating pairs (9 for
+# susan_smoothing), byte-exact output verified in every case.
+VERIFIED = [
+    ("telecom_crc32", "c4", 1.6346, 1.0161, "[0.979, 1.051]", "8/15", "0.39 ms"),
+    ("security_rijndael_decode", "c4", 1.4484, 1.0080, "[0.991, 1.031]", "9/15", "0.43 ms"),
+    ("security_rijndael_encode", "c4", 1.2612, 1.0184, "[0.981, 1.030]", "10/15", "0.45 ms"),
+    ("automotive_susan_smoothing", "c1", 1.5422, 1.3680, "[1.365, 1.369]", "9/9", "27.6 ms"),
+]
+
+COLLECTOR_TMPL = r'''
 import json, glob, os, re
 out = {}
-for f in sorted(glob.glob("%s/logs_queue_run_v2/*.log")):
+for f in sorted(glob.glob("%s/*.log")):
     tid = os.path.basename(f)[:-4]
     txt = open(f, errors="replace").read()
     rec = {"log_mtime": os.path.getmtime(f)}
     if tid.startswith(("po_", "oc_")):
-        # PO writes its JSON block first, OC last.
         i = txt.find("\n{\n") if tid.startswith("po_") else txt.rfind("\n{\n")
         if i >= 0:
             try:
                 d = json.loads(txt[i:])
-                rec.update(final=d.get("confirmed_speedup"), status=d.get("status"),
-                           explored=d.get("explored_best_speedup") or d.get("best_speedup"),
-                           sig=d.get("significant"), iqr=d.get("speedup_iqr"),
-                           base_ms=d.get("baseline_ms"), npos=d.get("n_positive"),
-                           err_msg=d.get("error"))
+                rec.update(final=d.get("confirmed_speedup"), median=d.get("confirmed_speedup"),
+                           status=d.get("status"), explored=d.get("explored_best_speedup") or d.get("best_speedup"),
+                           iqr=d.get("speedup_iqr"), base_ms=d.get("baseline_ms"),
+                           npos=d.get("n_positive"), nruns=d.get("n"), err_msg=d.get("error"))
                 if tid.startswith("po_"):
                     rec.update(noimp=d.get("no_improvement_over_O3"),
-                               n_passes=len(d.get("best_passes") or []),
-                               n_params=len(d.get("best_params") or []),
-                               target=(d.get("score_agent_target") or {}).get("name"),
-                               target_score=(d.get("score_agent_target") or {}).get("score"),
                                acc=len(re.findall(r"ACCEPTED", txt)),
                                rej=len(re.findall(r"REJECTED", txt)),
-                               fail=len(re.findall(r"FAILED", txt)),
-                               preflight=len(re.findall(r"pre-flight dropped", txt)))
+                               fail=len(re.findall(r"FAILED", txt)))
             except Exception as e:
                 rec["err"] = str(e)[:80]
         else:
@@ -73,24 +116,25 @@ for f in sorted(glob.glob("%s/logs_queue_run_v2/*.log")):
         if m and os.path.exists(m[-1]):
             try:
                 d = json.load(open(m[-1]))
-                rec.update(final=d.get("final_speedup"), status=d.get("final_status"),
-                           explored=d.get("best_speedup"), sig=d.get("significant_gain"),
-                           base_ms=d.get("baseline_ms"), npos=d.get("n_positive"),
+                rec.update(final=d.get("final_speedup"), median=d.get("confirmed_median"),
+                           best_obs=d.get("best_observed_speedup"), status=d.get("final_status"),
+                           explored=d.get("best_speedup"), base_ms=d.get("baseline_ms"),
+                           npos=d.get("n_positive"), nruns=d.get("n_runs"),
+                           iqr=(d.get("confirmation") or {}).get("speedup_iqr"),
                            steps=d.get("steps_taken"), rewrite=d.get("has_source_rewrite"),
-                           nflags=len(d.get("best_flags") or []),
-                           rb_flags=d.get("rolled_back_flags"), rb_src=d.get("rolled_back_source"))
+                           nflags=len(d.get("best_flags") or []))
             except Exception as e:
                 rec["err"] = str(e)[:80]
         else:
             rec["err"] = "no result json"
     out[tid] = rec
 print(json.dumps(out))
-''' % COMET
+'''
 
 
-def ssh(host, script):
+def ssh_py(host, script):
     r = subprocess.run(["ssh", "-o", "BatchMode=yes", host, "python3 -"],
-                       input=script, capture_output=True, text=True, timeout=300)
+                       input=script, capture_output=True, text=True, timeout=600)
     if r.returncode != 0:
         sys.exit(f"remote python failed on {host}: {r.stderr[:400]}")
     return json.loads(r.stdout.strip().splitlines()[-1])
@@ -100,29 +144,63 @@ def gm(v):
     return math.exp(sum(math.log(max(x, 1e-9)) for x in v) / len(v))
 
 
-def load():
-    state = ssh(QUEUE_HOST, "import json;print(json.dumps(json.load(open(%r))))" % QUEUE_STATE)
+def load(state_path, logdir):
+    state = ssh_py(QUEUE_HOST, "import json;print(json.dumps(json.load(open(%r))))" % state_path)
     tasks = state["tasks"] if isinstance(state, dict) else state
-    data = {short: ssh(host, COLLECTOR) for short, host in NODES.items()}
+    data = {s: ssh_py(h, COLLECTOR_TMPL % logdir) for s, h in NODES.items()}
     for t in tasks:
-        node = t.get("node") or ""
-        host = "-".join(node.split("-")[:3])
+        host = "-".join((t.get("node") or "").split("-")[:3])
         t["res"] = data.get(host, {}).get(t["id"])
     return tasks
 
 
+def speedup(res):
+    """Median paired speedup. Pre-2026-08-02 runs stored the MAX in
+    final_speedup, so prefer the separately-stored median when present."""
+    if not res:
+        return None
+    m = res.get("median")
+    return float(m) if m is not None else res.get("final")
+
+
+def significant(res):
+    """Current rule: IQR entirely above 1.0 AND every paired run a gain."""
+    if not res:
+        return False
+    iqr, npos, n = res.get("iqr"), res.get("npos"), res.get("nruns")
+    if not iqr or npos is None or not n:
+        return False
+    return float(iqr[0]) > 1.0 and int(npos) == int(n)
+
+
+def verdict(t):
+    """('可用' | reason, is_clean)."""
+    prog = t["program"].split("/")[-1][:-2]
+    reasons = []
+    if prog in TIER_CHANGED:
+        reasons.append("正确性档位过松")
+    lo_hi = ORPHAN.get("-".join((t.get("node") or "").split("-")[:3]))
+    f = t.get("finished") or 0
+    if lo_hi and lo_hi[0] < f < lo_hi[1]:
+        reasons.append("孤儿抢核")
+    if t["id"].startswith("po_") and PO_PREFIX_DISCARDED and f and f < ORPHAN["dgx-spark-a"][1]:
+        reasons.append("PO 预算被 InstCombine 吞")
+    return ("、".join(reasons) if reasons else "可用"), not reasons
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("-o", "--out")
-    args = ap.parse_args()
+    ap.add_argument("--archive", action="store_true", help="read the pre-fix archived sweep")
+    ap.add_argument("--state"); ap.add_argument("--logdir"); ap.add_argument("-o", "--out")
+    a = ap.parse_args()
+    state_path = a.state or (ARCHIVE_STATE if a.archive else LIVE_STATE)
+    logdir = a.logdir or (ARCHIVE_LOGDIR if a.archive else LIVE_LOGDIR)
     today = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
-    out = Path(args.out or f"docs/RESULTS_FULL_{today}.md")
+    out = Path(a.out or f"docs/RESULTS_{today}.md")
 
-    tasks = load()
+    tasks = load(state_path, logdir)
     cond = lambda t: t["id"].split("_")[0]
     prog = lambda t: t["program"].split("/")[-1][:-2]
-    utc = lambda ts: (datetime.datetime.fromtimestamp(ts, datetime.timezone.utc)
-                      .strftime("%m-%d %H:%M") if ts else "—")
 
     def dur(t):
         if t.get("started") and t.get("finished"):
@@ -130,250 +208,161 @@ def main():
             return f"{m:.0f}" if m >= 1 else f"{m*60:.0f}s"
         return "—"
 
-    def done(c):
-        """Finished tasks for condition `c`, ONE per program.
-
-        A re-run is enqueued under a new id (`po_cb005_r2`) so its log doesn't
-        clobber the superseded one, which means the same (condition, program)
-        cell can appear more than once. Counting both would double-weight that
-        program in the geomean and mix a result from a fixed harness with the
-        one it was meant to replace, so keep only the most recently finished
-        run of each cell.
-        """
+    def rows(c, clean_only):
         best = {}
         for t in tasks:
             if cond(t) != c or t["status"] != "done":
                 continue
-            if not t["res"] or t["res"].get("final") is None:
+            if speedup(t.get("res")) is None:
                 continue
-            key = t["program"]
-            prev = best.get(key)
-            if prev is None or (t.get("finished") or 0) > (prev.get("finished") or 0):
-                best[key] = t
+            if clean_only and not verdict(t)[1]:
+                continue
+            k = t["program"]
+            if k not in best or (t.get("finished") or 0) > (best[k].get("finished") or 0):
+                best[k] = t
         return sorted(best.values(), key=lambda t: t["id"])
 
     L = []
     W = L.append
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M")
-    W("# COMET 消融实验 — 全量精细数据快照\n")
-    W(f"_生成时间：{now} UTC（由 `scripts/gen_results_doc.py` 自动生成，请勿手工编辑）_\n")
-    W("每个数字都从队列 `state.json` 记录的任务→节点归属出发，回到该节点上对应的结果 JSON 重新提取。"
-      "**同一个 task id 在多个节点上都可能留有日志**（重跑常落到另一台机器），"
-      "只有 `state.json` 的 `node` 字段能决定哪一份是有效的。\n")
+    W("# COMET 消融实验 — 结果数据（按有效性分级）\n")
+    W(f"_生成时间：{now} UTC，数据源 `{state_path}` + `{logdir}`_")
+    W("_由 `scripts/gen_results_doc.py` 自动生成，请勿手工编辑_\n")
 
-    # 1 环境
-    W("## 1. 测量环境\n")
-    W("| 项 | 值 |")
-    W("|---|---|")
-    W("| 架构 | aarch64，NVIDIA DGX Spark (GB10 Grace)，Cortex-X925 + Cortex-A725，20 核 |")
-    W("| 节点 | `dgx-spark-a`、`dgx-spark-b`（各 1 个 worker，均 `--pin-cpu 2`） |")
-    W("| 工具链 | Ubuntu clang 21.1.8 / opt-21 / llc-21，`aarch64-unknown-linux-gnu` |")
-    W("| baseline | `clang -O3`，六个条件共用同一条编译路径 |")
-    W("| 预算 | ①②③④/OC：9 步；PO：3 轮（R3，对齐论文主结果配置） |")
-    W("| 最终确认 | 与 -O3 交替配对测量，`runs=3` |")
+    W("## 0. 读这份文档之前必须知道的三件事\n")
+    W("**(1) 这里的加速比是 n 次配对测量的中位数，不是最大值。** 2026-08-02 之前 "
+      "`final_speedup` 存的是 n 次里的最大值。对带噪样本取最大值在 n=3 时按构造上偏约 "
+      "0.85 个标准差：`telecom_crc32` 的三次比值是 0.853 / 1.485 / 1.635，发布值 1.6346x，"
+      "而空闲核上独立配对复测是 1.016x。本文档一律从 `confirmed_median` 重算，"
+      "新旧数据因此在同一把尺子上。\n")
+    W("**(2) `显著` 也是重算的**：要求 IQR 整体位于 1.0 之上 **且** 每一次配对都为正。"
+      "旧判据只要求中位数 >1.0，crc32 因此在 IQR = [0.853, 1.635]（连符号都没定下来）时"
+      "被标成显著。\n")
+    W("**(3) 每一行都带有效性判定。** 三类数据不可引用：\n")
+    W("| 排除类别 | 含义 | 影响范围 |")
+    W("|---|---|---|")
+    W("| 正确性档位过松 | 该程序的判定 2026-08-02 从 `numeric`（1e-4 **相对**容差）收紧为 "
+      "`hash`（逐字节）。crc32 打印 ~4e9 的校验和，1e-4 相对容差等于允许 ±40 万误差——"
+      "凡是**采纳了改动**的结果都没被有效校验过 | 10 个程序 × 全部条件 |")
+    W("| 孤儿抢核 | 两个 PPID=1 的遗留进程各霸占 pin 核 20+ 小时，与 worker 争抢同一个 CPU | "
+      "2026-07-30 18:01 / 20:08 起至 07-31 17:30 之间完成的任务 |")
+    W("| PO 预算被吞 | InstCombine 的 fixpoint 校验器 abort 掉 147 轮中的 19 轮，"
+      "4 个程序三轮全废却记为 1.000x，整体偏向 1.0 | 修复前的全部 PO 任务 |")
     W("")
 
-    # 2 进度
-    W("## 2. 总体进度\n")
+    # ── 1 进度
+    W("## 1. 任务进度\n")
     cnt = Counter((cond(t), t["status"]) for t in tasks)
     W("| 条件 | done | running | pending | 合计 |")
     W("|---|---:|---:|---:|---:|")
     for c in ORDER:
         d, r, p = cnt[(c, "done")], cnt[(c, "running")], cnt[(c, "pending")]
         if d + r + p:
-            W(f"| {NAMES[c].split('（')[0].split(' —')[0]} | {d} | {r} | {p} | {d+r+p} |")
+            W(f"| {SHORT[c]} | {d} | {r} | {p} | {d+r+p} |")
     tot = Counter(t["status"] for t in tasks)
     W(f"| **合计** | **{tot['done']}** | **{tot['running']}** | **{tot['pending']}** | **{len(tasks)}** |")
     W("")
 
-    # 3 汇总
-    W("## 3. 六条件汇总\n")
-    W("| 条件 | n | geomean | 中位数 | 最小 | 最大 | >1.05 | 恰好 1.000 | <0.95 |")
-    W("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+    # ── 2 净集汇总（头条）
+    W("## 2. 净集汇总（**这是可引用的数字**）\n")
+    W("剔除上表三类数据后，每个 (条件, 程序) 取最近一次完成。\n")
+    W("| 条件 | n | geomean | 中位数 | 最小 | 最大 | 显著数 |")
+    W("|---|---:|---:|---:|---:|---:|---:|")
     for c in ORDER:
-        g = done(c)
+        g = rows(c, True)
         if not g:
+            W(f"| {SHORT[c]} | 0 | — | — | — | — | — |")
             continue
-        v = [t["res"]["final"] for t in g]
-        W(f"| {NAMES[c].split('（')[0].split(' —')[0]} | {len(v)} | **{gm(v):.4f}** | {st.median(v):.4f} | "
-          f"{min(v):.4f} | {max(v):.4f} | {sum(1 for x in v if x>1.05)} | "
-          f"{sum(1 for x in v if abs(x-1)<1e-6)} | {sum(1 for x in v if x<0.95)} |")
+        v = [speedup(t["res"]) for t in g]
+        W(f"| {SHORT[c]} | {len(v)} | **{gm(v):.4f}** | {st.median(v):.4f} | {min(v):.4f} | "
+          f"{max(v):.4f} | {sum(1 for t in g if significant(t['res']))} |")
     W("")
-    W("> `incorrect` = 产物未通过与 -O3 参考输出的比对，该任务加速比被强制置为 1.0000 后计入 geomean。\n")
-    W("| 条件 | confirmed | baseline_only | incorrect | 其它 |")
-    W("|---|---:|---:|---:|---|")
-    for c in ORDER:
-        g = done(c)
-        if not g:
-            continue
-        sc = Counter(t["res"].get("status") for t in g)
-        other = {k: v for k, v in sc.items()
-                 if k not in ("confirmed", "baseline_only", "incorrect")}
-        W(f"| {NAMES[c].split('（')[0].split(' —')[0]} | {sc.get('confirmed',0)} | "
-          f"{sc.get('baseline_only',0)} | {sc.get('incorrect',0)} | {other or '—'} |")
-    W("")
-    W("### 3.1 分 suite\n")
+    W("### 2.1 净集分 suite\n")
     W("| 条件 | PolyBench n / geomean | cBench n / geomean |")
     W("|---|---|---|")
     for c in ORDER:
-        g = done(c)
+        g = rows(c, True)
         if not g:
             continue
-        pb = [t["res"]["final"] for t in g if "_pb" in t["id"]]
-        cb = [t["res"]["final"] for t in g if "_cb" in t["id"]]
-        W(f"| {NAMES[c].split('（')[0].split(' —')[0]} | "
-          f"{f'{len(pb)} / **{gm(pb):.4f}**' if pb else '—'} | "
+        pb = [speedup(t["res"]) for t in g if "_pb" in t["id"]]
+        cb = [speedup(t["res"]) for t in g if "_cb" in t["id"]]
+        W(f"| {SHORT[c]} | {f'{len(pb)} / **{gm(pb):.4f}**' if pb else '—'} | "
           f"{f'{len(cb)} / **{gm(cb):.4f}**' if cb else '—'} |")
     W("")
 
-    # 4 PO
-    po = done("po")
-    if po:
-        W("## 4. PO — AutoPass 复现（逐任务）\n")
-        W("`回退O3` = 三轮都没赢过 `default<O3>`，最终二进制就是 LLVM 自带 -O3 pipeline，"
-          "**此时确认值理论上必须是 1.000**，偏离多少就是该子集的噪声底。\n")
-        W("| 任务 | 程序 | baseline (ms) | 探索期 best | **确认值** | IQR | 显著 | 回退O3 | 接受/拒绝/失败 | #pass | #param | 节点 | 用时(min) |")
-        W("|---|---|---:|---:|---:|---|:--:|:--:|:--:|---:|---:|---|---:|")
-        for t in po:
-            r = t["res"]
-            iqr = r.get("iqr")
-            W(f"| `{t['id']}` | {prog(t)} | {r.get('base_ms') or 0:.2f} | "
-              f"{r.get('explored') or 0:.4f} | **{r['final']:.4f}** | "
-              f"{f'[{iqr[0]:.3f}, {iqr[1]:.3f}]' if iqr else '—'} | "
-              f"{'✓' if r.get('sig') else ''} | {'✓' if r.get('noimp') else ''} | "
-              f"{r.get('acc','—')}/{r.get('rej','—')}/{r.get('fail','—')} | "
-              f"{r.get('n_passes','—')} | {r.get('n_params','—')} | {t['node']} | {dur(t)} |")
-        v = [t["res"]["final"] for t in po]
-        ex = [t["res"]["explored"] for t in po if t["res"].get("explored")]
-        fails = sum(t["res"].get("fail", 0) for t in po)
-        W("")
-        W(f"**搜索预算**：{len(po)}×3 = {len(po)*3} 次候选评估，"
-          f"ACCEPTED {sum(t['res'].get('acc',0) for t in po)}／"
-          f"REJECTED {sum(t['res'].get('rej',0) for t in po)}／"
-          f"FAILED {fails}（{fails/max(1,len(po)*3)*100:.1f}%）；"
-          f"至少接受过一轮的程序 {sum(1 for t in po if t['res'].get('acc',0)>0)}/{len(po)}。\n")
-        ctrl = [t["res"]["final"] for t in po if t["res"].get("noimp")]
-        if ctrl:
-            cpb = [t["res"]["final"] for t in po if t["res"].get("noimp") and "_pb" in t["id"]]
-            ccb = [t["res"]["final"] for t in po if t["res"].get("noimp") and "_cb" in t["id"]]
-            W("**自校准控制组**（应恰好 1.000）：")
-            for nm, sub in (("PolyBench", cpb), ("cBench", ccb)):
-                if sub:
-                    W(f"- {nm} n={len(sub)}，平均绝对偏差 {sum(abs(x-1) for x in sub)/len(sub)*100:.1f}%，"
-                      f"区间 [{min(sub):.4f}, {max(sub):.4f}]")
-            W("")
-        if ex:
-            pb = [t["res"]["final"] for t in po if "_pb" in t["id"]]
-            cb = [t["res"]["final"] for t in po if "_cb" in t["id"]]
-            expb = [t["res"]["explored"] for t in po if "_pb" in t["id"] and t["res"].get("explored")]
-            excb = [t["res"]["explored"] for t in po if "_cb" in t["id"] and t["res"].get("explored")]
-            W("### 4.1 与论文 Table 5 对齐\n")
-            W("论文口径 = 三轮中观测到的最好值，**不做独立复测**（Table 5 表注 "
-              "\"best performance in three refinement rounds\"）。本项目的确认值是重新编译后"
-              "与 -O3 交替配对复跑 n=3 的结果。\n")
-            W("| Suite | 本项目（确认口径） | 本项目（论文口径） | 论文 x86-64 | 论文 ARM64 |")
-            W("|---|---:|---:|---:|---:|")
-            if cb:
-                W(f"| cBench | {gm(cb):.4f} (n={len(cb)}) | {gm(excb):.4f} | 1.059 | 1.111 |")
-            if pb:
-                W(f"| PolyBench | {gm(pb):.4f} (n={len(pb)}) | {gm(expb):.4f} | 1.009 | 1.149 |")
-            W(f"| **合计** | **{gm(v):.4f}** (n={len(v)}) | **{gm(ex):.4f}** | **1.043** | **1.117** |")
-            W(f"\n两个口径相差 {(gm(ex)/gm(v)-1)*100:.1f}%，即\"三次带噪测量取最大值\"的 selection bias。\n")
-
-    # 5 comet 条件
-    W("## 5. 条件 ①②③④（逐任务）\n")
-    for c in ("c1", "c2", "c3", "c4"):
-        g = done(c)
+    # ── 3 对照：旧口径 vs 新口径
+    W("## 3. 口径影响（同一批数据，只换报告规则）\n")
+    W("| 条件 | n | 旧口径 max-of-n | 新口径 median | 差异 |")
+    W("|---|---:|---:|---:|---:|")
+    for c in ORDER:
+        g = [t for t in rows(c, True)
+             if t["res"].get("final") is not None and t["res"].get("median") is not None]
         if not g:
             continue
-        W(f"### {NAMES[c]}（n={len(g)}）\n")
-        W("| 任务 | 程序 | baseline (ms) | 步数 | 探索期 best | **确认值** | status | 显著 | 源码重写 | #flags | 回退 | 节点 | 用时(min) |")
-        W("|---|---|---:|---:|---:|---:|---|:--:|:--:|---:|---|---|---:|")
+        old = [t["res"]["final"] for t in g]
+        new = [t["res"]["median"] for t in g]
+        W(f"| {SHORT[c]} | {len(g)} | {gm(old):.4f} | **{gm(new):.4f}** | "
+          f"{(gm(old)/gm(new)-1)*100:+.1f}% |")
+    W("")
+
+    # ── 4 独立复测
+    W("## 4. 独立复测（空闲核，交替配对，输出逐字节比对）\n")
+    W("对报告值最高的几个结果做的第三方验证。**正确性全部通过**——塌掉的是加速比，不是正确性。\n")
+    W("| 程序 | 条件 | 报告值 | **独立复测** | 逐对 IQR | 正向 | 单次耗时 |")
+    W("|---|---|---:|---:|---|---:|---:|")
+    for p, c, rep, ver, iqr, pos, ms in VERIFIED:
+        W(f"| {p} | {SHORT[c]} | {rep:.4f} | **{ver:.4f}** | {iqr} | {pos} | {ms} |")
+    W("")
+    W("规律很直接：**单次耗时低于 1 ms 的程序，报告的大幅加速全部塌回 1.0**——那个量级上"
+      "测到的主要是进程启动开销，不是内核。唯一站住的是 susan_smoothing（27.6 ms），"
+      "IQR 只有 ±0.2%、9/9 全正向。\n")
+
+    # ── 5 逐任务明细
+    W("## 5. 逐任务明细（含被排除的行）\n")
+    for c in ORDER:
+        g = []
+        seen = {}
+        for t in tasks:
+            if cond(t) != c or t["status"] != "done" or speedup(t.get("res")) is None:
+                continue
+            k = t["program"]
+            if k not in seen or (t.get("finished") or 0) > (seen[k].get("finished") or 0):
+                seen[k] = t
+        g = sorted(seen.values(), key=lambda t: t["id"])
+        if not g:
+            continue
+        W(f"### {NAMES[c]}（{len(g)} 个）\n")
+        W("| 任务 | 程序 | baseline (ms) | **中位加速比** | 旧口径(max) | IQR | n_pos/n | 显著 | "
+          "探索期 best | 有效性 |")
+        W("|---|---|---:|---:|---:|---|---:|:--:|---:|---|")
         for t in g:
             r = t["res"]
-            rb = "+".join([x for x, y in (("flags", r.get("rb_flags")), ("src", r.get("rb_src"))) if y])
-            W(f"| `{t['id']}` | {prog(t)} | {r.get('base_ms') or 0:.2f} | {r.get('steps','—')} | "
-              f"{r.get('explored') or 0:.4f} | **{r['final']:.4f}** | {r.get('status','—')} | "
-              f"{'✓' if r.get('sig') else ''} | {'✓' if r.get('rewrite') else ''} | "
-              f"{r.get('nflags','—')} | {rb} | {t['node']} | {dur(t)} |")
-        v = [t["res"]["final"] for t in g]
-        pb = [t["res"]["final"] for t in g if "_pb" in t["id"]]
-        cb = [t["res"]["final"] for t in g if "_cb" in t["id"]]
+            iqr = r.get("iqr")
+            v, ok = verdict(t)
+            W(f"| `{t['id']}` | {prog(t)} | {r.get('base_ms') or 0:.2f} | "
+              f"**{speedup(r):.4f}** | {(r.get('final') or 0):.4f} | "
+              f"{f'[{iqr[0]:.3f}, {iqr[1]:.3f}]' if iqr else '—'} | "
+              f"{r.get('npos','—')}/{r.get('nruns','—')} | {'✓' if significant(r) else ''} | "
+              f"{(r.get('explored') or 0):.4f} | {'✓ 可用' if ok else '✗ ' + v} |")
         W("")
-        W(f"**小结**：geomean **{gm(v):.4f}**"
-          f"（PolyBench {gm(pb):.4f} n={len(pb)}；cBench {gm(cb):.4f} n={len(cb)}）"
-          f"／中位数 {st.median(v):.4f}／区间 [{min(v):.4f}, {max(v):.4f}]"
-          f"／`baseline_only` {sum(1 for t in g if t['res'].get('status')=='baseline_only')} 个"
-          f"／发生源码重写 {sum(1 for t in g if t['res'].get('rewrite'))} 个。\n")
 
-    # 6 OC
-    g = done("oc")
-    if g:
-        W(f"## 6. {NAMES['oc']}（n={len(g)}）\n")
-        W("| 任务 | 程序 | baseline (ms) | 探索期 best | **确认值** | status | 显著 | 节点 | 用时(min) |")
-        W("|---|---|---:|---:|---:|---|:--:|---|---:|")
-        for t in g:
-            r = t["res"]
-            W(f"| `{t['id']}` | {prog(t)} | {r.get('base_ms') or 0:.2f} | {r.get('explored') or 0:.4f} | "
-              f"**{r['final']:.4f}** | {r.get('status','—')} | {'✓' if r.get('sig') else ''} | "
-              f"{t['node']} | {dur(t)} |")
-        v = [t["res"]["final"] for t in g]
-        W("")
-        W(f"**小结**：geomean **{gm(v):.4f}**／中位数 {st.median(v):.4f}／"
-          f"区间 [{min(v):.4f}, {max(v):.4f}]。\n")
-
-    # 7 正确性
-    W("## 7. 正确性验证结果\n")
-    inc = [(t, t["res"]) for t in tasks
-           if t["res"] and t["res"].get("status") == "incorrect"]
-    W(f"`incorrect` 任务共 **{len(inc)}** 个。判定档位由 `src/correctness.py` 自动选择："
-      "输出确定且含非整数值 → `numeric`（相对容差，容忍浮点重结合）；"
-      "输出确定且全为整数值 → `hash`（逐字节精确）；参考程序自身不确定 → `exit_only`。\n")
+    # ── 6 正确性
+    inc = [t for t in tasks if t.get("res") and t["res"].get("status") == "incorrect"]
+    W("## 6. 正确性验证失败的任务\n")
+    W(f"共 **{len(inc)}** 个。判定档位由 `src/correctness.py` 自动选择："
+      "输出确定且含非整数值 → `numeric`；输出确定且全为整数值 → `hash`（逐字节）；"
+      "参考程序自身不确定 → `exit_only`。\n")
     if inc:
         W("| 任务 | 程序 | 失败原因 |")
         W("|---|---|---|")
-        for t, r in sorted(inc, key=lambda x: x[0]["id"]):
-            W(f"| `{t['id']}` | {prog(t)} | {(r.get('err_msg') or '—')[:150]} |")
+        for t in sorted(inc, key=lambda x: x["id"]):
+            W(f"| `{t['id']}` | {prog(t)} | {(t['res'].get('err_msg') or '—')[:140]} |")
         W("")
-
-    # 8 数据质量
-    W("## 8. 数据质量自检\n")
-    W("### 8.1 探索期最好值 vs 最终确认值\n")
-    W("比值落在 [0.7, 1.3] 之外的任务。偏低说明探索期读数虚高；"
-      "**偏高没有物理解释**——最终 pipeline 不可能比搜索过程中测到的最好结果还快。\n")
-    rows = []
-    for t in tasks:
-        r = t.get("res")
-        if not r or r.get("final") is None:
-            continue
-        e, f = r.get("explored"), r["final"]
-        if e and e > 0 and r.get("status") == "confirmed" and not (0.7 <= f / e <= 1.3):
-            rows.append((t["id"], prog(t), e, f, f / e, r.get("base_ms")))
-    if rows:
-        W("| 任务 | 程序 | 探索期 best | 确认值 | 比值 | baseline (ms) |")
-        W("|---|---|---:|---:|---:|---:|")
-        for tid, p, e, f, ratio, b in sorted(rows, key=lambda x: -abs(math.log(x[4]))):
-            W(f"| `{tid}` | {p} | {e:.3f} | {f:.3f} | {ratio:.2f} | {b or 0:.2f} |")
-        W(f"\n共 {len(rows)} 个，其中 {sum(1 for r in rows if r[4] > 1.3)} 个是\"确认值反而更高\"。\n")
-    else:
-        W("无。\n")
-
-    W("### 8.2 极端加速比\n")
-    W("geomean 对单点异常极其敏感，>5x 的结果必须人工核对产物是否真的等价。\n")
-    ext = [(t["id"], prog(t), t["res"]["final"]) for t in tasks
-           if t.get("res") and (t["res"].get("final") or 0) > 5]
-    if ext:
-        W("| 任务 | 程序 | 确认值 |")
-        W("|---|---|---:|")
-        for tid, p, f in sorted(ext, key=lambda x: -x[2]):
-            W(f"| `{tid}` | {p} | **{f:.4f}** |")
-        W("")
-    else:
-        W("无。\n")
 
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(L), encoding="utf-8")
-    print(f"wrote {out}  ({len(L)} lines, {tot['done']} done / {len(tasks)} tasks)")
+    clean_total = sum(len(rows(c, True)) for c in ORDER)
+    print(f"wrote {out}  ({len(L)} lines; {tot['done']} done, {clean_total} 净集行)")
 
 
 if __name__ == "__main__":
