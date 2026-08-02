@@ -776,7 +776,10 @@ void sha_stream(SHA_INFO *sha_info, FILE *fin)
 
 void sha_print(SHA_INFO *sha_info)
 {
-    printf("%08lx %08lx %08lx %08lx %08lx\n",
+    /* %08x, not %08lx: LONG is `unsigned int` (see sha.h -- it must be
+       exactly 32 bits). Reading a 4-byte argument through %lx pulls 8
+       bytes off the varargs list and prints garbage. */
+    printf("%08x %08x %08x %08x %08x\n",
 	sha_info->digest[0], sha_info->digest[1], sha_info->digest[2],
 	sha_info->digest[3], sha_info->digest[4]);
 }

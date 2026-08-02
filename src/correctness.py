@@ -170,26 +170,68 @@ def _decode_text_output(data: bytes) -> "Optional[str]":
 def detect_correctness_mode(bin_path: str, output_file: "Optional[Path]" = None,
                             timeout: int = 20) -> str:
     """Auto-detect which tier applies to an already-built reference binary.
-    Runs it once (twice if the first run has no numeric content, to check
-    determinism for the hash tier). No special build flags or macros
-    required -- this is just the binary that gets built for timing anyway."""
+    Always runs the binary twice: determinism of the *reference* is what
+    decides the tier, and it also catches references that can't be validated
+    at all. No special build flags or macros required -- this is just the
+    binary that gets built for timing anyway.
+
+    The tiers are NOT ordered "numeric is always richest". `numeric` accepts
+    any output within a relative tolerance, which is the right gate for
+    floating-point kernels (vectorization legitimately reassociates FP ops
+    and perturbs the last bits) but is strictly WEAKER than `hash` for
+    discrete output. Picking `numeric` merely because digits are present
+    silently downgrades the gate on every checksum/codec/sort benchmark:
+    telecom_crc32 prints a ~4e9 CRC value, and a 1e-4 *relative* tolerance
+    on that lets a wrong checksum differ by ±400000 and still pass. Same
+    hole for bzip2_decode's decompressed bytes, automotive_qsort1's sorted
+    keys, network_dijkstra's path costs, and office_stringsearch2's offsets.
+
+    So the deciding question is "can this output legitimately move at all?",
+    answered by whether any reference value is non-integral:
+
+      deterministic + some fractional value -> numeric  (FP data, tolerate)
+      deterministic + all values integral   -> hash     (discrete, exact)
+      deterministic + no numbers            -> hash     (text/binary, exact)
+      non-deterministic                     -> see below
+
+    Integral-valued output routed to `hash` may be stricter than strictly
+    necessary (a kernel printing floats with "%.0f" loses its tolerance),
+    but over-strictness only ever rejects a valid candidate -- it can never
+    accept a wrong one, which is the correct failure direction for a
+    correctness gate.
+    """
     run1 = _run_capture(bin_path, timeout=timeout, output_file=output_file)
     if run1 is None or run1[0] != 0:
         return "exit_only"
-    _, out1, file1 = run1
-    payload1 = out1 + (file1 or b"")
-    text1 = _decode_text_output(payload1)
-    if text1 is not None:
-        nums = extract_numbers(text1)
-        if isinstance(nums, list) and len(nums) >= 1:
-            return "numeric"
-
     run2 = _run_capture(bin_path, timeout=timeout, output_file=output_file)
     if run2 is None or run2[0] != 0:
         return "exit_only"
+    _, out1, file1 = run1
     _, out2, file2 = run2
+    text1 = _decode_text_output(out1 + (file1 or b""))
+    nums1 = extract_numbers(text1) if text1 is not None else None
+
     if out1 == out2 and file1 == file2:
+        if isinstance(nums1, list) and any(
+                math.isfinite(v) and v != int(v) for v in nums1):
+            return "numeric"
         return "hash"
+
+    # Non-deterministic reference. `hash` is impossible, and `numeric` is
+    # only meaningful if the NUMBERS are stable even though the surrounding
+    # bytes are not (e.g. a timing line printed alongside the results). If
+    # the values themselves move between two runs of the same binary, no
+    # candidate can ever be validated against it -- every comparison result
+    # is noise, so report the weakest tier rather than manufacturing verdicts.
+    # This is not hypothetical: cBench security_sha's SHA_INFO.data overruns
+    # its 64-byte block on LP64 and feeds uninitialised stack into the
+    # digest, so its "reference" digest differs on every single run.
+    text2 = _decode_text_output(out2 + (file2 or b""))
+    nums2 = extract_numbers(text2) if text2 is not None else None
+    if isinstance(nums1, list) and isinstance(nums2, list) and nums1:
+        stable, _ = compare_numeric(nums1, nums2)
+        if stable:
+            return "numeric"
     return "exit_only"
 
 

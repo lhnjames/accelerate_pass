@@ -217,6 +217,101 @@ def _repair_params(raw: dict) -> list:
     return out
 
 
+_PREFLIGHT_LL = [None]   # cached tiny module, built once per process
+
+
+def _preflight_module() -> "str | None":
+    """A throwaway .ll with one FP loop and one integer loop, used to ask opt
+    whether a proposed pipeline is even accepted before we spend a round
+    compiling the real kernel with it."""
+    if _PREFLIGHT_LL[0] is None:
+        import tempfile, subprocess
+        td = Path(tempfile.mkdtemp(prefix="autopass_preflight_"))
+        c = td / "p.c"
+        c.write_text("double a[256],b[256];\n"
+                     "void f(int n){for(int i=0;i<n;i++) a[i]=b[i]*2.0+a[i];}\n"
+                     "int g(int n){int s=0;for(int i=0;i<n;i++) s+=i*i; return s;}\n")
+        ll = td / "p.ll"
+        r = subprocess.run([CLANG, "-O3", "-Xclang", "-disable-llvm-passes",
+                            "-S", "-emit-llvm", str(c), "-o", str(ll)],
+                           capture_output=True)
+        _PREFLIGHT_LL[0] = str(ll) if r.returncode == 0 else ""
+    return _PREFLIGHT_LL[0] or None
+
+
+def _opt_accepts(passes: list, params: list) -> tuple:
+    """(ok, stderr) for `opt -passes=<passes> <params>` on the tiny module."""
+    import subprocess
+    ll = _preflight_module()
+    if not ll or not passes:
+        return True, ""     # can't pre-check -- let the real build decide
+    r = subprocess.run([_cfg["compiler"]["opt_path"], "-passes=" + ",".join(passes),
+                        *params, ll, "-o", "/dev/null"],
+                       capture_output=True, text=True)
+    return r.returncode == 0, (r.stderr or "").strip()
+
+
+def validate_and_repair(passes: list, params: list) -> tuple:
+    """Drop whatever `opt` refuses, so an unparseable proposal costs a pass,
+    not the whole round.
+
+    13% of the first full PO sweep's evaluation budget (19 of 147 rounds)
+    was lost to opt rejecting a proposal, and four programs -- susan_smoothing,
+    tiff2bw, dijkstra, security_sha -- lost ALL THREE rounds this way. Those
+    programs were then recorded at 1.000x as if the search had honestly found
+    nothing, when in fact it never got to run, which quietly biases the
+    geomean toward 1.0.
+
+    Individually every catalog entry and every tunable parameter is valid
+    (each checked one at a time against opt-21), and so is the full catalog
+    in canonical order, so the rejections come from specific combinations.
+    Which ones is no longer recoverable from the first sweep: the round loop
+    logged only error[:200], and the -passes= argument alone is longer than
+    that, so opt's actual diagnostic was truncated away in every case (now
+    fixed below). That LLVM's new-PM parser can reject a combination outright
+    is easy to demonstrate regardless -- a bare `licm` is fatal ("LICM
+    requires MemorySSA (loop-mssa)") while `loop-mssa(licm)` is fine.
+
+    So rather than enumerate rules we cannot fully enumerate -- and which are
+    LLVM-version specific and would rot anyway -- build the pipeline
+    incrementally and keep only the prefix extensions opt actually accepts.
+    O(n) opt invocations on a ~10-line module, far cheaper than one wasted
+    round on the real kernel, and it degrades gracefully on any future LLVM.
+    """
+    ok, _ = _opt_accepts(passes, params)
+    if ok:
+        return passes, params, []
+
+    dropped = []
+
+    # Parameters FIRST, against a pipeline known to be valid. opt rejects an
+    # unknown flag before it ever runs a pass, so a single bad parameter makes
+    # every candidate prefix fail -- repairing passes first would then blame
+    # the passes and throw away the whole (perfectly good) sequence.
+    kept_params = []
+    for prm in params:
+        good, _ = _opt_accepts([O3_PIPELINE], kept_params + [prm])
+        if good:
+            kept_params.append(prm)
+        else:
+            dropped.append(prm)
+
+    # Then the sequence, now that the parameters can't cause false blame.
+    kept = []
+    for p in passes:
+        good, _ = _opt_accepts(kept + [p], kept_params)
+        if good:
+            kept.append(p)
+        else:
+            dropped.append(p)
+
+    if not kept:
+        # Nothing survived -- fall back to the stock -O3 pipeline so the
+        # round still measures something meaningful instead of nothing.
+        return [O3_PIPELINE], kept_params, dropped
+    return kept, kept_params, dropped
+
+
 def reasoning_agent(analysis_json: dict, history: list, round_num: int, rounds: int,
                      kernel_name: str) -> tuple:
     lines = [f"Kernel: {kernel_name}. Round {round_num}/{rounds}.",
@@ -246,6 +341,14 @@ def reasoning_agent(analysis_json: dict, history: list, round_num: int, rounds: 
     if not repaired:
         repaired = list(CANONICAL_PASSES_74)  # fallback: full catalog in canonical order
     params = _repair_params(reply.get("params") if isinstance(reply, dict) else None)
+
+    # Name-level repair above only guarantees each token exists; the pipeline
+    # as a whole can still be rejected by opt. Pre-flight it so a bad ordering
+    # costs the offending pass rather than the entire round.
+    repaired, params, dropped = validate_and_repair(repaired, params)
+    if dropped:
+        print(f"[round {round_num}/{rounds}] pre-flight dropped {len(dropped)} "
+              f"rejected item(s): {dropped}")
     return repaired, params
 
 
@@ -359,7 +462,11 @@ def main():
         if not result["ok"]:
             history.append({"accepted": False, "passes": passes, "params": params,
                              "speedup": 0.0, "error": result["error"]})
-            print(f"[round {round_num}/{rounds}] FAILED: {result['error'][:200]}")
+            # Log the error in full. The 200-char cap used previously truncated
+            # opt's actual diagnostic away -- every failure in the first sweep
+            # showed only the (long) -passes= argument, leaving no way to tell
+            # afterwards WHY the pipeline was rejected.
+            print(f"[round {round_num}/{rounds}] FAILED: {result['error']}")
             continue
 
         speedup = result["speedup"]
