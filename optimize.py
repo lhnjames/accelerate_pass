@@ -23,7 +23,7 @@ Usage:
   python optimize.py --program path/to/kernel.c --rounds 5
   python optimize.py --program path/to/kernel.c --graph-only   # pass graph only
 """
-import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses, shutil, time, random
+import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses, shutil, time, random, math
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -137,13 +137,50 @@ def _single_shot_ms_external(bin_path: str, pin_cpu: "int | None" = None) -> flo
     return statistics.mean(trimmed) if trimmed else -1.0
 
 
+_CONFIRM_TARGET_MS = 500.0   # aim to spend at least this long per side
+_CONFIRM_MAX_RUNS = 51
+
+
+def _adaptive_confirm_runs(requested: int, per_run_ms: float) -> int:
+    """Scale the confirmation sample count to the benchmark's own duration.
+
+    A fixed `runs=3` is fine for a 10-second PolyBench kernel and useless for
+    a 0.8 ms cBench one. telecom_crc32 measured 26% per-run stdev; the median
+    of three samples from a distribution that wide is barely an estimate at
+    all -- its three paired ratios were 0.853 / 1.485 / 1.635, which does not
+    even determine the sign of the effect. Sampling until we have spent a
+    fixed amount of WALL TIME per side, rather than a fixed number of runs,
+    gives short benchmarks the sample count their noise actually requires and
+    costs nothing (51 runs of a 0.8 ms binary is 40 ms).
+
+    This fixes the VARIANCE of the estimate, not the dilution: when a binary
+    runs for 0.8 ms, most of what gets timed is process startup, so a real
+    kernel speedup is compressed toward 1.0 no matter how many samples we
+    take. That compression is conservative -- it understates gains rather than
+    inventing them -- but the actual fix for those benchmarks is to enlarge
+    their workload so the kernel dominates the measurement.
+
+    Never goes below the caller's request, and keeps the count odd so the
+    median is a real sample rather than an interpolation.
+    """
+    if per_run_ms <= 0:
+        return max(1, requested)
+    needed = int(math.ceil(_CONFIRM_TARGET_MS / per_run_ms))
+    n = max(int(requested), needed)
+    n = min(n, _CONFIRM_MAX_RUNS)
+    if n % 2 == 0:
+        n += 1
+    return max(1, n)
+
+
 def confirm_result_external(base_bin: str, best_bin: str, runs: int,
                             pin_cpu: "int | None" = None) -> dict:
     """Same alternating-measurement / paired-median technique as
     confirm_result(), but using _single_shot_ms_external() throughout --
     see its docstring for why this matters. Same return shape."""
-    _single_shot_ms_external(base_bin, pin_cpu)
-    _single_shot_ms_external(best_bin, pin_cpu)
+    warm_b = _single_shot_ms_external(base_bin, pin_cpu)
+    warm_o = _single_shot_ms_external(best_bin, pin_cpu)
+    runs = _adaptive_confirm_runs(runs, max(warm_b, warm_o))
 
     ratios, base_ms, best_ms = [], [], []
     for _ in range(max(1, runs)):
@@ -1207,17 +1244,39 @@ def decide_final_result(confirmation: dict, has_flags: bool, has_source: bool,
 
       * No rollback. The agent LLM already judges, from measured feedback,
         which candidate is best; we do not second-guess it with a 1.0 floor.
-      * Reported number = the BEST observed paired speedup across the n
-        confirmation runs (confirmation["best_speedup"]). Rationale: execution-
-        time noise is one-sided (interference only slows a run down), so the
-        fastest run is the least-perturbed estimate of the candidate's true
-        speed. Concretely: if even one of the n confirmation runs shows a gain,
-        that gain is taken as achievable; only a candidate that is a regression
-        in EVERY run (n_positive == 0) is reported below 1.0.
+      * Reported number = the MEDIAN paired speedup across the n confirmation
+        runs (confirmation["confirmed_speedup"]).
 
-      confirmed        -- confirmation ran; report best observed speedup.
-                          `significant_gain` = the MEDIAN was also > 1.0 (i.e.
-                          reliably, not just occasionally, faster).
+    The reported number was the MAXIMUM of the n runs until 2026-08-02. The
+    rationale for that (execution-time noise is one-sided -- interference only
+    ADDS time -- so the fastest run is the least-perturbed estimate of true
+    compute time) holds only while the measurement actually resolves the
+    program. It does not here. telecom_crc32's three confirmation ratios were
+    0.853 / 1.485 / 1.635 with 26% per-run stdev on a ~0.8 ms binary, where
+    most of what is timed is process startup rather than the kernel; the
+    fastest run is then not the least-perturbed estimate, it is simply the
+    luckiest sample. Taking max of n from a distribution with stdev s biases
+    the estimate up by roughly 0.85s at n=3 BY CONSTRUCTION, and crc32 was
+    reported at 1.6346x where an independent paired re-measurement on an idle
+    core gives 1.016x.
+
+    Measured cost of the old policy across this study: +9.3% on condition 1,
+    +6.1% on condition 4, and +22.0% on condition 1's sub-10ms cBench subset
+    (where the median was 0.871 and the reported max was 1.063 -- opposite
+    signs). It is the same max-of-noisy-samples bias this project criticised
+    in AutoPass's "best performance in three refinement rounds", just applied
+    at confirmation time instead of at round-selection time.
+
+    The max is still reported, as `best_observed_speedup`, so a candidate that
+    is occasionally much faster stays visible -- it is just no longer the
+    headline number.
+
+      confirmed        -- confirmation ran; report the median paired speedup.
+                          `significant_gain` now requires the whole IQR to sit
+                          above 1.0 AND every paired run to be a gain, not
+                          merely median > 1.0. Under the old test crc32 came
+                          out "significant" with an IQR of [0.853, 1.635] --
+                          an interval that does not even determine the sign.
                           `n_positive`/`n` say how broad the gain was.
       exploratory_only -- confirmation could not run; use the search measurement.
       baseline_only    -- no candidate was produced; 1.0 by definition.
@@ -1235,11 +1294,15 @@ def decide_final_result(confirmation: dict, has_flags: bool, has_source: bool,
     elif confirmation.get("ok"):
         median_sp = float(confirmation["confirmed_speedup"])
         best_sp = float(confirmation.get("best_speedup", median_sp))
-        out.update(final_status="confirmed", final_speedup=best_sp,
+        n_runs = int(confirmation.get("n", 0))
+        n_pos = int(confirmation.get("n_positive", 0))
+        iqr = confirmation.get("speedup_iqr") or [median_sp, median_sp]
+        out.update(final_status="confirmed", final_speedup=median_sp,
                    confirmed_median=median_sp,
-                   significant_gain=bool(median_sp > 1.0),
-                   n_positive=int(confirmation.get("n_positive", 0)),
-                   n_runs=int(confirmation.get("n", 0)))
+                   best_observed_speedup=best_sp,
+                   significant_gain=bool(float(iqr[0]) > 1.0 and n_runs > 0
+                                         and n_pos == n_runs),
+                   n_positive=n_pos, n_runs=n_runs)
     else:
         out.update(final_status="exploratory_only", final_speedup=exploratory,
                    significant_gain=False, n_positive=0, n_runs=0)
@@ -5303,8 +5366,8 @@ def main():
         # 回滚已移除：保留模型选出的候选（flags / source / utils 改动都不动）。
         rolled_back_flags, rolled_back_source = [], False
         if final_status == "confirmed":
-            print(f"\n[确认] 最好观测加速比 {_decision['final_speedup']:.4f}x "
-                  f"(中位 {_decision.get('confirmed_median', 0):.4f}x, "
+            print(f"\n[确认] 中位加速比 {_decision['final_speedup']:.4f}x "
+                  f"(最好单次 {_decision.get('best_observed_speedup', 0):.4f}x, "
                   f"{_decision.get('n_positive', 0)}/{_decision.get('n_runs', 0)} 次为正, "
                   f"reliably_faster={significant_gain})")
 

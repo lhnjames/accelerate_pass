@@ -24,6 +24,24 @@ case "${WORKER_SLOT:-0}" in
   *) PIN_CPU=$(( (WORKER_SLOT * 7) % 20 )) ;;
 esac
 
+# ---------------------------------------------------------------------------
+# One worker per slot, enforced -- not remembered.
+#
+# Every measurement on this node is pinned to PIN_CPU, so a second worker in
+# the same slot puts two timing runs on one core and silently doubles the
+# noise on both. That has now happened twice by hand (a restart that appeared
+# to fail actually succeeded, and the retry stacked a second worker on top),
+# and `pkill -f "bash ./worker_v2.sh"` does NOT clean it up: the shell running
+# that pkill has the pattern in its own command line, so pkill matches and
+# kills itself first. Take a lock instead of relying on either.
+LOCKFILE="/tmp/comet_worker_slot${WORKER_SLOT:-0}.lock"
+exec 9>"$LOCKFILE"
+if ! flock -n 9; then
+  echo "[$(date '+%H:%M:%S')] slot ${WORKER_SLOT:-0} already has a worker (lock $LOCKFILE); exiting"
+  exit 0
+fi
+echo $$ >&9
+
 jget() { python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('$1', ''))" "$2"; }
 
 # ---------------------------------------------------------------------------
