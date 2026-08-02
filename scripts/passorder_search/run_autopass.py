@@ -217,13 +217,45 @@ def _repair_params(raw: dict) -> list:
     return out
 
 
-_PREFLIGHT_LL = [None]   # cached tiny module, built once per process
+_PREFLIGHT_LL = [None]   # module the pre-flight asks opt about
+
+
+def prime_preflight_module(kernel_c: str, utils: str, source_dir: str,
+                            work_dir: "Path") -> None:
+    """Point the pre-flight at THIS kernel's own frontend IR.
+
+    A rejection can be either a pipeline *parse* error (prefix-independent)
+    or opt failing while it RUNS the pipeline, which depends entirely on the
+    IR it is fed. Checking against a synthetic toy module would therefore
+    answer a different question than the one that matters -- a pass could be
+    dropped for crashing on the toy while being perfectly good (and possibly
+    the most valuable one) on the real kernel, and vice versa.
+
+    Emitting the exact IR compile_with_pass_order will use makes the check
+    exact: if opt accepts the pipeline here, step 2 of the real build cannot
+    reject it. Falls back to a small synthetic module if this fails, so
+    pre-flight degrades rather than disappearing.
+    """
+    import subprocess
+    from measure_lib import STD_FLAGS
+    ll = Path(work_dir) / "preflight_raw.ll"
+    ll.parent.mkdir(parents=True, exist_ok=True)
+    r = subprocess.run([CLANG, "-O3", "-Xclang", "-disable-llvm-passes"] + STD_FLAGS
+                       + [f"-I{utils}", f"-I{source_dir}",
+                          "-DLARGE_DATASET", "-DPOLYBENCH_TIME",
+                          "-S", "-emit-llvm", kernel_c, "-o", str(ll)],
+                       capture_output=True)
+    if r.returncode == 0:
+        _PREFLIGHT_LL[0] = str(ll)
+        print(f"[pre-flight] validating pipelines against the kernel's own IR: {ll}")
+    else:
+        print("[pre-flight] kernel IR emit failed, falling back to a synthetic module")
 
 
 def _preflight_module() -> "str | None":
-    """A throwaway .ll with one FP loop and one integer loop, used to ask opt
-    whether a proposed pipeline is even accepted before we spend a round
-    compiling the real kernel with it."""
+    """The module to validate against: this kernel's IR once
+    prime_preflight_module() has run, otherwise a small synthetic fallback
+    with one FP loop and one integer loop."""
     if _PREFLIGHT_LL[0] is None:
         import tempfile, subprocess
         td = Path(tempfile.mkdtemp(prefix="autopass_preflight_"))
@@ -432,6 +464,9 @@ def main():
 
     work_dir = scratch_dir / "work"
     work_dir.mkdir(exist_ok=True)
+
+    # Validate proposed pipelines against this kernel's own IR, not a stand-in.
+    prime_preflight_module(kernel_c, utils, source_dir, work_dir)
 
     driver_text = Path(kernel_c).read_text(errors="replace")
     utils_text = None
