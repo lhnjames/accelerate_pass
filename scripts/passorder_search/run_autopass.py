@@ -251,6 +251,16 @@ def _opt_accepts(passes: list, params: list) -> tuple:
     return r.returncode == 0, (r.stderr or "").strip()
 
 
+def _first_line(err: str) -> str:
+    """opt's first diagnostic line -- the part that says WHY, without the
+    (very long) -passes= echo that follows."""
+    for line in (err or "").splitlines():
+        line = line.strip()
+        if line:
+            return line[:160]
+    return "(no stderr)"
+
+
 def validate_and_repair(passes: list, params: list) -> tuple:
     """Drop whatever `opt` refuses, so an unparseable proposal costs a pass,
     not the whole round.
@@ -290,20 +300,20 @@ def validate_and_repair(passes: list, params: list) -> tuple:
     # the passes and throw away the whole (perfectly good) sequence.
     kept_params = []
     for prm in params:
-        good, _ = _opt_accepts([O3_PIPELINE], kept_params + [prm])
+        good, err = _opt_accepts([O3_PIPELINE], kept_params + [prm])
         if good:
             kept_params.append(prm)
         else:
-            dropped.append(prm)
+            dropped.append((prm, _first_line(err)))
 
     # Then the sequence, now that the parameters can't cause false blame.
     kept = []
     for p in passes:
-        good, _ = _opt_accepts(kept + [p], kept_params)
+        good, err = _opt_accepts(kept + [p], kept_params)
         if good:
             kept.append(p)
         else:
-            dropped.append(p)
+            dropped.append((p, _first_line(err)))
 
     if not kept:
         # Nothing survived -- fall back to the stock -O3 pipeline so the
@@ -347,8 +357,9 @@ def reasoning_agent(analysis_json: dict, history: list, round_num: int, rounds: 
     # costs the offending pass rather than the entire round.
     repaired, params, dropped = validate_and_repair(repaired, params)
     if dropped:
-        print(f"[round {round_num}/{rounds}] pre-flight dropped {len(dropped)} "
-              f"rejected item(s): {dropped}")
+        print(f"[round {round_num}/{rounds}] pre-flight dropped {len(dropped)} rejected item(s):")
+        for item, reason in dropped:
+            print(f"    {item!r}: {reason}")
     return repaired, params
 
 
