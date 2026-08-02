@@ -272,13 +272,20 @@ def _preflight_module() -> "str | None":
 
 
 def _opt_accepts(passes: list, params: list) -> tuple:
-    """(ok, stderr) for `opt -passes=<passes> <params>` on the tiny module."""
+    """(ok, stderr) for the candidate as the real build would spell it.
+
+    Goes through build_pipeline_string so the pre-flight asks about exactly
+    the -passes= string compile_with_pass_order will use -- checking a flat
+    comma-joined list here would reject orders the real build handles fine.
+    """
     import subprocess
+    from measure_lib import build_pipeline_string
     ll = _preflight_module()
     if not ll or not passes:
         return True, ""     # can't pre-check -- let the real build decide
-    r = subprocess.run([_cfg["compiler"]["opt_path"], "-passes=" + ",".join(passes),
-                        *params, ll, "-o", "/dev/null"],
+    r = subprocess.run([_cfg["compiler"]["opt_path"],
+                        "-passes=" + build_pipeline_string(passes, ll),
+                        *params, "-S", ll, "-o", "/dev/null"],
                        capture_output=True, text=True)
     return r.returncode == 0, (r.stderr or "").strip()
 

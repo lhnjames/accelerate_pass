@@ -36,6 +36,117 @@ LLC = _cfg["compiler"]["llc_path"]
 
 STD_FLAGS = ["-std=gnu99"]
 
+# ---------------------------------------------------------------------------
+# Pipeline-string construction
+# ---------------------------------------------------------------------------
+# opt's -passes= parser infers ONE nesting level for a flat comma-separated
+# list, from the first pass in it. So the moment a loop pass appears in a flat
+# list, every following name is parsed as a loop pass too:
+#
+#   -passes=sroa,loop-rotate,instcombine
+#     -> "unknown loop pass 'instcombine'"   (and the whole run fails)
+#
+# The AutoPass Reasoning Agent proposes orders like that constantly -- putting
+# instcombine/simplifycfg/gvn after loop-rotate or licm is completely ordinary
+# compiler practice. Joining its proposal with commas therefore threw away any
+# candidate that interleaved loop and function passes, which is what consumed
+# 19 of the first sweep's 147 evaluation rounds and cost four programs
+# (susan_smoothing, tiff2bw, dijkstra, security_sha) all three of theirs.
+#
+# The fix is to emit what the flat list MEANS: group each run of consecutive
+# loop passes into its own loop(...)/loop-mssa(...) adaptor inside the
+# surrounding function(...) pipeline.
+#
+# Which level a pass belongs to is probed from opt itself rather than
+# hardcoded, because the answer is neither guessable from the name nor stable
+# across LLVM versions -- `loop-unroll` is a FUNCTION pass despite its name
+# (it is a whole-function unroller), while `licm` is loop-level and
+# additionally requires the MemorySSA-preserving adaptor.
+_LEVEL_CACHE: dict = {}
+
+
+def _probe_pass_level(name: str, probe_ll: str, timeout: int = 60) -> str:
+    """"function" | "loop" | "loop-mssa" | "module" | "unknown"."""
+    if name in _LEVEL_CACHE:
+        return _LEVEL_CACHE[name]
+    inner = name
+    if name.startswith("loop-mssa(") and name.endswith(")"):
+        inner = name[len("loop-mssa("):-1]
+    level = "unknown"
+    # Probe INNERMOST first. opt silently wraps a loop pass in an adaptor when
+    # it appears inside function(...), so `function(loop-rotate)` succeeds and
+    # testing that first would label every loop pass "function" -- which is
+    # exactly the mislabel that let `loop-rotate,instcombine` be emitted flat,
+    # where opt infers a LOOP pipeline from the first pass and then rejects
+    # instcombine as "unknown loop pass". A function pass inside loop(...) has
+    # no such implicit adaptor, so the narrow levels are the discriminating
+    # ones and must be tried before the permissive ones.
+    # `loop` before `loop-mssa`: the MemorySSA adaptor also accepts plain loop
+    # passes, so testing it first would push everything into loop-mssa and
+    # silently add MemorySSA preservation the candidate never asked for. Only
+    # passes that genuinely require it (licm: "LICM requires MemorySSA
+    # (loop-mssa)") fail under plain loop(...) and fall through to it.
+    for lvl, tmpl in (("loop", "function(loop({}))"),
+                      ("loop-mssa", "function(loop-mssa({}))"),
+                      ("function", "function({})"),
+                      ("module", "{}")):
+        ok, _ = _run([OPT, f"-passes={tmpl.format(inner)}",
+                      "-S", probe_ll, "-o", "/dev/null"], timeout=timeout)
+        if ok:
+            level = lvl
+            break
+    _LEVEL_CACHE[name] = level
+    return level
+
+
+def build_pipeline_string(pass_order: list, probe_ll: str) -> str:
+    """Turn a flat pass list into a correctly nested opt -passes= string.
+
+    Consecutive loop passes are collected into one adaptor so the ordering the
+    Reasoning Agent asked for is preserved exactly; a function pass appearing
+    between two loop passes correctly splits them into two adaptors, because
+    that is what the requested order means.
+    """
+    # A stock LLVM pipeline like "default<O3>" is a MODULE pipeline and must
+    # stand alone: prefixing it with the function pass mem2reg makes opt parse
+    # the whole -passes string as a function pipeline and reject it with
+    # "unknown function pass 'default<O3>'".
+    if len(pass_order) == 1 and pass_order[0].startswith("default<"):
+        return pass_order[0]
+
+    # mem2reg first, unconditionally -- without it every later pass sees the
+    # same alloca-heavy IR as -O0. Don't double it up when the caller (or the
+    # Reasoning Agent) already asked for it first.
+    seq = list(pass_order or [])
+    if not seq or seq[0] != "mem2reg":
+        seq = ["mem2reg"] + seq
+
+    parts: list = []          # entries inside the outer function(...)
+    module_tail: list = []    # module passes can't live inside function(...)
+
+    for p in seq:
+        level = _probe_pass_level(p, probe_ll)
+        inner = p[len("loop-mssa("):-1] if (p.startswith("loop-mssa(") and p.endswith(")")) else p
+        if level in ("loop", "loop-mssa"):
+            # ONE adaptor per loop pass, never a shared loop(a,b,c). Grouping
+            # would change what the requested order means: a shared adaptor
+            # runs a,b,c over each loop in turn, while separate adaptors run a
+            # over every loop, then b over every loop. opt's own implicit
+            # adaptation of a flat list does the latter, and the previous sweep
+            # was measured that way, so grouping here would silently make the
+            # PO numbers incomparable with it. Verified byte-identical IR
+            # against the old flat form on mixed loop/function pipelines.
+            parts.append(f"{level}({inner})")
+        elif level == "module":
+            module_tail.append(p)
+        else:                       # function, or unknown -> let opt decide
+            parts.append(p)
+
+    pipeline = f"function({','.join(parts)})" if parts else ""
+    if module_tail:
+        pipeline = ",".join(([pipeline] if pipeline else []) + module_tail)
+    return pipeline or "function(mem2reg)"
+
 
 def compile_baseline(kernel_c: str, utils: str, source_dir: str, out_bin: str,
                       dataset: str = "LARGE_DATASET", runs: int = 3,
@@ -136,16 +247,9 @@ def compile_with_pass_order(kernel_c: str, utils: str, source_dir: str,
     if not ok:
         return False, f"frontend IR emit failed: {err}"
 
-    # 2. Apply the candidate pass order (mem2reg first, unconditionally --
-    #    without it every later pass sees the same alloca-heavy IR as -O0).
-    # A stock LLVM pipeline like "default<O3>" is a MODULE pipeline and must
-    # stand alone: prefixing it with the function pass mem2reg makes opt parse
-    # the whole -passes string as a function pipeline and reject it with
-    # "unknown function pass 'default<O3>'".
-    if len(pass_order) == 1 and pass_order[0].startswith("default<"):
-        passes_str = pass_order[0]
-    else:
-        passes_str = "mem2reg," + ",".join(pass_order) if pass_order else "mem2reg"
+    # 2. Apply the candidate pass order, nested into the adaptors opt expects
+    #    (see build_pipeline_string -- it also prepends mem2reg).
+    passes_str = build_pipeline_string(pass_order, str(kernel_raw_ll))
     # opt_params are plain `-flag=value` tuning knobs (e.g. -unroll-threshold=600)
     # passed alongside -passes=. AutoPass's Reasoning Agent tunes these as well
     # as the order -- see TUNABLE_PARAMS in pass_list_autopass.py.
