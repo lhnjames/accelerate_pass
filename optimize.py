@@ -23,7 +23,7 @@ Usage:
   python optimize.py --program path/to/kernel.c --rounds 5
   python optimize.py --program path/to/kernel.c --graph-only   # pass graph only
 """
-import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses, shutil, time, random, math
+import os, sys, re, argparse, subprocess, tempfile, statistics, itertools, json, dataclasses, shutil, time, random, math, platform
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -171,6 +171,59 @@ def _adaptive_confirm_runs(requested: int, per_run_ms: float) -> int:
     if n % 2 == 0:
         n += 1
     return max(1, n)
+
+
+def _feedback_used_label(args, hw: dict) -> str:
+    """The evidence channels this run actually had."""
+    if args.no_compiler_feedback:
+        return "none"
+    return "compiler+hardware" if hw.get("available") else "compiler"
+
+
+def hardware_counter_availability(config) -> dict:
+    """Can this host actually collect hardware counters? -> {available, reason}.
+
+    The ablation labelled condition 3's evidence `feedback_used=
+    "compiler+hardware"` unconditionally, from the command-line flags alone,
+    without ever checking whether a counter was read. On these nodes none ever
+    was: every step of every completed condition-3 run has empty perf_stats.
+    Two independent reasons, both structural rather than transient:
+
+      * kernel.perf_event_paranoid is 4, which blocks perf for non-root users.
+        Lowering it is a host-wide security setting this project should not
+        change unilaterally.
+      * VTune is an Intel x86 profiler and the measurement nodes are aarch64,
+        so it cannot work here at any configuration.
+
+    A condition that advertises hardware feedback it never received would
+    misdescribe the experiment in the paper, so report what was actually
+    obtainable and let the caller label the run accordingly.
+    """
+    reasons = []
+    try:
+        paranoid = int(Path("/proc/sys/kernel/perf_event_paranoid").read_text().strip())
+    except Exception:
+        paranoid = None
+    if shutil.which("perf") is None:
+        reasons.append("perf 未安装")
+    elif paranoid is None:
+        # Fail CLOSED. An unreadable perf_event_paranoid must not be treated as
+        # permissive: the whole point of this probe is to stop a run claiming
+        # evidence it never collected, and defaulting to "available" on an
+        # unknown would reintroduce exactly that.
+        reasons.append("无法读取 perf_event_paranoid（按不可用处理）")
+    elif paranoid > 2:
+        reasons.append(f"perf_event_paranoid={paranoid}（>2，非 root 无法采样）")
+    vtune_on = bool(getattr(getattr(config, "profiling", None), "vtune_enabled", False))
+    if not vtune_on:
+        reasons.append("VTune 未启用")
+    elif shutil.which("vtune") is None:
+        reasons.append("VTune 未安装")
+    if platform.machine() not in ("x86_64", "amd64"):
+        reasons.append(f"VTune 不支持 {platform.machine()}")
+    perf_ok = shutil.which("perf") is not None and paranoid is not None and paranoid <= 2
+    return {"available": perf_ok, "reason": "；".join(reasons) or "可用",
+            "perf_event_paranoid": paranoid, "arch": platform.machine()}
 
 
 def confirm_result_external(base_bin: str, best_bin: str, runs: int,
@@ -726,6 +779,11 @@ def collect_all_evidence(src: str, config, runner: CompilerRunner,
 
     # ── 基线 profile（perf + 可选 VTune）────────────────────────────────────
     baseline_perf: dict = {}
+    _hw = hardware_counter_availability(config)
+    if not _hw["available"]:
+        print(f"  [warn] 硬件计数器不可用：{_hw['reason']}。"
+              f"本次运行的\"完整反馈\"实际只有编译器侧证据（pass audit / remarks / IR），"
+              f"没有任何硬件计数器。")
     print("  收集基线硬件计数器（perf stat"
           + (" + VTune" if config.profiling.vtune_enabled else "")
           + "）...")
@@ -4855,6 +4913,12 @@ def main():
     loader  = ConfigLoader(config_dir=os.path.abspath(args.config))
     config  = loader.load_all()
     toolchain_identity = verify_llvm21_toolchain(config.compiler)
+    # Probed once, recorded in the results JSON, so a run can never claim
+    # hardware feedback it had no way of collecting.
+    _hw_avail = hardware_counter_availability(config)
+    if not args.no_compiler_feedback and not _hw_avail["available"]:
+        print(f"[warn] 硬件计数器不可用（{_hw_avail['reason']}）："
+              f"本次运行记为 feedback_used=compiler，不是 compiler+hardware。")
     skill_recorder = SkillRecorder()
     set_skill_recorder(skill_recorder, enabled=not args.skills_off)
     pin_cpu = args.pin_cpu if args.pin_cpu is not None else config.runtime.pin_cpu
@@ -5423,8 +5487,14 @@ def main():
                 # ── 消融实验统一字段（docs/ABLATION_RESULTS_*.md 的表就从这里聚合）──
                 "condition":          ("no_feedback" if args.no_compiler_feedback
                                        else ("skills_off" if args.skills_off else "full")),
-                "feedback_used":      ("none" if args.no_compiler_feedback
-                                       else "compiler+hardware"),
+                # What this run ACTUALLY had, not what the flags requested.
+                # Labelling every full-condition run "compiler+hardware" from
+                # the flags alone claimed hardware counters that were never
+                # read: perf_event_paranoid is 4 on these nodes and VTune is an
+                # x86 profiler on aarch64 hardware, so every completed
+                # condition-3 run has empty perf_stats at every step.
+                "feedback_used":      _feedback_used_label(args, _hw_avail),
+                "hardware_counters":  _hw_avail,
                 "seed":               args.seed,
                 "runs_per_confirm":   args.runs,
                 "final_status":       final_status,
@@ -5469,8 +5539,8 @@ def main():
                     "quick_check":       args.quick_check,
                     "condition":        ("no_feedback" if args.no_compiler_feedback
                                          else ("skills_off" if args.skills_off else "full")),
-                    "feedback_used":    ("none" if args.no_compiler_feedback
-                                         else "compiler+hardware"),
+                    "feedback_used":    _feedback_used_label(args, _hw_avail),
+                    "hardware_counters": _hw_avail,
                     "seed":             args.seed,
                     "runs_per_confirm": args.runs,
                     "final_status":     final_status,

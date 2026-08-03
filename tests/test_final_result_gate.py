@@ -111,5 +111,56 @@ class TestUnconfirmedAndBaseline(unittest.TestCase):
         self.assertEqual(d["final_speedup"], 1.0)
 
 
+class TestHardwareCounterProbe(unittest.TestCase):
+    """The probe that stops a run claiming evidence it never collected."""
+
+    def _probe(self, which_perf, paranoid_text, machine, vtune_enabled=True):
+        from unittest.mock import patch, mock_open
+        import optimize
+        cfg = type("C", (), {"profiling": type("P", (), {"vtune_enabled": vtune_enabled})})
+        read = (mock_open(read_data=paranoid_text) if paranoid_text is not None
+                else mock_open())
+        if paranoid_text is None:
+            read.side_effect = OSError("unreadable")
+        with patch.object(optimize.shutil, "which", lambda n: which_perf.get(n)), \
+             patch.object(optimize, "platform", type("M", (), {"machine": lambda: machine})), \
+             patch("pathlib.Path.read_text",
+                   side_effect=(OSError("unreadable") if paranoid_text is None
+                                else lambda *a, **k: paranoid_text)):
+            return optimize.hardware_counter_availability(cfg)
+
+    def test_paranoid_4_is_unavailable(self):
+        r = self._probe({"perf": "/usr/bin/perf"}, "4\n", "aarch64")
+        self.assertFalse(r["available"])
+        self.assertIn("perf_event_paranoid=4", r["reason"])
+
+    def test_permissive_paranoid_is_available(self):
+        r = self._probe({"perf": "/usr/bin/perf"}, "1\n", "x86_64")
+        self.assertTrue(r["available"])
+
+    def test_missing_perf_is_unavailable(self):
+        r = self._probe({}, "1\n", "x86_64")
+        self.assertFalse(r["available"])
+
+    def test_unreadable_paranoid_fails_closed(self):
+        # Must NOT default to available -- that is the failure mode this whole
+        # probe exists to prevent.
+        r = self._probe({"perf": "/usr/bin/perf"}, None, "aarch64")
+        self.assertFalse(r["available"])
+        self.assertIn("无法读取", r["reason"])
+
+
+class TestFeedbackLabel(unittest.TestCase):
+    def test_label_reflects_what_was_obtainable(self):
+        import optimize
+        no_fb = type("A", (), {"no_compiler_feedback": True})
+        full = type("A", (), {"no_compiler_feedback": False})
+        self.assertEqual(optimize._feedback_used_label(no_fb, {"available": True}), "none")
+        self.assertEqual(optimize._feedback_used_label(full, {"available": True}),
+                         "compiler+hardware")
+        # The case that actually occurred on every node in this study.
+        self.assertEqual(optimize._feedback_used_label(full, {"available": False}),
+                         "compiler")
+
 if __name__ == "__main__":
     unittest.main()
