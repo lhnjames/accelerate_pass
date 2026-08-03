@@ -9,7 +9,7 @@ import sys, json
 from pathlib import Path
 
 sys.path.insert(0, "/home/hanning/comet/scripts/opencode_harness")
-from measure_lib import compile_and_time, correctness_check  # noqa: E402
+from measure_lib import compile_and_time, compile_for_correctness, correctness_check  # noqa: E402
 
 COMET_ROOT = Path("/home/hanning/comet")
 sys.path.insert(0, str(COMET_ROOT))
@@ -33,7 +33,30 @@ def main():
         print(json.dumps(result, indent=1))
         return
 
-    correct, cerr = correctness_check(baseline["ref_bin"], str(opt_bin),
+    # Correctness against the DUMP_ARRAYS pair, never the timing pair. opt_bin
+    # and ref_bin are both -DPOLYBENCH_TIME builds that print nothing but their
+    # own elapsed time, so checking them against each other compared two
+    # stopwatch readings under a 1e-4 relative tolerance -- which is how this
+    # harness produced 26 "incorrect" verdicts, 22 of them on tasks whose
+    # kernel.c was never edited.
+    ref_dump = baseline.get("ref_bin_dump")
+    if not ref_dump:
+        result.update(status="stale_scratch_dir",
+                      error="baseline.json has no ref_bin_dump -- prepared by the "
+                            "pre-2026-08-03 harness, which could not check correctness",
+                      confirmed_speedup=1.0, significant=False)
+        print(json.dumps(result, indent=1))
+        return
+    opt_bin_dump = scratch_dir / "opt_bin_dump"
+    ok_d, derr = compile_for_correctness(str(scratch_dir / "kernel.c"), baseline["utils"],
+                                          baseline["source_dir"], str(opt_bin_dump))
+    if not ok_d:
+        result.update(status="compile_or_run_failed", error=derr[:1000],
+                      confirmed_speedup=1.0, significant=False)
+        print(json.dumps(result, indent=1))
+        return
+
+    correct, cerr = correctness_check(ref_dump, str(opt_bin_dump),
                                        baseline["correctness_mode"])
     if not correct:
         result.update(status="incorrect", error=cerr,

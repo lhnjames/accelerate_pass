@@ -10,7 +10,7 @@ import sys, os, shutil, json, stat
 from pathlib import Path
 
 sys.path.insert(0, "/home/hanning/comet/scripts/opencode_harness")
-from measure_lib import compile_and_time, correctness_check  # noqa: E402
+from measure_lib import compile_and_time, compile_for_correctness, correctness_check  # noqa: E402
 
 COMET_ROOT = Path("/home/hanning/comet")
 sys.path.insert(0, str(COMET_ROOT))
@@ -45,7 +45,23 @@ def main():
     if not ok:
         sys.exit(f"baseline compile/time failed: {err}")
 
-    mode = detect_correctness_mode(str(ref_bin))
+    # A SECOND reference build whose stdout is the computed result rather than
+    # the elapsed time. ref_bin is -DPOLYBENCH_TIME and prints nothing but a
+    # stopwatch reading, so detecting the correctness tier on it -- let alone
+    # comparing against it -- compares timings, not results. That is exactly
+    # what this harness did: `detect_correctness_mode(ref_bin)` saw a number
+    # and returned "numeric", and every later check compared two wall-clock
+    # readings under a 1e-4 relative tolerance.
+    ref_bin_dump = scratch_dir / "ref_bin_dump"
+    ok, derr = compile_for_correctness(str(scratch_dir / "kernel.c"), str(utils),
+                                        str(scratch_dir), str(ref_bin_dump))
+    if not ok:
+        sys.exit(f"reference DUMP_ARRAYS build failed: {derr}")
+
+    mode = detect_correctness_mode(str(ref_bin_dump))
+    if mode == "exit_only":
+        print(f"[warn] {program_rel}: reference output is not reproducible, "
+              f"correctness can only be checked as 'exits 0'", file=sys.stderr)
 
     (scratch_dir / "baseline.json").write_text(json.dumps({
         "program": program_rel,
@@ -53,7 +69,8 @@ def main():
         "source_dir": str(scratch_dir),   # after edits, source_dir IS the scratch dir
         "baseline_ms": ms,
         "correctness_mode": mode,
-        "ref_bin": str(ref_bin),
+        "ref_bin": str(ref_bin),            # timing build -- speedup only
+        "ref_bin_dump": str(ref_bin_dump),  # result build -- correctness only
         "pin_cpu": pin_cpu,
     }, indent=1))
 

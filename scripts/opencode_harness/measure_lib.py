@@ -20,18 +20,39 @@ CLANG = _cfg["compiler"]["clang_path"]
 
 def compile_and_time(kernel_c: str, utils: str, source_dir: str, runs: int = 1,
                       dataset: str = "LARGE_DATASET", out_bin: str = "/tmp/oc_bin",
-                      extra_flags=None, pin_cpu=None):
+                      extra_flags=None, pin_cpu=None,
+                      output_macro: str = "POLYBENCH_TIME"):
     """Compile kernel_c against utils/polybench.c and time it. Returns
     (ok: bool, ms: float, err: str)."""
     polybench_c = Path(utils) / "polybench.c"
     ok, err = compile_binary(CLANG, kernel_c, polybench_c, Path(utils), Path(source_dir),
-                              Path(out_bin), extra_flags=extra_flags, dataset=dataset)
+                              Path(out_bin), extra_flags=extra_flags, dataset=dataset,
+                              output_macro=output_macro)
     if not ok:
         return False, -1.0, err
     ms = run_timing(out_bin, runs=runs, pin_cpu=pin_cpu)
     if ms <= 0:
         return False, -1.0, "run_timing returned <= 0 (crash or timeout)"
     return True, ms, ""
+
+
+def compile_for_correctness(kernel_c: str, utils: str, source_dir: str, out_bin: str):
+    """Build the DUMP_ARRAYS variant -- the one whose stdout is the computed
+    result rather than a stopwatch reading.
+
+    Correctness must never be checked against the timing build. Doing so
+    compared two elapsed-time numbers under a 1e-4 relative tolerance, so a
+    verdict of "incorrect" only meant the two runs took different amounts of
+    time, and a verdict of "correct" only meant they happened to agree to four
+    digits. Every one of the 26 `incorrect` results the OpenCode baseline
+    reported was produced that way -- 22 of them on tasks where kernel.c was
+    never modified at all.
+    """
+    polybench_c = Path(utils) / "polybench.c"
+    ok, err = compile_binary(CLANG, kernel_c, polybench_c, Path(utils), Path(source_dir),
+                              Path(out_bin), dataset="LARGE_DATASET",
+                              output_macro="POLYBENCH_DUMP_ARRAYS")
+    return ok, err
 
 
 def correctness_check(ref_bin: str, opt_bin: str, mode: str):

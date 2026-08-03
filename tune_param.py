@@ -580,14 +580,22 @@ def score_passes(kernel_passes: list, kernel_remarks: dict,
 
 def compile_binary(clang, src, polybench_c, utils, source_dir, out_bin,
                    extra_flags=None, dataset="LARGE_DATASET", timeout=180,
-                   clang_cxx=None):
+                   clang_cxx=None, output_macro="POLYBENCH_TIME"):
     """clang_cxx: optional explicit clang++ path, forwarded to compile_c()'s
     select_compiler() as an override. Not required for C++ sources to work --
     compile_c() derives a clang++-N path from `clang` automatically if this
     is left None -- but callers that already have config.compiler.clang_cxx_path
     on hand should pass it through so an explicitly configured override wins
-    over the naming-convention guess."""
-    defines = [f"-D{dataset}", "-DPOLYBENCH_TIME"]
+    over the naming-convention guess.
+
+    output_macro: "POLYBENCH_TIME" (default) makes the binary print ONLY its
+    elapsed wall-clock time, which is what you want for timing and is NEVER
+    valid to correctness-check -- comparing two such binaries compares two
+    stopwatch readings. "POLYBENCH_DUMP_ARRAYS" makes it print the computed
+    arrays instead, which is the build a correctness check must use. A caller
+    that needs both must build twice, into different out_bin paths.
+    """
+    defines = [f"-D{dataset}", f"-D{output_macro}"]
     return compile_c(clang, [src, str(polybench_c)], [str(utils), str(source_dir)],
                      defines, out_bin, extra_flags=extra_flags, timeout=timeout,
                      clang_cxx_path=clang_cxx)
