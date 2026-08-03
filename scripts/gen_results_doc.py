@@ -317,6 +317,36 @@ def main():
       "测到的主要是进程启动开销，不是内核。唯一站住的是 susan_smoothing（27.6 ms），"
       "IQR 只有 ±0.2%、9/9 全正向。\n")
 
+    # ── 4.5 与 AutoPass 论文对比
+    W("## 4.5 PO 与 AutoPass 论文的对比\n")
+    po = rows("po", True)
+    pocb = [speedup(t["res"]) for t in po if "_cb" in t["id"]]
+    popb = [speedup(t["res"]) for t in po if "_pb" in t["id"]]
+    W("论文（arXiv 2606.20373）Table 5，AutoPass (R3)：\n")
+    W("| Suite | 论文 x86-64 | 论文 ARM64 | 本项目（中位数口径，净集） |")
+    W("|---|---:|---:|---:|")
+    W(f"| cBench | 1.059 | **1.111** | {f'**{gm(pocb):.4f}** (n={len(pocb)})' if pocb else '数据不足'} |")
+    W(f"| PolyBench | 1.009 | **1.149** | {f'**{gm(popb):.4f}** (n={len(popb)})' if popb else '数据不足'} |")
+    poall = [speedup(t["res"]) for t in po]
+    total_cell = f"**{gm(poall):.4f}** (n={len(poall)})" if poall else "数据不足"
+    W(f"| 合计 | 1.043 | **1.117** | {total_cell} |")
+    W("")
+    W("**本项目运行在 ARM64（Cortex-X925）+ clang 21.1.8，应对比 ARM64 列。**"
+      "论文平台是树莓派 5 的 Cortex-A76 + LLVM 17.0.6。\n")
+    W("> ### ⚠️ 关于\"与论文基本一致\"这一说法\n")
+    W("> 早期文档与结论中出现过「最终 1.0313x 与论文 ARM64 的 1.117x 基本一致」——"
+      "**这个说法本身就是错的，1.03 与 1.117 相差 8 个百分点，不构成一致。** "
+      "当时之所以能这么写，是先用另一个口径（探索期最好值 1.1266x）去和论文比，"
+      "再把这个比较结论安到确认值 1.0313x 头上。两个数不能这样混用。\n")
+    W("> 而且 1.0313x 这个数本身也不成立，它同时受三个缺陷影响：报告的是 3 次里的最大值、"
+      "全部 49 个任务落在孤儿抢核窗口内、13% 的搜索轮次被 InstCombine 的 fixpoint 校验器 "
+      "abort 掉却记为 1.000x（偏向 1.0）。\n")
+    W("> **当前可诚实陈述的是：修复后的 PO 数据尚不足以支持\"复现成功\"的结论。** "
+      "上表右列若与论文 ARM64 列差距明显，就应如实报告差距并讨论原因"
+      "（LLVM 17 vs 21 在 aarch64 上的 -O3 基线差异、Cortex-A76 vs X925、"
+      "以及论文 R3 取三轮最好值而不做独立复测），而不是宣称一致。\n")
+    W("")
+
     # ── 5 逐任务明细
     W("## 5. 逐任务明细（含被排除的行）\n")
     for c in ORDER:
