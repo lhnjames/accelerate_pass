@@ -76,6 +76,10 @@ ORPHAN = {
 # rounds, and four programs lost all three, so every pre-fix PO number is
 # biased toward 1.0 on top of the orphan contamination.
 PO_PREFIX_DISCARDED = True
+# When each fix shipped (UTC). Data finished before these timestamps carries
+# the corresponding defect; data after it does not.
+CORRECTNESS_FIX_TS = calendar.timegm((2026, 8, 2, 17, 0, 0, 0, 0, 0))
+PO_FIX_TS = calendar.timegm((2026, 8, 2, 17, 30, 0, 0, 0, 0))
 
 # Independently re-measured on an idle core, 15 alternating pairs (9 for
 # susan_smoothing), byte-exact output verified in every case.
@@ -174,16 +178,23 @@ def significant(res):
 
 
 def verdict(t):
-    """('可用' | reason, is_clean)."""
+    """('可用' | reason, is_clean).
+
+    Every exclusion is TIME-BOUNDED: it applies to data produced before the
+    corresponding fix shipped, not to the program or condition forever. A task
+    re-run under the corrected harness is valid even though its program is one
+    whose gate used to be too weak -- excluding it by name regardless of when
+    it ran would throw away exactly the re-runs that were queued to fix it.
+    """
     prog = t["program"].split("/")[-1][:-2]
+    f = t.get("finished") or 0
     reasons = []
-    if prog in TIER_CHANGED:
+    if prog in TIER_CHANGED and f < CORRECTNESS_FIX_TS:
         reasons.append("正确性档位过松")
     lo_hi = ORPHAN.get("-".join((t.get("node") or "").split("-")[:3]))
-    f = t.get("finished") or 0
     if lo_hi and lo_hi[0] < f < lo_hi[1]:
         reasons.append("孤儿抢核")
-    if t["id"].startswith("po_") and PO_PREFIX_DISCARDED and f and f < ORPHAN["dgx-spark-a"][1]:
+    if t["id"].startswith("po_") and PO_PREFIX_DISCARDED and f and f < PO_FIX_TS:
         reasons.append("PO 预算被 InstCombine 吞")
     return ("、".join(reasons) if reasons else "可用"), not reasons
 

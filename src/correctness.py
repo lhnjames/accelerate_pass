@@ -167,6 +167,50 @@ def _decode_text_output(data: bytes) -> "Optional[str]":
     return text
 
 
+def reference_health(bin_path: str, output_file: "Optional[Path]" = None,
+                     timeout: int = 60) -> dict:
+    """Is this reference binary actually doing its job?
+
+    A benchmark that cannot find its input file is the worst kind of failure
+    here, because nothing downstream notices: cBench's bzip2_encode prints
+    "Can't open input file ..." to stderr and then EXITS 0, so the exit-code
+    check passes, stdout is empty so the hash check compares nothing against
+    nothing and passes too, and the program finishes in ~1 ms instead of ~85 ms
+    -- at which point the harness measures noise on a no-op and reports it as a
+    benchmark result. It happened on one of two nodes for a single missing
+    file, and produced a plausible-looking 1.01x.
+
+    Returns {ok, reason, stdout_bytes, stderr_bytes, ms} so callers can refuse
+    to build a task on a broken reference instead of silently scoring it.
+    """
+    import time as _time
+    t0 = _time.perf_counter()
+    run = _run_capture(bin_path, timeout=timeout, output_file=output_file)
+    ms = (_time.perf_counter() - t0) * 1000.0
+    if run is None:
+        return {"ok": False, "reason": "reference run timed out or failed to launch",
+                "stdout_bytes": 0, "stderr_bytes": 0, "ms": ms}
+    rc, combined, file_bytes = run
+    payload = combined + (file_bytes or b"")
+    if rc != 0:
+        return {"ok": False, "reason": f"reference exited {rc}",
+                "stdout_bytes": len(payload), "stderr_bytes": 0, "ms": ms}
+    if not payload.strip():
+        return {"ok": False,
+                "reason": "reference produced no output -- benchmark likely not "
+                          "running (missing input file? wrong cwd?)",
+                "stdout_bytes": 0, "stderr_bytes": 0, "ms": ms}
+    lowered = payload.lower()
+    for marker in (b"can't open", b"cannot open", b"no such file",
+                   b"not found", b"permission denied"):
+        if marker in lowered:
+            return {"ok": False,
+                    "reason": f"reference output contains an I/O error ({marker.decode()})",
+                    "stdout_bytes": len(payload), "stderr_bytes": 0, "ms": ms}
+    return {"ok": True, "reason": "", "stdout_bytes": len(payload),
+            "stderr_bytes": 0, "ms": ms}
+
+
 def detect_correctness_mode(bin_path: str, output_file: "Optional[Path]" = None,
                             timeout: int = 20) -> str:
     """Auto-detect which tier applies to an already-built reference binary.
@@ -261,8 +305,19 @@ def check_correctness(ref_bin: str, opt_bin: str, mode: str,
         return compare_numeric(ref_nums, opt_nums, epsilon=epsilon)
 
     if mode == "hash":
-        ref_h = _hash(ref_out + (ref_file or b""))
-        opt_h = _hash(opt_out + (opt_file or b""))
+        ref_payload = ref_out + (ref_file or b"")
+        # An empty reference makes the hash comparison vacuous -- it compares
+        # the hash of nothing against the hash of nothing and always passes.
+        # That is not hypothetical: cBench bzip2_encode could not open its
+        # input file on one node, printed the error to stderr, and STILL EXITED
+        # 0, so the reference produced no output, every candidate "matched" it,
+        # and a 0.96 ms no-op was scored as a real 85 ms benchmark.
+        if not ref_payload.strip():
+            return False, ("reference produced no output at all -- the benchmark "
+                           "is not running (missing input file? wrong working "
+                           "directory?), so any comparison against it is vacuous")
+        opt_payload = opt_out + (opt_file or b"")
+        ref_h, opt_h = _hash(ref_payload), _hash(opt_payload)
         if ref_h != opt_h:
             return False, f"output hash mismatch (ref={ref_h[:12]}, opt={opt_h[:12]})"
         return True, ""

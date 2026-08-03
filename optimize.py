@@ -83,7 +83,7 @@ from src.remarks import (
     format_rich_remarks_for_source_prompt,
 )
 from src.diagnostics import clean_clang_diagnostics
-from src.correctness import detect_correctness_mode, check_correctness
+from src.correctness import detect_correctness_mode, check_correctness, reference_health
 from src.hotspot import select_hotspot_target, select_hotspot_targets, rank_all_reachable
 from src.build_utils import set_default_cxx_compiler
 from src.toolchain_guard import verify_llvm21_toolchain
@@ -3035,6 +3035,14 @@ def _detect_polybench_mode(clang: str, src_path: str, utils: Path,
                       ["-DSMALL_DATASET", "-DPOLYBENCH_DUMP_ARRAYS"], test_bin)
     if not ok:
         return "exit_only"
+    # Refuse to build a task on a reference that is not actually running. See
+    # reference_health(): a benchmark that cannot open its input file exits 0
+    # with empty output, so every later check passes vacuously.
+    health = reference_health(str(test_bin), timeout=60)
+    if not health["ok"]:
+        print(f"  [ERROR] 参考程序不健康：{health['reason']}"
+              f"（用时 {health['ms']:.1f} ms，输出 {health['stdout_bytes']} 字节）")
+        print("  [ERROR] 在这种状态下测出的任何加速比都没有意义，请先修复输入/环境。")
     return detect_correctness_mode(str(test_bin), timeout=20)
 
 

@@ -90,5 +90,46 @@ class TestNumericCorrectness(unittest.TestCase):
         self.assertTrue(forward)
 
 
+class TestReferenceHealth(unittest.TestCase):
+    """Catches a benchmark that isn't actually running.
+
+    cBench bzip2_encode could not open its input file on one node, printed the
+    error to stderr, and still EXITED 0 -- so exit code passed, stdout was
+    empty so the hash check compared nothing to nothing and passed, and a
+    0.96 ms no-op was scored as an 85 ms benchmark.
+    """
+    def test_empty_output_is_unhealthy(self):
+        from src.correctness import reference_health
+        with patch("src.correctness._run_capture", return_value=(0, b"", None)):
+            r = reference_health("unused")
+        self.assertFalse(r["ok"])
+        self.assertIn("no output", r["reason"])
+
+    def test_io_error_in_output_is_unhealthy(self):
+        from src.correctness import reference_health
+        msg = b"kernel_bzip2_encode: Can't open input file /data: No such file or directory.\n"
+        with patch("src.correctness._run_capture", return_value=(0, msg, None)):
+            r = reference_health("unused")
+        self.assertFalse(r["ok"])
+
+    def test_nonzero_exit_is_unhealthy(self):
+        from src.correctness import reference_health
+        with patch("src.correctness._run_capture", return_value=(1, b"output\n", None)):
+            self.assertFalse(reference_health("unused")["ok"])
+
+    def test_real_output_is_healthy(self):
+        from src.correctness import reference_health
+        with patch("src.correctness._run_capture", return_value=(0, b"1.25 2.5\n", None)):
+            self.assertTrue(reference_health("unused")["ok"])
+
+
+class TestHashModeRejectsEmptyReference(unittest.TestCase):
+    def test_empty_reference_cannot_pass(self):
+        from src.correctness import check_correctness
+        with patch("src.correctness._run_capture", return_value=(0, b"", None)):
+            ok, err = check_correctness("ref", "opt", "hash")
+        self.assertFalse(ok)
+        self.assertIn("no output", err)
+
 if __name__ == "__main__":
     unittest.main()
