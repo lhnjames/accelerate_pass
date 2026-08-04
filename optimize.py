@@ -4941,6 +4941,15 @@ def main():
     set_default_cxx_compiler(config.compiler.clang_cxx_path)
     _llm    = LLMClient(config.llm)
 
+    # Fail before doing any work if the model is unreachable. Without this the
+    # agent burns its whole step budget getting nothing back and still reports
+    # a well-formed baseline_only 1.0000x, which is indistinguishable in the
+    # results JSON from "the LLM tried and found nothing".
+    _llm_ok, _llm_msg = _llm.health_check()
+    if not _llm_ok:
+        sys.exit(f"[FATAL] LLM 不可用：{_llm_msg}\n"
+                 f"        中止，不产出任何数字——没有模型参与的运行不是一个实验结果。")
+
     # ── Dataset detection ─────────────────────────────────────────────────
     src = args.program
     if not os.path.exists(src):

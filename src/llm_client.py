@@ -7,6 +7,26 @@ from src.config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
+# HTTP statuses that mean "this key/account cannot make calls at all". Retrying
+# is pointless and, worse, CONTINUING is harmful: an agent that gets None back
+# for every LLM call still walks its whole step budget, takes no action, and
+# finishes by reporting a perfectly well-formed `baseline_only` 1.0000x -- an
+# infrastructure outage laundered into a data point.
+#
+# That is exactly what happened on 2026-08-03: the DeepSeek balance ran out
+# mid-sweep, and 21 OpenCode tasks plus 2 params-only tasks were recorded as
+# completed 1.0000x results while every one of their LLM calls was returning
+# 402 Insufficient Balance.
+FATAL_API_STATUS = {401, 402, 403}
+
+
+class LLMUnavailableError(RuntimeError):
+    """The LLM cannot be reached at all (bad key, no balance, forbidden).
+
+    Raised instead of returning None so the caller aborts the task and the
+    queue records a failure, rather than scoring a run that never had a model.
+    """
+
 
 def strip_json_fences(text: str) -> str:
     """Strip a leading ```json/``` code fence and trailing ``` from LLM output."""
@@ -104,6 +124,13 @@ class LLMClient:
             return None
 
         except OpenAIError as e:
+            status = getattr(e, "status_code", None)
+            if status in FATAL_API_STATUS:
+                # Do not degrade to None -- see FATAL_API_STATUS.
+                raise LLMUnavailableError(
+                    f"LLM 不可用（HTTP {status}）：{e}. "
+                    f"继续跑只会产出没有模型参与的 1.0000x 假结果，因此中止本任务。"
+                ) from e
             logger.error(f"API request failed: {e}")
             return None
         except Exception as e:

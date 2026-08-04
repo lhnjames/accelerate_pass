@@ -162,5 +162,50 @@ class TestFeedbackLabel(unittest.TestCase):
         self.assertEqual(optimize._feedback_used_label(full, {"available": False}),
                          "compiler")
 
+
+class TestFatalLLMErrors(unittest.TestCase):
+    """An unreachable model must abort, never degrade to a 1.0000x result.
+
+    On 2026-08-03 the DeepSeek balance ran out mid-sweep. LLMClient.call()
+    caught the 402, returned None, and the agent walked its full 9-step budget
+    taking no action -- producing a well-formed baseline_only 1.0000x that is
+    indistinguishable in the results JSON from "the LLM tried and found
+    nothing". 21 OpenCode tasks and 2 params-only tasks were recorded that way.
+    """
+    def _client(self, exc):
+        from unittest.mock import MagicMock
+        from src.llm_client import LLMClient
+        c = LLMClient.__new__(LLMClient)
+        c.config = type("Cfg", (), {"api_key": "k", "model": "m", "temperature": 0,
+                                    "max_tokens": 10, "reasoning_effort": None,
+                                    "thinking_enabled": False})()
+        c.call_count = 0
+        c.client = MagicMock()
+        c.client.chat.completions.create.side_effect = exc
+        return c
+
+    def _openai_error(self, status):
+        from openai import OpenAIError
+        e = OpenAIError(f"HTTP {status}")
+        e.status_code = status
+        return e
+
+    def test_insufficient_balance_raises(self):
+        from src.llm_client import LLMUnavailableError
+        c = self._client(self._openai_error(402))
+        with self.assertRaises(LLMUnavailableError):
+            c.call([{"role": "user", "content": "hi"}])
+
+    def test_bad_key_raises(self):
+        from src.llm_client import LLMUnavailableError
+        c = self._client(self._openai_error(401))
+        with self.assertRaises(LLMUnavailableError):
+            c.call([{"role": "user", "content": "hi"}])
+
+    def test_transient_error_still_returns_none(self):
+        # A 500 or a timeout is retryable and must NOT kill the task.
+        c = self._client(self._openai_error(500))
+        self.assertIsNone(c.call([{"role": "user", "content": "hi"}]))
+
 if __name__ == "__main__":
     unittest.main()

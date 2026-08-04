@@ -35,6 +35,20 @@ if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
   exit 127
 fi
 
+# A key that EXISTS is not a key that WORKS. On 2026-08-03 the DeepSeek balance
+# ran out mid-sweep: every round returned 402 Insufficient Balance, opencode
+# exited 0 having edited nothing, and all 21 OpenCode tasks were recorded as
+# completed 1.0000x results. Probe the API once before spending nine rounds.
+_probe=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+  -X POST https://api.deepseek.com/v1/chat/completions \
+  -H "Authorization: Bearer $DEEPSEEK_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"ok"}],"max_tokens":1}')
+if [[ "$_probe" != "200" ]]; then
+  echo "[FATAL] DeepSeek API 返回 HTTP $_probe（402=余额不足，401=密钥无效）。" >&2
+  echo "        中止：没有模型参与的运行不是一个实验结果。" >&2
+  exit 127
+fi
+
 VENV_PY=/home/hanning/comet/.venv/bin/python3
 MODEL="deepseek/deepseek-v4-pro"
 
