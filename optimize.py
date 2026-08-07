@@ -2991,6 +2991,29 @@ Start immediately with {"`" + original_signature + "`" if original_signature els
 # (many hardcode mode="polybench_dump"/"stdout_compare") keeps working
 # unchanged after the switch to the generic, marker-free correctness tiers
 # in src/correctness.py. See docs/GENERIC_HARNESS_DESIGN.md.
+# Correctness builds print with 12 decimals instead of PolyBench's default 2.
+#
+# The dump format sets the finest difference the check can even see. At the
+# stock "%0.2lf" the quantum is 0.01, and 1e-4 relative on a value of 59.48 is
+# 0.006 -- finer than the output can express -- so the check degenerates into
+# "did the last printed digit change". Every one of the 23 candidates rejected
+# as numerically wrong across this study's PolyBench runs differed by exactly
+# one unit in that last place (gesummv 59.48/59.47, syr2k 1.78/1.79): they were
+# vectorisation reassociations, the optimisation under study, discarded for a
+# difference the benchmark could not represent.
+#
+# Widening the tolerance instead would have been the wrong trade -- measured:
+# it made the kernel-emptied mutation of jacobi-1d and seidel-2d PASS. More
+# printed digits fixes both ends at once, because it makes the check strictly
+# finer: reassociation shows up at ~1e-13 relative and passes the 1e-4
+# tolerance, while a broken kernel differs in the leading digits and fails.
+# Verified by mutation test over all 30 PolyBench kernels.
+#
+# Only the correctness build is affected. Timing builds use -DPOLYBENCH_TIME
+# and never execute print_array, so measured runtimes are untouched.
+DUMP_PRECISION_FLAG = '-DDATA_PRINTF_MODIFIER="%0.12lf "'
+
+
 _MODE_ALIASES = {
     "polybench_dump": "numeric",
     "stdout_compare": "numeric",
@@ -3032,7 +3055,7 @@ def _detect_polybench_mode(clang: str, src_path: str, utils: Path,
     extra_src = _extra_link_sources(utils)
     test_bin = tmpdir / "_detect_test"
     ok, _ = compile_c(clang, [src_path] + extra_src, include_dirs,
-                      ["-DSMALL_DATASET", "-DPOLYBENCH_DUMP_ARRAYS"], test_bin)
+                      ["-DSMALL_DATASET", "-DPOLYBENCH_DUMP_ARRAYS", DUMP_PRECISION_FLAG], test_bin)
     if not ok:
         return "exit_only"
     # Refuse to build a task on a reference that is not actually running. See
@@ -3067,7 +3090,7 @@ def _correctness_check(clang: str, src_path: str, ref_src: str,
     # See _detect_polybench_mode's docstring: no-op for SPEC/TSVC/CBench's
     # macro-free wrappers, required to unlock real PolyBench-C kernels'
     # print_array() (gated behind this by polybench_prevent_dce otherwise).
-    _defines = [f"-D{dataset_flag}", "-DPOLYBENCH_DUMP_ARRAYS"]
+    _defines = [f"-D{dataset_flag}", "-DPOLYBENCH_DUMP_ARRAYS", DUMP_PRECISION_FLAG]
 
     ref_bin = tmpdir / f"{tag}_ref_{dataset_flag}"
     ok, err = compile_c(clang, [ref_src] + extra_src, include_dirs,
@@ -3157,14 +3180,14 @@ def _eval_utils_rewrite(clang: str, driver_path: str, orig_utils_dir: Path,
         ref_bin = tmpdir / f"{tag}_ref_{ds}"
         ok, err = compile_c(clang, [driver_path, str(orig_pc)],
                             [orig_utils_dir, source_dir],
-                            [f"-D{ds}", "-DPOLYBENCH_DUMP_ARRAYS"], ref_bin)
+                            [f"-D{ds}", "-DPOLYBENCH_DUMP_ARRAYS", DUMP_PRECISION_FLAG], ref_bin)
         if not ok:
             return {"ok": False, "error": f"ref 编译失败 ({ds}): {clean_clang_diagnostics(err, max_diagnostics=3)}"}
 
         opt_bin = tmpdir / f"{tag}_opt_{ds}"
         ok2, err2 = compile_c(clang, [driver_path, str(shadow_dir / "polybench.c")],
                               [shadow_dir, source_dir],
-                              [f"-D{ds}", "-DPOLYBENCH_DUMP_ARRAYS"], opt_bin)
+                              [f"-D{ds}", "-DPOLYBENCH_DUMP_ARRAYS", DUMP_PRECISION_FLAG], opt_bin)
         if not ok2:
             return {"ok": False, "error": f"候选编译失败 ({ds}): {clean_clang_diagnostics(err2, max_diagnostics=3)}"}
 
@@ -4733,7 +4756,7 @@ def run_source_round(rewrite_src: str, ref_src: str, config, llm: LLMClient,
         # Correctness reference always from ORIGINAL (ref_src)
         orig_dump_bin = tmpdir / "orig_dump"
         ok, err = compile_c(clang, [ref_src, str(polybench_c)], include_dirs,
-                            ["-DPOLYBENCH_DUMP_ARRAYS", "-DSMALL_DATASET"], orig_dump_bin)
+                            ["-DPOLYBENCH_DUMP_ARRAYS", "-DSMALL_DATASET", DUMP_PRECISION_FLAG], orig_dump_bin)
         if not ok:
             return {"status": "compile_error",
                     "error": f"Ref compile: {clean_clang_diagnostics(err, max_diagnostics=3)}", "speedup": 1.0}

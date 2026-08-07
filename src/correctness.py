@@ -108,9 +108,44 @@ def extract_numbers(text: str) -> NumbersOrError:
     return values
 
 
+_DECIMALS_RE = re.compile(r"\d\.(\d+)")
+
+
+def output_quantum(text: str) -> float:
+    """One unit in the last printed decimal place of `text`, or 0.0.
+
+    PolyBench dumps with DATA_PRINTF_MODIFIER "%0.2lf", i.e. two decimals, so
+    the finest difference the output can express is 0.01. Any comparison
+    tolerance below that is not measuring the computation, it is measuring the
+    formatting: two values that print as 59.47 and 59.48 may differ by
+    anywhere from 0.000001 to 0.019999 in reality.
+
+    Every one of the 23 candidates rejected as "numerically wrong" across this
+    study's PolyBench runs differed by EXACTLY one unit in the last printed
+    place -- gesummv ref=59.48/opt=59.47, syr2k ref=1.78/opt=1.79 -- which the
+    default 1e-4 relative tolerance flags because 1e-4 * 59.48 = 0.006 is
+    smaller than the 0.01 the dump can resolve. Those were vectorisation
+    reassociations, i.e. exactly the optimisation under study, being thrown
+    away for a difference the benchmark cannot even represent.
+    """
+    best = 0
+    for m in _DECIMALS_RE.finditer(text or ""):
+        best = max(best, len(m.group(1)))
+        if best >= 12:      # already finer than anything we care about
+            break
+    return 10.0 ** (-best) if best else 0.0
+
+
 def compare_numeric(v1: NumbersOrError, v2: NumbersOrError,
-                    epsilon: float = 1e-4) -> tuple:
-    """Element-wise relative-error comparison. Returns (ok, message)."""
+                    epsilon: float = 1e-4, quantum: float = 0.0) -> tuple:
+    """Element-wise comparison. Returns (ok, message).
+
+    A pair passes when it is within EITHER the relative tolerance `epsilon` or
+    the output's own print quantum (see output_quantum) -- a difference the
+    dump cannot express is not evidence of a wrong answer. A genuinely broken
+    computation still fails: it differs by many quanta across many elements,
+    which is what the mutation test over all 30 PolyBench kernels checks.
+    """
     if isinstance(v1, str):
         return False, f"Reference output error: {v1}"
     if isinstance(v2, str):
@@ -125,18 +160,23 @@ def compare_numeric(v1: NumbersOrError, v2: NumbersOrError,
     if len(v1) > 4 and all(x == 0 for x in v1):
         return False, "Reference output is all zeros (suspicious -- check the reference build)"
 
-    max_err, bad_idx = 0.0, -1
+    max_err, bad_idx, bad_abs = 0.0, -1, 0.0
     for i, (a, b) in enumerate(zip(v1, v2)):
         # Mixed relative/absolute tolerance: near zero, epsilon acts as an
         # absolute tolerance; at larger magnitudes it scales relatively.
         # Include both operands so comparison remains symmetric.
         denom = max(abs(a), abs(b), 1.0)
-        err = abs(a - b) / denom
+        diff = abs(a - b)
+        # A difference the printed output cannot express is not a difference.
+        if quantum and diff <= quantum * 1.000001:
+            continue
+        err = diff / denom
         if err > max_err:
-            max_err, bad_idx = err, i
+            max_err, bad_idx, bad_abs = err, i, diff
     if max_err > epsilon:
         return False, (f"Numeric mismatch: max relative error {max_err:.2e} at index {bad_idx} "
-                       f"(ref={v1[bad_idx]!r}, opt={v2[bad_idx]!r}), epsilon={epsilon:.2e}")
+                       f"(ref={v1[bad_idx]!r}, opt={v2[bad_idx]!r}), epsilon={epsilon:.2e}"
+                       + (f", |diff|={bad_abs:.3g} > print quantum {quantum:.3g}" if quantum else ""))
     return True, ""
 
 
@@ -302,7 +342,10 @@ def check_correctness(ref_bin: str, opt_bin: str, mode: str,
         opt_text = opt_out.decode("latin1") + (opt_file.decode("latin1") if opt_file is not None else "")
         ref_nums = extract_numbers(ref_text)
         opt_nums = extract_numbers(opt_text)
-        return compare_numeric(ref_nums, opt_nums, epsilon=epsilon)
+        # Derived from the REFERENCE output's own formatting, so it adapts to
+        # whatever precision the benchmark chose to print.
+        return compare_numeric(ref_nums, opt_nums, epsilon=epsilon,
+                               quantum=output_quantum(ref_text))
 
     if mode == "hash":
         ref_payload = ref_out + (ref_file or b"")

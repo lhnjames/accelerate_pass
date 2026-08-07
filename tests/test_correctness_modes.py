@@ -131,5 +131,56 @@ class TestHashModeRejectsEmptyReference(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("no output", err)
 
+
+class TestPrintQuantum(unittest.TestCase):
+    """A difference the output format cannot express is not a difference.
+
+    PolyBench dumps with "%0.2lf", so 0.01 is the finest expressible step.
+    All 23 candidates rejected as numerically wrong in this study's PolyBench
+    runs differed by exactly one unit in the last printed place -- gesummv
+    ref=59.48/opt=59.47, syr2k ref=1.78/opt=1.79 -- which the 1e-4 relative
+    tolerance flags because 1e-4*59.48 = 0.006 is finer than the dump's 0.01.
+    Those were vectorisation reassociations: the optimisation under study,
+    discarded for a difference the benchmark cannot represent.
+    """
+    def test_quantum_detected_from_two_decimals(self):
+        from src.correctness import output_quantum
+        self.assertAlmostEqual(output_quantum("59.48 59.47 1.78\n"), 0.01)
+
+    def test_quantum_detected_from_six_decimals(self):
+        from src.correctness import output_quantum
+        self.assertAlmostEqual(output_quantum("0.155941 2.718280\n"), 1e-6)
+
+    def test_no_decimals_means_no_quantum(self):
+        from src.correctness import output_quantum
+        self.assertEqual(output_quantum("42 17 3\n"), 0.0)
+
+    def test_one_print_unit_now_passes(self):
+        from src.correctness import compare_numeric
+        ok, _ = compare_numeric([59.48], [59.47], epsilon=1e-4, quantum=0.01)
+        self.assertTrue(ok)
+        ok, _ = compare_numeric([1.78], [1.79], epsilon=1e-4, quantum=0.01)
+        self.assertTrue(ok)
+
+    def test_still_rejected_without_the_quantum(self):
+        # Same data, old behaviour: this is what was throwing candidates away.
+        from src.correctness import compare_numeric
+        self.assertFalse(compare_numeric([59.48], [59.47], epsilon=1e-4)[0])
+
+    def test_a_real_error_still_fails(self):
+        # Many quanta off is still wrong, quantum or not.
+        from src.correctness import compare_numeric
+        ok, msg = compare_numeric([59.48, 12.0], [59.47, 15.0],
+                                  epsilon=1e-4, quantum=0.01)
+        self.assertFalse(ok)
+        self.assertIn("print quantum", msg)
+
+    def test_quantum_does_not_swallow_a_wrong_kernel(self):
+        # A broken computation differs by far more than one printed unit.
+        from src.correctness import compare_numeric
+        ref = [10.0, 9.5, 9.0, 8.5]
+        bad = [10.0, 0.0, 0.0, 0.0]
+        self.assertFalse(compare_numeric(ref, bad, epsilon=1e-4, quantum=0.01)[0])
+
 if __name__ == "__main__":
     unittest.main()
