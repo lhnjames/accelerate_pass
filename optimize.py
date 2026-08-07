@@ -1992,7 +1992,7 @@ tiling/cache blocking（哪怕只试了 scalar accumulator 或标量提升这类
     return prompt
 
 
-def _apply_pragma_hints(source: str, hints: list) -> str:
+def _apply_pragma_hints(source: str, hints: list, kernel_name: str = "") -> str:
     """
     Insert #pragma clang loop annotations before matching for-loop lines.
     hints: list of {loop_prefix, pragma}
@@ -2022,6 +2022,35 @@ def _apply_pragma_hints(source: str, hints: list) -> str:
         return _re.sub(r'\s+', '', s)
 
     lines = source.split("\n")
+
+    # Restrict candidates to the target kernel's own body when we know it.
+    #
+    # This is the single biggest source of wasted agent steps in the whole
+    # corpus: "未找到匹配的 for 循环前缀" fired 108 times, more than compile
+    # failures (89) and correctness rejections (15) combined. Most of those are
+    # AMBIGUITY, not absence -- a PolyBench file holds init_array, print_array,
+    # main and kernel_xxx, and their loop headers are frequently identical
+    # (`for (i = 0; i < ni; i++)` appears in the init pass and in the real
+    # computation), so a perfectly legal hint matched several lines and was
+    # rejected outright rather than risk annotating the wrong loop. Scoping to
+    # the kernel body removes exactly that class of collision while keeping the
+    # never-guess rule intact.
+    lo, hi = 0, len(lines)
+    if kernel_name:
+        for i, line in enumerate(lines):
+            if kernel_name in line and "(" in line and not line.strip().startswith("//"):
+                depth, j, started = 0, i, False
+                while j < len(lines):
+                    depth += lines[j].count("{") - lines[j].count("}")
+                    if "{" in lines[j]:
+                        started = True
+                    if started and depth <= 0:
+                        break
+                    j += 1
+                if started and j > i:
+                    lo, hi = i, min(j + 1, len(lines))
+                    break
+
     insertions: list = []  # (line_idx, pragma_text)
     unmatched = []
     for h in hints:
@@ -2032,11 +2061,24 @@ def _apply_pragma_hints(source: str, hints: list) -> str:
         norm_prefix = _norm(prefix)[:60]
         words_prefix = set(_re.findall(r'\w+', prefix))
 
-        tier1, tier2, tier3 = [], [], []
+        # Induction variable of the requested loop, e.g. "k" from
+        # "for (k = 0; k < nk; k++)". Inside one kernel body the induction
+        # variable is usually unique per loop, so this resolves hints whose
+        # bound expressions the model got slightly wrong (`_PB_NI` vs `ni`).
+        mvar = _re.match(r"for\s*\(\s*(?:\w[\w \t*]*?)?(\w+)\s*=", prefix)
+        var_prefix = mvar.group(1) if mvar else None
+
+        tier0, tier1, tier2, tier3 = [], [], [], []
         for i, line in enumerate(lines):
+            if not (lo <= i < hi):
+                continue
             stripped = line.strip()
             if not stripped.startswith("for"):
                 continue
+            if var_prefix:
+                mv = _re.match(r"for\s*\(\s*(?:\w[\w \t*]*?)?(\w+)\s*=", stripped)
+                if mv and mv.group(1) == var_prefix:
+                    tier0.append(i)
             if _norm(stripped)[:60].startswith(norm_prefix):
                 tier1.append(i)
             elif stripped[:50].startswith(prefix[:50]):
@@ -2047,7 +2089,9 @@ def _apply_pragma_hints(source: str, hints: list) -> str:
 
         matched_idx = None
         for tier_name, tier in (("normalized-prefix", tier1),
-                                ("prefix", tier2), ("keyword-subset", tier3)):
+                                ("prefix", tier2),
+                                ("induction-var", tier0),
+                                ("keyword-subset", tier3)):
             if len(tier) == 1:
                 matched_idx = tier[0]
                 break
@@ -2062,7 +2106,10 @@ def _apply_pragma_hints(source: str, hints: list) -> str:
             unmatched.append(prefix[:60])
 
     if unmatched:
+        avail = [l.strip()[:70] for i, l in enumerate(lines)
+                 if lo <= i < hi and l.strip().startswith("for")]
         print(f"  [pragma匹配] {len(unmatched)}/{len(hints)} 条 pragma 未找到唯一匹配的循环：{unmatched}")
+        print(f"  [pragma匹配] 该范围内可用的循环头：{avail}")
 
     if not insertions:
         return source
@@ -3821,7 +3868,7 @@ def run_agent_step(src_original: str, config, llm: LLMClient,
                         "strategy": "", "flags": [], "source": None,
                         "perf_stats": {}}
 
-            pragma_src = _apply_pragma_hints(base_src_text, hints)
+            pragma_src = _apply_pragma_hints(base_src_text, hints, kernel_name)
             if pragma_src == base_src_text:
                 return {"action": action, "speedup": 1.0,
                         "error": "未找到匹配的 for 循环前缀",
