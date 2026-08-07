@@ -82,6 +82,20 @@ for tag, ld in LOGDIRS.items():
         mc = re.search(r"确认加速比:\s*([\d.]+)x\s*\(IQR \[([\d.]+), ([\d.]+)\], n=(\d+)", txt)
         if mc: rec["conf_line"] = {"med": float(mc.group(1)), "iqr": [float(mc.group(2)), float(mc.group(3))], "n": int(mc.group(4))}
         rec["rejects"] = [x[:200] for x in re.findall(r"步骤\d+:\s*失败[^\n]*", txt)][:20]
+        # AutoPass 的逐轮记录：每轮一条候选 pass 顺序 + 参数，接受/拒绝/编译失败
+        rounds = []
+        for m in re.finditer(r"^\[round (\d+)/(\d+)\]\s*(.+)$", txt, re.M):
+            rounds.append({"round": int(m.group(1)), "of": int(m.group(2)),
+                           "text": m.group(3).strip()[:600]})
+        if rounds: rec["rounds"] = rounds
+        # OpenCode 的逐轮记录：每轮 agent 交互 + measure.sh 反馈
+        oc = []
+        for m in re.finditer(r"^\[\d\d:\d\d:\d\d\] round (\d+)/(\d+)[^\n]*$", txt, re.M):
+            oc.append({"round": int(m.group(1)), "of": int(m.group(2))})
+        if oc: rec["oc_rounds"] = len(oc)
+        # 每步的动作与推理摘要（Action/Reasoning 行），与 步骤N 配对
+        acts = re.findall(r"^\s*Action:\s*(\w+)\s*$", txt, re.M)
+        if acts: rec["actions"] = acts[:20]
         if tid.startswith(("po_", "oc_")):
             i = txt.find("\n{\n") if tid.startswith("po_") else txt.rfind("\n{\n")
             if i >= 0:
@@ -311,10 +325,22 @@ def main():
             if r.get("feedback"):
                 W(f"- 实际获得的反馈通道：`{r['feedback']}`")
             if r.get("steps"):
-                W("\n| 步 | 该步实测 / 结果 |")
-                W("|---:|---|")
+                acts = r.get("actions") or []
+                W("\n| 步 | 动作 | 该步实测 / 结果 |")
+                W("|---:|---|---|")
                 for s in r["steps"]:
-                    W(f"| {s['step']} | {s['text'].replace('|', '/')} |")
+                    act = acts[s["step"] - 1] if len(acts) >= s["step"] else ""
+                    W(f"| {s['step']} | {act} | {s['text'].replace('|', '/')} |")
+            elif r.get("rounds"):
+                W("\n每轮候选（AutoPass R3：每轮 Reasoning Agent 产出一条 pass 顺序 + 参数，"
+                  "Evaluation Agent 严格 `t(P) < t(P*)` 才接受）：\n")
+                W("| 轮 | 结果 |")
+                W("|---:|---|")
+                for s in r["rounds"]:
+                    W(f"| {s['round']}/{s['of']} | {s['text'].replace('|', '/')} |")
+            elif r.get("oc_rounds"):
+                W(f"\n外部 agent 共交互 {r['oc_rounds']} 轮；该 harness 只在最终确认阶段"
+                  f"记录结果，逐轮原始输出见节点上的 `opencode_runs/{t['id']}/round_*.jsonl`。")
             else:
                 W("\n（该 harness 不产生逐步记录）")
             W("\n</details>\n")
