@@ -249,6 +249,12 @@ def compile_with_pass_order(kernel_c: str, utils: str, source_dir: str,
     wd = Path(work_dir) if work_dir else Path(kernel_c).parent
     inc = [f"-I{utils}", f"-I{source_dir}"]
     defines = [f"-D{dataset}", f"-D{output_macro}"]
+    if output_macro == "POLYBENCH_DUMP_ARRAYS":
+        # 12 decimals, matching the main harness. PolyBench's stock "%0.2lf"
+        # can only express a 0.01 difference, coarser than the 1e-4 relative
+        # tolerance, so the check would reject reassociation the pass order
+        # legitimately introduces.
+        defines.append('-DDATA_PRINTF_MODIFIER="%0.12lf "')
 
     kernel_raw_ll = wd / f"kernel_raw_{output_macro}.ll"
     kernel_opt_ll = wd / f"kernel_opt_{output_macro}.ll"

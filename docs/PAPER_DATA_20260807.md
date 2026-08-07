@@ -1,6 +1,6 @@
 # COMET 论文数据全集 — 每任务 / 每步骤 / 每效果
 
-_生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生成_
+_生成时间：2026-08-07 16:24 UTC，由 `scripts/gen_paper_data.py` 自动生成_
 
 本文件是完整实验记录：每个任务的基线、自动判定的正确性档位、agent 每一步做了什么、该步实测多少、被拒候选及原因、以及最终配对确认。论文里任何一个数字都可以在这里回溯到产生它的那一步。
 
@@ -43,30 +43,32 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 | 条件 | n | geomean | 中位数 | 最小 | 最大 |
 |---|---:|---:|---:|---:|---:|
-| ① rewrite-only | 25 | **2.1295** | 1.3675 | 0.8856 | 13.4514 |
-| ② no-compiler-feedback | 27 | **2.2330** | 1.5689 | 0.9687 | 18.8261 |
+| ① rewrite-only | 28 | **2.2860** | 1.4849 | 0.8856 | 16.3119 |
+| ② no-compiler-feedback | 28 | **2.1698** | 1.5568 | 0.9687 | 18.8261 |
 | ③ full system | 28 | **2.4722** | 1.5900 | 0.8333 | 17.1274 |
-| ④ params-only | 18 | **1.0416** | 1.0218 | 0.9625 | 1.2375 |
-| OC | 25 | **1.0068** | 1.0000 | 0.9759 | 1.1640 |
+| ④ params-only | 25 | **1.0298** | 1.0071 | 0.9625 | 1.2375 |
+| OC | 28 | **1.2787** | 1.0000 | 0.9759 | 24.1682 |
+| PO | 28 | **1.0016** | 1.0010 | 0.9512 | 1.0441 |
 
 **配对符号检验**（同一程序两条件都有数据）：
 
 | 对比 | n | 胜 | 负 | 前者 geomean | 后者 geomean | p | 结论 |
 |---|---:|---:|---:|---:|---:|---:|---|
-| ③ full system vs ② no-compiler-feedback | 27 | 17 | 10 | 2.5514 | 2.2330 | 0.2478 | 不显著 |
-| ③ full system vs ① rewrite-only | 25 | 17 | 8 | 2.3296 | 2.1295 | 0.1078 | 不显著 |
-| ① rewrite-only vs ② no-compiler-feedback | 24 | 14 | 10 | 2.1742 | 2.0881 | 0.5413 | 不显著 |
-| ③ full system vs ④ params-only | 18 | 15 | 3 | 2.0599 | 1.0416 | 0.0075 | **显著** |
-| ③ full system vs OC | 25 | 24 | 1 | 2.3296 | 1.0068 | 0.0000 | **显著** |
+| ③ full system vs ② no-compiler-feedback | 28 | 18 | 10 | 2.4722 | 2.1698 | 0.1849 | 不显著 |
+| ③ full system vs ① rewrite-only | 28 | 18 | 10 | 2.4722 | 2.2860 | 0.1849 | 不显著 |
+| ① rewrite-only vs ② no-compiler-feedback | 28 | 17 | 11 | 2.2860 | 2.1698 | 0.3449 | 不显著 |
+| ③ full system vs ④ params-only | 25 | 22 | 3 | 2.5630 | 1.0298 | 0.0002 | **显著** |
+| ③ full system vs PO | 28 | 27 | 1 | 2.4722 | 1.0016 | 0.0000 | **显著** |
+| ③ full system vs OC | 28 | 25 | 3 | 2.4722 | 1.2787 | 0.0000 | **显著** |
 
 ### 2.2 cBench（已剔除无效数据）
 
 | 条件 | n | geomean | 中位数 | 最小 | 最大 |
 |---|---:|---:|---:|---:|---:|
-| ① rewrite-only | 10 | **1.0166** | 1.0013 | 0.9684 | 1.1674 |
-| ② no-compiler-feedback | 18 | **1.0110** | 1.0042 | 0.9888 | 1.1170 |
-| ③ full system | 18 | **1.0155** | 1.0042 | 0.9840 | 1.1664 |
-| ④ params-only | 19 | **1.0072** | 1.0029 | 0.9888 | 1.0472 |
+| ① rewrite-only | 19 | **1.0087** | 1.0000 | 0.9684 | 1.1674 |
+| ② no-compiler-feedback | 19 | **1.0105** | 1.0032 | 0.9888 | 1.1170 |
+| ③ full system | 19 | **1.0147** | 1.0041 | 0.9840 | 1.1664 |
+| ④ params-only | 19 | **1.0078** | 1.0029 | 0.9905 | 1.0472 |
 | OC | 19 | **1.0105** | 1.0005 | 0.9734 | 1.1096 |
 | PO | 19 | **0.9960** | 0.9978 | 0.9602 | 1.0056 |
 
@@ -74,18 +76,18 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 | 对比 | n | 胜 | 负 | 前者 geomean | 后者 geomean | p | 结论 |
 |---|---:|---:|---:|---:|---:|---:|---|
-| ③ full system vs ② no-compiler-feedback | 17 | 10 | 7 | 1.0174 | 1.0113 | 0.6291 | 不显著 |
-| ③ full system vs ① rewrite-only | 10 | 7 | 3 | 1.0265 | 1.0166 | 0.3438 | 不显著 |
-| ① rewrite-only vs ② no-compiler-feedback | 10 | 4 | 6 | 1.0166 | 1.0199 | 0.7539 | 不显著 |
-| ③ full system vs ④ params-only | 18 | 10 | 8 | 1.0155 | 1.0074 | 0.8145 | 不显著 |
-| ③ full system vs PO | 18 | 14 | 4 | 1.0155 | 0.9959 | 0.0309 | **显著** |
-| ③ full system vs OC | 18 | 7 | 11 | 1.0155 | 1.0053 | 0.4807 | 不显著 |
+| ③ full system vs ② no-compiler-feedback | 19 | 10 | 9 | 1.0147 | 1.0105 | 1.0000 | 不显著 |
+| ③ full system vs ① rewrite-only | 19 | 12 | 6 | 1.0147 | 1.0087 | 0.2379 | 不显著 |
+| ① rewrite-only vs ② no-compiler-feedback | 19 | 6 | 11 | 1.0087 | 1.0105 | 0.3323 | 不显著 |
+| ③ full system vs ④ params-only | 19 | 10 | 9 | 1.0147 | 1.0078 | 1.0000 | 不显著 |
+| ③ full system vs PO | 19 | 15 | 4 | 1.0147 | 0.9960 | 0.0192 | **显著** |
+| ③ full system vs OC | 19 | 7 | 12 | 1.0147 | 1.0105 | 0.3593 | 不显著 |
 
 ## 3. 逐任务逐步明细
 
 每步格式：`步骤N: <该步实测加速比>x [<动作>: <具体做了什么>]`，失败步记录被拒原因。这是 agent 的完整决策轨迹。
 
-### ① rewrite-only（每步强制 rewrite_source，屏蔽编译器反馈）（40 个程序）
+### ① rewrite-only（每步强制 rewrite_source，屏蔽编译器反馈）（51 个程序）
 
 <details><summary><b>2mm</b> — 中位加速比 <b>6.9811x</b>（基线 1082.42 ms，numeric 校验，3/3 次为正）</summary>
 
@@ -168,6 +170,46 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 | 7 | 0.919x  [rewrite: Manually unroll the tmp-computation inner loop (for(j=0; j<_PB_N; j++) tmp[i] = tmp[i] + A[i][j]*x[j]) by a factor of 4, using four separate scalar accumulators (sum0, sum1, sum2, sum3) that each accumulate over strided indices (j, j+1, j+2, j+3), then after the loop combine them as tmp[i] = sum0 + sum1 + sum2 + sum3. Keep the already 4-way unrolled y‑update loop unchanged to pre |
 | 8 | 0.839x  [rewrite: Further unroll the already-4‑way‑unrolled y‑update loop to 8‑way: inside the outer i‑loop, replace the `for(j=0; j<=_PB_N-4; j+=4)` block and its remainder with `for(j=0; j<=_PB_N-8; j+=8)` containing eight statements `y[j+k] = y[j+k] + A[i][j+k] * tmp[i]` for k=0..7, and adjust the trailing remainder loop accordingly. Keep all other code (tmp computation, initialization) unchang |
 | 9 | 1.244x  [rewrite: In the y‑update portion (already 4‑way unrolled), hoist `tmp[i]` into a local `DATA_TYPE tmp_val = tmp[i];` just before the unrolled j‑loop, then replace every occurrence of `tmp[i]` in the loop body with `tmp_val`. Leave the tmp‑computation loop and the remainder handling unchanged.] |
+
+</details>
+
+<details><summary><b>automotive_qsort1</b> — 中位加速比 <b>1.0000x</b>（基线 14.18 ms，hash 校验，0/0 次为正，⚠ 正确性门无效）</summary>
+
+- 任务 `c1_cb001`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0678x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.001x  [rewrite(utils/qsortx): Inline the swap and shorts (short-sort) functions directly into qsortx and replace the goto-based recursion with a while-loop that uses the explicit stack (lostk/histk) for partition processing, eliminating function call overhead and improving branch predictability.] |
+| 2 | 1.068x  [rewrite(utils/qsortx): 1) Introduce median-of-three pivot selection (first, mid, last) in the partition step to improve balance and reduce worst-case comparisons. 2) In the insertion sort branch (size <= CUTOFF), replace the SWAP-based sifting with a shift-and-insert: copy the current element to a VLA buffer ([width]), use memmove to shift the sorted prefix right by one element, then memc |
+| 3 | 失败 [rewrite_source] [SMALL_DATASET] optimized run timed out |
+| 4 | 0.996x  [rewrite(utils/qsortx): Increase the insertion sort cutoff from the current CUTOFF macro to a constant 64 and enlarge the on-stack temporary buffer from 256 to 1024 bytes, so that more subarrays are handled by the optimized shift-and-insert insertion sort instead of the partition loop.] |
+| 5 | 0.980x  [rewrite(utils/qsortx): 将 SWAP 宏重写为：当 width <= 256 时使用栈上 char[256] 临时缓冲区，通过 memcpy 实现两次拷贝完成交换；否则回退到原有逐字节循环。这避免分区和 pivot 选择中的逐字节交换，减少内存写入次数和循环开销。] |
+| 6 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp60fxk02p/rw_utils_utils_shadow/polybench.c:665:25: error: use of undeclared identifier 'uint32_t' |
+| 7 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmppo4qzxld/rw_utils_utils_shadow/polybench.c:661:25: error: use of undeclared identifier 'uint32_t' |
+| 8 | 1.026x  [rewrite(utils/qsortx): 在分区循环的两个 do-while 条件表达式中，使用 __builtin_expect 提示 comp 比较结果为真（即元素小于/大于等于 pivot）以提高分支预测准确率：将 comp(loguy, lo) <= 0 替换为 __builtin_expect(comp(loguy, lo) <= 0, 1)，将 comp(higuy, lo) >= 0 替换为 __builtin_expect(comp(higuy, lo) >= 0, 1)。] |
+| 9 | 1.003x  [rewrite(utils/qsortx): 在插入排序的 shift-and-insert 代码段中，当元素宽度 width <= sizeof(long) (8字节)时，使用内联的逐字节 while 循环实现 memmove 语义（char* 逐字节搬移），并将当前元素保存于栈上的 long 变量（通过逐字节 memcpy 拷贝），完全避免调用库函数 memmove/memcpy；对于 width > 8 的元素保持原有 memmove/memcpy 路径不变。该变换针对小元素高频插入排序场景，消除函数调用开销和参数准备，保留原有 median-of-three 及分区逻辑。] |
+
+</details>
+
+<details><summary><b>automotive_susan_corners</b> — 中位加速比 <b>1.0000x</b>（基线 4.76 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c1_cb002`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpzj0m3ovt/automotive_susan_corners_rewrite.c:1454:1: error: unknown type name 'We' |
+| 2 | 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp1q3j3orz/automotive_susan_corners_rewrite.c:1633:3: error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int] |
+| 3 | 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpxfm4o8ko/automotive_susan_corners_rewrite.c:1768:1: error: function definition is not allowed here |
+| 4 | 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp6xyawoyc/automotive_susan_corners_rewrite.c:1739:1: error: function definition is not allowed here |
+| 5 | 0.922x  [rewrite: 在 susan_corners 函数中，对每个像素计算 USAN 面积的最内层循环（掩膜邻域遍历），将直接累加到输出数组元素（如 out[i][j] += ...）的操作，改为使用局部 int 变量 area 累加，循环结束后将 area 写入输出数组对应位置。不修改任何循环边界、分支条件或计算表达式，新增的局部变量需显式 int 类型，确保不产生嵌套函数定义或隐式类型错误。] |
+| 6 | 0.961x  [rewrite: 在 susan_corners 函数遍历图像行的外层循环内，对后续即将访问的行数据使用 __builtin_prefetch 进行软件预取。针对每个输出像素在内层掩膜邻域遍历中会访问周边多行输入数据的特点，在 i 循环开头预取 in[i+2] 行的起始地址（若未越界），并设置 locality hint 为中等（3）以保持在 L2/L3 缓存中。只添加预取语句，不修改任何计算逻辑、循环边界或输出格式。] |
+| 7 | 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpoegdbry7/automotive_susan_corners_rewrite.c:1454:1: error: unknown type name 'We' |
+| 8 | 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpjhc2oiaa/automotive_susan_corners_rewrite.c:1455:44: error: restrict requires a pointer or reference ('CORNER_LIST' (aka 'struct (unnamed at /home/hanning/comet/tmp/tmpjhc2oiaa/automotive_susan_corners_rewrite.c:311 |
+| 9 | 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpwi71h014/automotive_susan_corners_rewrite.c:1740:1: error: function definition is not allowed here |
 
 </details>
 
@@ -297,24 +339,104 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>correlation</b> — 中位加速比 <b>10.7222x</b>（基线 1451.01 ms，numeric 校验，3/3 次为正，⚠ 正确性档位过松）</summary>
+<details><summary><b>consumer_tiff2bw</b> — 中位加速比 <b>1.0000x</b>（基线 1.54 ms，hash 校验，0/0 次为正）</summary>
 
-- 任务 `c1_pb001`，节点 `dgx-spark-b-1`，数据源 `arch`
-- 探索期最好单次：11.5845x　最终确认：**10.7222x**　IQR [10.6139, 11.2504]　base_cv=0.5% best_cv=3.5%
+- 任务 `c1_cb007`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.1102x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.035x  [rewrite(utils/TIFFWriteScanline): Insert __builtin_expect (likely/unlikely) hints on performance-critical branches: WRITECHECKSTRIPS and BUFFERCHECK failures as unlikely, row >= td->td_imagelength as unlikely, strip != tif->tif_curstrip as unlikely (common case: strip unchanged), row < tif->tif_row as unlikely (common case: forward sequential write). Also mark the final tif->tif_encoderow |
+| 2 | 1.007x  [rewrite(utils/TIFFWriteScanline): At the beginning of TIFFWriteScanline, after loading 'td', cache td->td_imagelength and td->td_nstrips into local const variables 'imagelength' and 'nstrips'. Replace all subsequent uses of td->td_imagelength and td->td_nstrips in the hot path and rare path with these locals. Also cache tif->tif_scanlinesize into a local variable before the hot-path call. |
+| 3 | 0.614x  [rewrite(utils/TIFFWriteScanline): Convert TIFFWriteScanline to a static inline function (with __attribute__((always_inline))) so that it is fully inlined into the calling loop in kernel_consumer_tiff2bw. This eliminates function call overhead and allows the compiler to optimize across iterations, potentially unrolling or pipelining the indirect call to encoderow.]content empty, falling ba |
+| 4 | 0.949x  [rewrite(utils/TIFFWriteScanline): Refactor TIFFWriteScanline to extract all code after the early hot‑path return into a separate static __attribute__((cold)) function (e.g., TIFFWriteScanlineCold). The hot path itself then consists only of the safety checks, the early‑return condition (with existing __builtin_expect hints), and a tail call/return to the cold function when the early return |
+| 5 | 1.110x  [rewrite(utils/TIFFWriteScanline): Ensure WRITECHECKSTRIPS and BUFFERCHECK are inlined: if they are currently macros, wrap them in static inline functions with __attribute__((always_inline)) and __builtin_expect to force inlining and correct branch prediction, reducing call overhead on the hot path without changing semantics.] |
+| 6 | 0.997x  [rewrite(utils/TIFFWriteScanline): 在 TIFFWriteScanline 中引入一个 tif_flags 位 (例如 TIFF_FASTSEQ) 缓存 'sequential write within same strip' 状态。一旦慢路径确认当前 strip、行列号均合法且编码器已设置，便置位此标志。热路径仅检查该标志位、row == tif->tif_row 和 tif->tif_encoderow 是否就绪，若通过则直接用缓存在局部变量的编码器函数指针调用并递增行号，完全跳过 td->td_imagelength、td->td_nstrips、strip 比较等所有结构体字段访问。慢路径负责清除标志位并重新验证状态。此变换保持所有外部行为不变，仅缩短最频繁的执行路径。] |
+| 7 | 0.620x  [rewrite(utils/TIFFWriteScanline): Wrap the entire slow-path code (the block after the early hot-path return) in `if (__builtin_expect(0, 0)) { ... }`. This instructs the compiler to treat the contained code as cold and place it at the end of the function, reducing instruction-cache pressure on the hot path without introducing any function-call overhead.] |
+| 8 | 0.982x  [rewrite(utils/TIFFWriteScanline): 在 TIFFWriteScanline 函数中，将整个热路径条件 (tif->tif_flags & TIFF_CODERSETUP) && strip == tif->tif_curstrip && row == tif->tif_row && row < td->td_imagelength && strip < td->td_nstrips 使用 __builtin_expect(..., 1) 包裹，以明确提示编译器该路径为极常执行。同时在条件之前将 tif->tif_encoderow 和 tif->tif_scanlinesize 分别加载到局部变量 encode_row 和 scanline_sz，并在热路径调用中使用这些局部变量，避免从内存/结构体再次加载。不改变任何逻辑，不拆分函数，不标 |
+| 9 | 1.009x  [rewrite(utils/TIFFWriteScanline): 在 TIFFWriteScanline 入口处，将 tif->tif_curstrip 和 tif->tif_row 分别加载到 const 局部变量并用于热路径条件（strip == curstrip_local、row == row_local），但不替换慢路径中对这些字段的修改或后续引用。同时保留之前对 td->td_imagelength/td->td_nstrips 的局部缓存（若已存在）。不引入任何新的 likely/unlikely 标记，不预加载 encoderow 或 scanlinesize，仅减少热路径中的 struct 成员间接访问次数。] |
+
+</details>
+
+<details><summary><b>consumer_tiff2dither</b> — 中位加速比 <b>1.0000x</b>（基线 2.41 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c1_cb008`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.1845x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 0.929x  [rewrite(utils/TIFFWriteDirectory): 将 for (b = 0; b <= FIELD_LAST; b++) 循环中的字段计数改为使用 __builtin_popcount 对 td->td_fieldsset 数组的每个元素进行快速计数，并手动调整 FIELD_SUBFILETYPE 加倍逻辑；同时将 TIFF_SWAB 分支内的字节交换 for 循环手动展开 4 次（使用宏或手动写重复体）以减少迭代开销。] |
+| 2 | 0.715x  [rewrite(utils/TIFFWriteDirectory): 在 TIFFWriteDirectory 函数中，当 (tif->tif_flags & TIFF_SWAB) 条件成立时，在字节交换循环 `for (dir = (TIFFDirEntry*) data; dircount; dir++, dircount--)` 之前插入 `#pragma clang loop vectorize(enable) vectorize_width(4)`，指示编译器尝试以 128 位（4 个 32 位元素）向量宽度进行字节交换，利用 SIMD 指令缩短循环；在不改变数组语义的前提下，此变换仅影响编译器决策，保持原始字节顺序输出。同时可考虑在循环内将 dir++ 与 dircount-- 合并为单次指针更新以简化 bound 检查，但非必须。] |
+| 3 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmprftg7kei/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
+| 4 | 0.812x  [rewrite(utils/TIFFWriteDirectory): 将三次独立的 WriteOK 调用（分别写 dircount、目录数据、diroff）合并为一次：在 SWAB 处理之后，分配一个临时缓冲区，将 dircount、data（dirsize 字节）和 diroff 按顺序拷贝进去，然后调用一次 WriteOK 写出整个缓冲区并释放，替换原有的三行 WriteOK 及中间的 TIFFSeekFile 调用（Seek 仍保留在写入前）。] |
+| 5 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpba2r5rst/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
+| 6 | 0.966x  [rewrite(utils/TIFFWriteDirectory): 在 TIFFWriteDirectory 函数中，对多个条件分支添加 __builtin_expect 提示：将 `tif->tif_mode == O_RDONLY` 标记为 unlikely(0)；`tif->tif_flags & TIFF_POSTENCODE` 标记为 unlikely(0)；`tif->tif_rawcc > 0 && !TIFFFlushData1(tif)` 标记为 unlikely(0)；`tif->tif_diroff == 0` 标记为 likely(1)；`tif->tif_dataoff & 1` 标记为 unlikely(0)；`tif->tif_flags & TIFF_SWAB` 标记为 unlikely(0)。不改变任何数据逻辑或控制流。] |
+| 7 | 0.931x  [rewrite(utils/TIFFWriteDirectory): 在 TIFFWriteDirectory 中，将 `_TIFFmemcpy(fields, td->td_fieldsset, sizeof (fields));` 替换为显式的逐元素赋值（例如 for 循环），以消除 memcpy 可能带来的编译器别名障碍，允许后续 FieldSet 宏重复读取 fields 时被提升到寄存器；同时，将 TIFF_SWAB 分支之后的 `TIFFSwabShort(&dircount);` 和 `TIFFSwabLong(&diroff);` 替换为等价的纯 C 位操作字节交换（避免函数调用开销，编译器可将其优化为 bswap 指令）。其余代码不变。] |
+| 8 | 1.184x  [rewrite(utils/TIFFWriteDirectory): 将字段计数循环 for (b = 0; b <= FIELD_LAST; b++) 替换为遍历 td->td_fieldsset 数组（共 FIELD_SETLONGS 个元素），对每个元素调用 __builtin_popcountl 累加，同时根据 FIELD_SUBFILETYPE 范围正确添加额外的 +1 计数，消除逐位测试的循环开销。注意正确处理 FIELD_SUBFILETYPE 的加倍逻辑，不改变其他代码。] |
+| 9 | 0.982x  [rewrite(utils/TIFFWriteDirectory): Simplify the bit mask generation in the field counting popcount loop: remove the temporary variable '_max_bit', compute '_keep' directly from the condition, and fold the mask construction to reduce register pressure and eliminate a dead store. No other changes.] |
+
+</details>
+
+<details><summary><b>consumer_tiff2median</b> — 中位加速比 <b>1.0000x</b>（基线 0.94 ms，hash 校验，0/0 次为正，⚠ 正确性门无效）</summary>
+
+- 任务 `c1_cb009`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.3297x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpy5kqrkhv/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
+| 2 | 1.054x  [rewrite(utils/TIFFReadDirectory): 将第二个for循环中查找 tif_fieldinfo 的线性扫描（最坏 O(n^2)）替换为二分查找：对每个 dp->tdir_tag，使用二分查找在已排序的 tif->tif_fieldinfo 数组中定位该 tag，同时保留乱序警告逻辑（用上次 tag 值比较，若下降则发一次警告）。并缓存 dp->tdir_tag 到局部变量减少重复解引用。] |
+| 3 | 1.056x  [rewrite(utils/TIFFReadDirectory): 在第二个 for 循环（for (dp=dir, n=dircount; n>0; n--, dp++)）开始处，将 tif->tif_fieldinfo 和 tif->tif_nfields 提升为局部变量 TIFFFieldInfo** local_finfo = tif->tif_fieldinfo; int local_nf = tif->tif_nfields;，并修改循环内所有对这两个成员的引用（二分查找条件、field_bit 检查、fip 赋值等）使用局部变量，以消除重复的 tif 结构体间接访问。]content empty, falling back to reasoning_content on attempt 1 |
+| 4 | 0.610x  [rewrite(utils/TIFFReadDirectory): 在第三个 for 循环（for (dp=dir, n=dircount; n>0; n--, dp++)）开始处，将 tif->tif_dir.td_nstrips、tif->tif_dir.td_samplesperpixel、tif->tif_dir.td_planarconfig 等只读字段提升为局部变量，并替换循环内所有对它们的直接引用。同时使用 __builtin_expect 标注 TIFFError、MissingRequired 等错误路径和未知标签警告为 unlikely，以减少分支预测误差。] |
+| 5 | 1.084x  [rewrite(utils/TIFFReadDirectory): 在第一个 for 循环完成字节序交换后、第二个 for 循环开始前，分配局部数组 uint16 tags[dircount] 并将 dir[i].tdir_tag 依次复制到 tags[i]；然后将第二个和第三个 for 循环中所有对 dp->tdir_tag 的访问（包括缓存后的局部变量 tag）替换为对 tags[n-1] 的读取，以消除对 TIFFDirEntry 结构体中非必要字段的缓存加载，提升数据局部性。] |
+| 6 | 1.330x  [rewrite(utils/TIFFReadDirectory): 在第一个 for 循环中，同时提取 dir[i].tdir_type 和 dir[i].tdir_count 到局部数组 uint16 types[dircount] 和 uint16 counts[dircount]（已有 tags 数组）；然后在第二个和第三个 for 循环中，将所有对 dp->tdir_type 和 dp->tdir_count 的访问替换为 types[n-1] 和 counts[n-1]，保留 dp 指针仅用于传递给需要 TIFFDirEntry* 的函数（如 TIFFFetchNormalTag）。] |
+| 7 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpuw7ha6v2/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
+| 8 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp0j7q7rgq/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
+| 9 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmps0qw3l3i/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
+
+</details>
+
+<details><summary><b>consumer_tiff2rgba</b> — 中位加速比 <b>1.0000x</b>（基线 3.11 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c1_cb010`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0360x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 0.970x  [rewrite(utils/TIFFWriteDirectory): 将第一个循环（计算 nfields）分裂为两个顺序循环：第一个遍历 b = 0 到 FIELD_SUBFILETYPE-1，每个有效字段贡献 2；第二个遍历 b = FIELD_SUBFILETYPE 到 FIELD_LAST，每个有效字段贡献 1。这样完全消除循环体内部的条件表达式 (b < FIELD_SUBFILETYPE ? 2 : 1)。] |
+| 2 | 失败 [rewrite_source] [SMALL_DATASET] optimized version returned non-zero exit code -6 |
+| 3 | 1.036x  [rewrite(utils/TIFFWriteDirectory): Combine the three WriteOK calls that write the directory (dircount, data block, diroff) into a single WriteOK call by constructing a contiguous buffer containing the uint16 dircount, the dirsize bytes of directory entries, and the uint32 diroff, then writing everything at once. This reduces system call and function-call overhead.] |
+| 4 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpji2a_vym/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
+| 5 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp4ug997cz/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
+| 6 | 0.990x  [rewrite(utils/TIFFWriteDirectory): 在计算 nfields 的循环（for (b = 0; b <= FIELD_LAST; b++)）中，用一个静态预计算的局部数组 `static const char field_weight[] = { ... }` 存储每个 b 的贡献值（SUBFILETYPE 以下的值为 2，其余为 1），将循环体改为 `nfields += field_weight[b];`，从而消除条件表达式 "(b < FIELD_SUBFILETYPE ? 2 : 1)" 带来的分支。] |
+| 7 | 1.020x  [rewrite(utils/TIFFWriteDirectory): 在计算 nfields 的循环 (for (b = 0; b <= FIELD_LAST; b++)) 中，将条件 `if (TIFFFieldSet(tif, b))` 替换为直接测试位域：`if (td->td_fieldsset[b>>3] & (1 << (b & 7)))`，其中 td = &tif->tif_dir。这消除了每次迭代对库函数 TIFFFieldSet 的调用开销，不改变语义。] |
+| 8 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpwpm6g5fx/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
+| 9 | 失败 [rewrite_source] [SMALL_DATASET] optimized version returned non-zero exit code -11 |
+
+</details>
+
+<details><summary><b>correlation</b> — 中位加速比 <b>16.3119x</b>（基线 4894.24 ms，hash 校验，3/3 次为正）</summary>
+
+- 任务 `c1_pb001`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：16.2598x　最终确认：**16.3119x**　IQR [16.1871, 16.4292]　base_cv=0.7% best_cv=0.3%
 - 最终采纳了源码重写
 - 实际获得的反馈通道：`none`
 
 | 步 | 该步实测 / 结果 |
 |---:|---|
-| 1 | 6.448x  [rewrite: For the correlation matrix computation loop (i from 0 to _PB_M-1), swap the j and k loops to make the order i, k, j. Hoist data[k][i] out of the inner j-loop into a temporary variable. This makes the inner loop access data[k][j] contiguously while preserving the original summation order over k.] |
-| 2 | 8.672x  [rewrite: 对相关矩阵计算的三重循环（i从0到_PB_M-1），在现有i,k,j顺序的基础上，对k循环进行cache tiling。引入新的分块循环变量kk（步长B），将原始k循环拆分为kk外层和k内层，内层k仍保持连续。这样data[k][j]的访问被限制在大小为B×M的data子块内，该子块可在L2缓存中复用，减少对主存的反复读取。B建议取32或64（根据典型N和M值调整）。同时保持corr[i][j]的累加在分块边界上正确衔接，不改变数值。不修改i循环的分块，以避免过度复杂化和依赖处理。] |
-| 3 | 9.527x  [rewrite: 在相关矩阵计算的三重循环（当前顺序 for k, for i, then j inner）中，对外层k循环进行cache tiling。引入新的分块外层变量kk，步长B（建议实测32或64），将原有k循环范围0..N-1拆分为kk..kk+B-1的若干子块。保持i和j循环顺序不变，即整体循环结构变为 for (kk=0;kk<_PB_N;kk+=B) for (k=kk;k<fmin(kk+B,_PB_N);k++) for (i=0;i<_PB_M-1;i++) { ... }。corr[i][j]的累加在分块边界上自然衔接，不改变浮点求和顺序，数值完全一致。目的：每个data子块（B行）在i循环多次遍历时可驻留L1/L2缓存复用，显著减少主存读入量。] |
-| 4 | 9.512x  [rewrite: 在已有 k 循环分块的基础上，对 i 循环也进行分块，形成 2D tiling：引入外层分块循环 ii，步长 BI（如32），将原有 i 循环范围拆分。保持最外层 kk 分块，循环顺序变为 for (kk) for (ii) for (k) for (i) for (j)。这样每个 tile 内处理 BK×BI 的 data 行和 BI×M 的 corr 子块，大幅减少 corr 容量缺失和 data 读取量，同时浮点求和顺序与原始完全一致。] |
-| 5 | 10.176x  [rewrite: 在现有 k 循环分块（kk 外层，k 内层）的基础上，交换内层的 i 与 j 循环顺序，改为 for (kk) for (k) for (j=1; j<_PB_M; j++) for (i=0; i<j; i++)。将 data[k][j] 提升到 j 循环外部作为标量 tmp2，最内层 i 循环执行 corr[i][j] += tmp2 * data[k][i]。这使得 corr 写入行连续、data 读取完全连续，利于向量化、写合并和预取，同时浮点累加顺序与原始保持一致。建议分块大小 B 保持原值或微调为 64。] |
-| 6 | 10.832x  [rewrite: 在当前最优 k 分块及循环顺序 (kk, k, j, i) 的基础上，对 j 循环进行分块：引入 jj 外层循环，步长 BJ，将 j 从 1.._PB_M 拆分为多个块。循环结构为 for (kk) for (jj) for (k) for (j in jj block) for (i=0; i<j; i++)，保持原有内层不变。分块大小建议 BK=64, BJ=32（根据 L2 25MiB 调整）。目的：将 corr 的更新限制在 jj 块内，提升写入局部性和缓存命中率。] |
-| 7 | 10.662x  [rewrite: 升级分块策略为同时分块 i 和 j：在 kk 外层分块的基础上，引入 ii (步长 BI=32) 和 jj (步长 BJ=32) 双层分块，jj 从 ii 开始以确保下三角。循环顺序变为 for (kk) for (ii) for (jj=ii; jj<_PB_M; jj+=BJ) for (k) for (i in ii block) for (j in jj block with j > i)。每个 (kk,ii,jj) 块只加载 data 的 BK 行和 corr 的 BI×BJ 子块，内层执行 corr[j][i] += data[k][j] * data[k][i]。分块大小保持 BK=64，新增 BI=32, BJ=32。数值完全不变，因为每个 (j,i) 的 k 累加顺序未变。] |
-| 8 | 11.584x  [rewrite: 在 kk 和 jj 的 tiled 循环内，引入局部累加二维数组 acc[BJ][_PB_M] (零初始化，编译期已知大小)。对于每个 kk 块，在进入 jj 循环前，将 corr 对应 jj 块的现有值拷贝至 acc；然后在 k 循环和内层 j、i 循环中，将更新写入 acc 而非直接写 corr；jj 块处理完毕后一次性将 acc 写回 corr。这样可以消除 corr 在每一个 k 迭代中的重复读-改-写，将写回次数降低两个量级，同时提升向量化效率。] |
-| 9 | 10.138x  [rewrite: 从原始代码（无分块、无局部累加器）的相关矩阵计算部分出发，将 for (j=1; j<_PB_M; j++) for (i=0; i<j; i++) 的初始化循环保持不变，但后续的三重累加循环原顺序 for (k) for (j) for (i) 交换为 for (k) for (i=0; i<_PB_M-1; i++) for (j=i+1; j<_PB_M; j++)。内层变为 j 循环，但为使 data 访问连续，需更细致设计：标准做法是采用 for (k) for (j) for (i) 中，将 data[k][j] 提升到 j 循环外作为标量 tmp，内层 i 循环执行 corr[j][i] += tmp * data[k][i]，此时 i 为内层，data[k][i] 和 corr[j][i] 写入均为 stride-1 连续。原始代码已初 |
+| 1 | 13.433x  [rewrite: 将计算相关矩阵的三重循环从原来的i(外层)-j(中层)-k(内层)顺序重排为k(外层)-j(中层)-i(内层)顺序，让最内层i循环沿data[k][i]的行方向连续访问；同时预先初始化整个corr矩阵为0并对角线置1，在所有k迭代完成后对称复制下三角（或即时对称赋值）。] |
+| 2 | 16.077x  [rewrite: Perform tiling on the k loop (block size BK e.g. 64) to keep data rows in cache, and optionally tile the i loop (block size BI e.g. 32) to keep corr updates within a cache-resident submatrix. The tiled structure will be: for (kk=0; kk<N; kk+=BK) for (i=0; i<M-1; i+=BI) for (k=kk; k<min(kk+BK,N); ++k) for (i_in=i; i_in<min(i+BI,M-1); ++i_in) { DATA_TYPE aik = data[k][i_in]; for ( |
+| 3 | 14.290x  [rewrite: Implement k-loop tiling with block size BK=64 in the correlation accumulation region. Within each k-tile, for each i-row compute the partial sum of aik * data[k][j] into a local scalar accumulator array (e.g., DATA_TYPE sum[128]) initialized to zero before the j-loop, then accumulate into sum[j] instead of directly into corr[i][j]. After the inner j-loop, add sum[j] to corr[i][j |
+| 4 | 15.796x  [rewrite: 在已交换为 k‑i‑j 的相关积累区域，增加 k 维度显式分块 (KK 块大小 BK=128) 和 i 维度分块 (II 块大小 BI=64)。结构为 for (kk) for (ii) for (k in kk block) for (i in ii block) for (j = i+1 to M-1) corr[i][j] += data[k][i] * data[k][j]。j 最内层保持连续访问 corr 行，k 分块减少 data 行跨块重读，i 分块确保 corr 更新集留在 L1 cache。不使用临时累加器数组，直接更新 corr，数值一致。] |
+| 5 | 11.575x  [rewrite: Transform the correlation accumulation into a blocked matrix multiplication C = A^T * A. Specifically: for kk from 0 to N step BK, for ii from 0 to M step BI, for jj from ii to M step BJ, use a local 2D accumulator array C_block[BI][BJ] initialized to zero. For each k in the k-block, load data[k][ii:ii+BI] and data[k][jj:jj+BJ] into local vectors, then compute the outer product  |
+| 6 | 11.659x  [rewrite: Introduce a j-dimension register blocking inside the k/i-tiled loops: for each i in the i-tile, iterate j in blocks of size 8 (starting from max(i+1, jj_block_start)), initialize 8 scalar accumulators to zero, loop over k to accumulate aik * data[k][j+offset], and then add the accumulators to corr[i][j..j+7]. Use BK=64 and BI=16 to keep working set in L1 and reduce register pres |
+| 7 | 15.696x  [rewrite: Restructure the correlation accumulation region to: for (ii=0; ii<M; ii+=32) for (kk=0; kk<N; kk+=64) for (jj=ii; jj<M; jj+=32) for (k=kk; k<min(kk+64,N); ++k) for (i=ii; i<min(ii+32,M-1); ++i) { DATA_TYPE aik = data[k][i]; for (j=max(i+1,jj); j<min(jj+32,M); ++j) corr[i][j] += aik * data[k][j]; }. The k‑tile (BK=64) sits outside jj so that the same short data window is reused a |
+| 8 | 16.260x  [rewrite: In the correlation accumulation region, increase the k tiling block size BK to 512 (or even 1024 if data size permits) while keeping the i tiling block size BI at 32. Use loop order: for (kk=0; kk<N; kk+=BK) for (i=0; i<M-1; i+=BI) for (k=kk; k<min(kk+BK,N); ++k) for (i_in=i; i_in<min(i+BI,M-1); ++i_in) { DATA_TYPE aik = data[k][i_in]; for (j=i_in+1; j<M; ++j) corr[i_in][j] += a |
+| 9 | 16.162x  [rewrite: 将 k 分块大小 BK 从 512 增加到 1024，以进一步减少外部 k 循环迭代次数，提高 data 行在 L2/L3 缓存中的重用；保持 i 分块大小 BI=32 不变；其他循环结构不变。注意边界处理使 k 的上限正确。] |
 
 </details>
 
@@ -423,24 +545,24 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>floyd-warshall</b> — 中位加速比 <b>7.7649x</b>（基线 10335.66 ms，numeric 校验，3/3 次为正，⚠ 正确性档位过松）</summary>
+<details><summary><b>floyd-warshall</b> — 中位加速比 <b>4.0440x</b>（基线 37193.99 ms，hash 校验，3/3 次为正）</summary>
 
-- 任务 `c1_pb023`，节点 `dgx-spark-a-2`，数据源 `arch`
-- 探索期最好单次：7.0913x　最终确认：**7.7649x**　IQR [7.6662, 7.8767]　base_cv=0.0% best_cv=1.4%
+- 任务 `c1_pb023`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：4.5283x　最终确认：**4.0440x**　IQR [3.9243, 4.0736]　base_cv=3.1% best_cv=1.2%
 - 最终采纳了源码重写
 - 实际获得的反馈通道：`none`
 
 | 步 | 该步实测 / 结果 |
 |---:|---|
-| 1 | 0.950x  [rewrite: 将 path[i][k] 提升到内层 j 循环外：在外层 i 循环内、内层 j 循环前，将 path[i][k] 加载到临时标量 a_ik，内层 j 循环使用 a_ik 代替 path[i][k]。] |
-| 2 | 1.110x  [rewrite: 对 i 和 j 循环进行循环分块 (tiling)：在 k 循环内，将 i 和 j 遍历各分成大小为 64 的 tile，先循环 tile 索引，再循环 tile 内 i、j，使 tile 内所有 path[i][j] 更新复用在 cache 中，提升空间与时间局部性。注意保持最外层 k 的串行依赖不变。] |
-| 3 | 1.056x  [rewrite: 交换外层 it 和 jt 循环顺序：将 for (jt = 0; jt < _PB_N; jt += TILE) 移到 for (it = 0; it < _PB_N; it += TILE) 的外侧，使得 jt 块在最外层（但仍留在 k 循环内），使得对于固定的 k，path[k][j] 的当前 jt 块内的值被所有 it 块复用，提高时间局部性。] |
-| 4 | 1.105x  [rewrite: Increase TILE size from 64 to 128 to enlarge each 2D sub‑matrix block, keeping more references to path[i][k] and path[k][j] in L1 cache across the inner i/j loops, and reducing outer it/jt loop overhead.] |
-| 5 | 1.229x  [rewrite: 在 current_best 源码（TILE=64，it 在外 jt 在内）中，于内层 j 循环 `for (j = jt; j < jt_end; j++)` 之前添加 `#pragma clang loop interleave(enable) interleave_count(4)` 和 `#pragma clang loop unroll_count(4)`，以隐藏 min 操作延迟、减少循环开销，同时保留原有的 `#pragma omp simd` 以利用 SIMD 宽度。保持其余分块结构不变。] |
-| 6 | 0.989x  [rewrite: 在 current_best 源码的分块内层 i 循环 `for (i = it; i < it_end; i++)` 前添加 `#pragma clang loop unroll_count(2)`，对该外层循环进行轻度展开以减少循环开销，内层 j 循环保持原有的 `#pragma omp simd` 和 interleave/unroll pragma 不变，TILE 大小及其他结构不变。] |
-| 7 | 1.382x  [rewrite: 在 current_best 源码（TILE=64, it 在外 jt 在内, 已添加 inner j-loop pragma unroll/interleave 和 omp simd）基础上，引入 k 维度的分块：定义 TILE_K 64，在 #pragma scop 内部增加外层 kk 循环 `for (kk = 0; kk < _PB_N; kk += TILE_K)`，将原来的 `for (k = 0; k < _PB_N; k++)` 改为 `for (k = kk; k < kk + TILE_K && k < _PB_N; k++)`，内部保持 it/jt 分块和内层 i/j 循环不变，保留所有 pragma。这样对每个 kk 块，连续处理多个 k 迭代的 it x jt 子矩阵更新，使 path[i][k] 和 path[k][j] 的跨 |
-| 8 | 6.879x  [rewrite: 在 current_best 源码基础上，将 #define TILE 64 改为 #define TILE 128，其他结构（TILE_K=64，it 在外 jt 在内，内层 j 循环的 omp simd 和 interleave/unroll pragma）完全保持不变。] |
-| 9 | 7.091x  [rewrite: 在当前最优源码基础上，将#define TILE_K 64改为#define TILE_K 128，保持TILE=128、it在外jt在内的循环顺序以及所有内层j循环的omp simd和clang loop interleave/unroll pragma不变，以增加k维度的数据重用，减少外层kk循环开销。] |
+| 1 | 1.545x  [rewrite: Apply cache tiling to the inner two loops over i and j. Introduce tile loops with block size 32 or 64 so that for each k, tiles of path[i][j] are updated while path[i][k] and path[k][j] for that tile are reused from L1/L2 cache. This keeps the k loop outermost to preserve the algorithm's serial dependency.] |
+| 2 | 1.569x  [rewrite: In the existing ii/jj tiled loops, pre‑load path[k][j] for the whole jj tile into a local array pkj_cache[TILE] before entering the i loop. Then inside the i loop reuse that cache instead of reading path[k][j] from the global array. Keep the inner loop order as j inside i to preserve contiguous access to path[i][j].] |
+| 3 | 0.987x  [rewrite: 将常量 TILE 从 64 改为 32，减小每个 tile 的内存占用，使整个 32x32 的双精度 tile（8KB）能稳固驻留在 L1 数据缓存中，同时保留 pkj_cache 预加载机制。] |
+| 4 | 1.499x  [rewrite: 在现有的 ii/jj tiling 基础上，对最外层 k 循环进行额外的分块：将 k 循环分割为外块 kk（块大小 BK，例如 64），将现有 ii 和 jj tile 循环移动到 kk 循环内部、k 内层循环外部，即循环顺序变为 kk -> ii -> jj -> k（内块）-> i -> j。保留 pkj_cache 预加载机制（每次 k 迭代重新加载）。这实现 blocked Floyd-Warshall 算法，使得对于每个 (ii,jj) tile，路径中 path[i][k] 和 path[k][j] 在 k 块内被多个连续 k 迭代复用，从而提升时间局部性并减少内存带宽需求。] |
+| 5 | 1.510x  [rewrite: 在现有的 ii/jj tiling 和 pkj_cache 基础上，对每个 tile 增加列缓存：在 ii 循环开始前将 path[ii..i_end][k] 加载到局部数组 pik_cache；然后将 i 和 j 的内循环进一步 micro‑tile（如 MICRO=16），每个 micro‑tile 先加载 path 对应子块到局部二维数组 micro_path，利用 pik_cache 和 pkj_cache 在 micro_path 中原地完成所有 min 更新（双层 i‑j 循环），最后将 micro_path 写回 path 数组。这消除了内层循环中连续的全局 load‑modify‑store 操作，降低 L1 带宽压力，并让编译器更易向量化局部数组的批量更新。] |
+| 6 | 1.522x  [rewrite: 在现有的 ii/jj tiling 和 pkj_cache 基础上，为每个 ii tile 增加列缓存：在 ii 循环内部、jj 循环之前，将 path[i][k]（i 从 ii 到 i_end）预加载到局部数组 pik_cache[TILE] 中；然后在 i 循环内使用 pik_cache[i-ii] 代替 path[i][k] 加载，以消除多个 jj 块迭代造成的重复 path[i][k] 访问。保留 pkj_cache 预加载以及 i‑j 内循环顺序（j 在内以保持对 path[i][j] 的连续访问）。]content empty, falling back to reasoning_content on attempt 1 |
+| 7 | 4.528x  [rewrite: Implement standard blocked Floyd-Warshall algorithm: block the k loop with block size B=64. Reorder loops as kk (outer blocks of k) → ii (outer blocks of i) → jj (outer blocks of j) → k (inner loop over k block) → i (inner loop over i block) → j (inner loop over j block). In the innermost loop compute path[i][j] = min(path[i][j], path[i][k] + path[k][j]). This keeps B×B tiles of  |
+| 8 | 4.408x  [rewrite: Within each (ii,jj) tile and k block, further tile the i and j loops into 4x4 register blocks. For each 4x4 sub‑tile, load path[i][j] into a local double[4][4] array, perform all min updates using pik and pkj values (scalar or cached), then write back the whole 4x4 block to path. This reduces per‑element L1 store traffic and allows the compiler to keep the sub‑tile in vector regi |
+| 9 | 1.646x  [rewrite: 在现有 blocked Floyd-Warshall 框架中，对每个 (ii,jj) tile 和 k 块，先分配局部二维数组 tile[64][64] 并将 path[ii..i_end][jj..j_end] 复制其中；然后在内层 k 循环中，所有更新都作用于 tile 副本（使用全局的 path[i][k] 和 path[k][j]）；k 块结束后再将 tile 写回 path。对边界不足 64 的 tile 做尺寸自适应。这将消除 tile 自身的重复 load/store，把 O(B×TILE²) 次访存降为 O(TILE²)，预期在已有基础上进一步提升性能。] |
 
 </details>
 
@@ -696,24 +818,24 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>nussinov</b> — 中位加速比 <b>1.1949x</b>（基线 1604.31 ms，numeric 校验，3/3 次为正，⚠ 正确性档位过松）</summary>
+<details><summary><b>nussinov</b> — 中位加速比 <b>1.0665x</b>（基线 4077.00 ms，hash 校验，3/3 次为正）</summary>
 
-- 任务 `c1_pb024`，节点 `dgx-spark-a-1`，数据源 `arch`
-- 探索期最好单次：1.4263x　最终确认：**1.1949x**　IQR [1.1913, 1.3051]　base_cv=4.3% best_cv=2.8%
+- 任务 `c1_pb024`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0802x　最终确认：**1.0665x**　IQR [1.0652, 1.0727]　base_cv=0.2% best_cv=0.2%
 - 最终采纳了源码重写
 - 实际获得的反馈通道：`none`
 
 | 步 | 该步实测 / 结果 |
 |---:|---|
-| 1 | 0.996x  [rewrite: 对外层i和j循环实施二维tiling：在i维度上引入块大小为64的外层块循环（i从n-1向下步进-64），在j维度上引入内层块循环（j从i+1向上步进64），块内保持原始i,j遍历顺序。块遍历方向保持i块递减、j块递增，以确保依赖正确。tile大小64可在L1缓存内容纳多个tile的数据，提升内层k循环对table[i][k]和table[k+1][j]的复用率。] |
-| 2 | 1.426x  [rewrite: 针对内层 k 循环以及前后的 if 语句中反复读取和写入 table[i][j] 的操作，引入局部标量变量 acc 保存 table[i][j] 的当前值，将所有 max_score 调用替换为 acc = max_score(acc, ...)，循环结束后再将 acc 写回 table[i][j]，减少对全局数组的冗余 store/load。] |
-| 3 | 1.273x  [rewrite: 对 j 循环进行分块（blocking）：引入外层 j 分块循环，将 j 从 i+1 到 N-1 分割为多个固定大小的块（例如块大小 128），块内保持原始 i 降序、j 升序的遍历。这样在同一个 j 块内，table[k+1][j] 的连续列访问能被缓存重用，减少 L1/L2 miss。保留已有的 scalar accumulator。] |
-| 4 | 1.314x  [rewrite: 采用面向缓存的波前分块（wavefront/tile scheduling），在保留标量累加器前提下，对 i,j 迭代空间进行块分解：将 i 维度按递减顺序以块大小 32 分块，j 维度同样以 32 分块，并按对角线顺序遍历块（确保每个块依赖的前驱块已完成），块内仍维持 i 降序、j 升序。块大小选择较小的 32 以增加 L1 驻留概率，提升 table[k+1][j] 列向量的缓存复用。] |
-| 5 | 1.340x  [rewrite: 交换 i 和 j 循环顺序：将 j 循环提升到最外层，i 循环移到内层，变为 for (j = 1; j < _PB_N; j++) { for (i = j-1; i >= 0; i--) { ... } }，保留已有的标量累加器。此变换使内层 k 循环中 table[k+1][j] 的列访问在固定 j 时被多个 i 重用，大幅提升列访问的时间局部性，降低缓存缺失。] |
-| 6 | 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpn865wult/nussinov_rewrite.c:88:17: error: call to undeclared function 'min'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration] |
-| 7 | 1.291x  [rewrite: 在现有 scalar accumulator 基础上，对内层 k 循环进行 4 次展开（unroll）：每次迭代计算 4 个 table[i][k]+table[k+1][j] 的和并通过 max 归约，最后处理剩余迭代；保留 acc 局部变量写回，不改变算法语义。] |
-| 8 | 1.290x  [rewrite: 在现有 scalar accumulator 基础上，对内层 k 循环添加软件预取：每 8 次迭代提前预取 table[i][k+8] 和 table[k+9][j] 到 L1 缓存（使用 __builtin_prefetch），减少跨步访问的缓存缺失延迟，而不改变任何循环顺序或依赖。] |
-| 9 | 1.189x  [rewrite: 在现有scalar accumulator基础上，仅对i循环实施缓存分块（tiling）：将i从N-1到0按块大小64分割，外循环为块（递减），内循环为块内i（递减），j循环保持原顺序i+1到N-1，k循环不变。块间递减保证依赖安全，块内递减保持原始语义。此变换使同一j列对应的table[k+1][j]在不同i迭代中被缓存重用，降低列访问延迟，且不改变内层循环结构，避免破坏自动向量化。] |
+| 1 | 0.951x  [rewrite: Apply loop tiling for the i and j loops. Divide the N×N table into B×B blocks (B=64 to fit in L1 cache). Process blocks diagonally from bottom-right to top-left to honor dependencies. Within each block, perform the original DP computation on local indices. Handle cross-block dependencies (table[i+1][j], table[i][j-1], table[i+1][j-1]) by reading from the already-computed neighbor |
+| 2 | 1.033x  [rewrite: Introduce a scalar accumulator 'best' to hold the current best score for table[i][j]. Perform all max_score comparisons on 'best' and write back only once after the k‑loop. Then manually unroll the innermost k‑loop by a factor of 4 (with a scalar remainder loop) to reduce loop branching overhead and improve instruction scheduling.] |
+| 3 | 1.025x  [rewrite: Remove the redundant condition j-1>=0 (always true for j>=i+1>=1). Hoist the i+1<_PB_N check: split the i-loop into a main loop for i < _PB_N-1 where the table[i+1][j] references are safe, and a tail iteration for i == _PB_N-1 where those accesses are skipped. In the main loop, eliminate the corresponding if guards, keeping only the essential i<j-1 condition. This reduces per-ite |
+| 4 | 0.954x  [rewrite: Swap the i and j loops: make j the outer loop from 1 to _PB_N-1 (incrementing), and i the inner loop from j-1 down to 0 (decrementing). This preserves the DP dependency order (i+1 and j-1 are already computed) while improving temporal locality of the column access pattern in the k-loop (table[k+1][j]) since j is now fixed for all inner i iterations. Retain the existing scalar acc |
+| 5 | 1.032x  [rewrite: Insert '#pragma clang loop vectorize(enable) vectorize_width(4)' and '#pragma clang loop interleave(enable) interleave_count(2)' immediately before the k‑loop. Also hoist the call to match(seq[i], seq[j]) into a local scalar variable before the inner if‑block, so the function is invoked only once per (i,j) pair. Keep the existing scalar accumulator and manual k‑loop unroll.] |
+| 6 | 1.045x  [rewrite: Expand scalar accumulation to all updates of table[i][j]: initialize best = table[i][j], then accumulate the three candidate max scores (from j-1, i+1, and i+1,j-1 with match) into best using max_score, before running the k‑loop. Finally write best back to table[i][j] once. Eliminates redundant writes before the k‑loop while preserving existing unroll and accumulator inside the k |
+| 7 | 0.937x  [rewrite: Based on the current best kernel, manually unroll the innermost k‑loop by a factor of 8 instead of 4. The unrolled body computes the maximum of the current best and max_score(best, table[i][k] + table[k+1][j]) for each of the 8 (or fewer) consecutive k‑values, then updates ‘best’. A scalar remainder loop handles any remaining iterations. Retain all existing optimizations: scalar  |
+| 8 | 1.014x  [rewrite: Based on the current best kernel (full scalar accumulation on all updates + k-loop unroll by 4), insert '#pragma clang loop vectorize(enable) vectorize_width(4)' and '#pragma clang loop interleave(enable) interleave_count(2)' immediately before the innermost k-loop (for (k=i+1; k<j; k++)). Keep the existing manual unroll and scalar accumulator unchanged. This forces SIMD vectoriz |
+| 9 | 1.080x  [rewrite: 在 kernel 函数开头声明 DATA_TYPE (* restrict tbl)[N] = table; 并用 tbl 替换函数体内所有对 table 的引用，告知编译器 tbl 是唯一访问表内存的指针，使内部 k‑loop 归约可被向量化。保留现有的全量 scalar accumulator 和 k‑loop unroll‑4。] |
 
 </details>
 
@@ -735,6 +857,46 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 | 7 | 1.039x  [rewrite: 将 goto_table 的类型从 int* 改为 short* (int16_t)，并将所有用于状态索引的变量（state, child, next_sibling 中的子节点索引等）从 int 改为 short。同时将 out_start、out_count、out_idx 中的状态索引等调整为 short（模式索引 j 可保持 int 以避免溢出）。此变换使 goto_table 内存占用减半，提高 L1/L2 缓存命中率，从而加速主扫描循环。需在构建和访问处统一类型，确保无符号/范围截断。] |
 | 8 | 1.047x  [rewrite: 在扫描循环之前，将 goto_table、out_idx、out_start、out_count、matched 等核心指针分别赋给带有 __restrict 属性的局部指针变量（例如 int *restrict goto_table_local = goto_table;），然后在整个扫描和输出循环中只使用这些局部变量。该变换不改变任何数据结构或算法，仅提示编译器这些指针不与其他内存别名，从而消除冲突假设，允许更高效的指令调度和向量化生成。] |
 | 9 | 1.211x  [rewrite: 在 current_best 基础上，将 matched 数组类型从 char* 改为 uint16_t* matched_epoch（并 calloc 分配），引入 uint16_t epoch 计数器。每行开始时 epoch++，扫描内匹配时将 matched_epoch[idx] = epoch 替代 matched[idx]=1；输出循环将 if(matched[j]) 改为 if(matched_epoch[j]==epoch)，移除 memset 调用。同时，为 goto_table、out_idx、out_start、out_count 等核心指针创建 __restrict 局部变量并在热循环中使用。] |
+
+</details>
+
+<details><summary><b>security_blowfish_decode</b> — 中位加速比 <b>1.0000x</b>（基线 1.25 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c1_cb021`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.2304x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.092x  [rewrite(utils/BF_encrypt): Add 'const' qualifier to the 'key' parameter and declare local pointers 'p' and 's' as 'const restrict' to indicate that the key arrays are never modified and do not alias data. This allows the compiler to hoist S-box reads and keep round keys in registers, potentially reducing memory traffic and latency within the round function chain.] |
+| 2 | 0.974x  [rewrite(utils/BF_encrypt): In BF_encrypt, copy the contents of key->P and key->S into local stack arrays p_local[18] and s_local[1024] at the beginning of the function, then replace all references to p[i] and s[i] with p_local[i] and s_local[i] throughout the encryption/decryption chains. This transforms indirect pointer accesses into direct local array accesses, allowing the compiler to  |
+| 3 | 0.990x  [rewrite(utils/BF_encrypt): In BF_encrypt, copy all 18 elements of key->P into a local array p_local[18] at function entry, then replace every occurrence of p[i] with p_local[i] throughout the encrypt and decrypt chains. Keep the const‑restrict pointer s for key->S untouched (no copy) and leave all other code identical. This eliminates any residual compiler reload of the p base pointer whi |
+| 4 | 1.230x  [rewrite(utils/BF_encrypt): Add 'static inline' qualifier to the BF_encrypt function definition so that every call site in the same translation unit becomes inlined, eliminating call overhead and enabling S‑box base address reuse across consecutive encryption/decryption calls within loops.] |
+| 5 | 1.002x  [rewrite(utils/BF_encrypt): At the start of BF_encrypt, after setting s = &(key->S[0]), create four const‑qualified local pointers: s0 = s, s1 = s + 0x100, s2 = s + 0x200, s3 = s + 0x300. Replace every S‑box access inside BF_ENC (and all macro expansions in both encrypt/decrypt branches) from S[0x100+idx] to s1[idx], S[0x200+idx] to s2[idx], etc., so that the compiler sees constant base ad |
+| 6 | 0.526x  [rewrite(utils/BF_encrypt): Add 'restrict' qualifier to the 'data' parameter of BF_encrypt so that the compiler knows the output buffer does not overlap with key->P or key->S. This may enable better instruction scheduling between S‑box loads and result stores.] |
+| 7 | 0.914x  [rewrite(utils/BF_encrypt): Manually inline the BF_ENC macro inside both encrypt/decrypt branches, breaking each round into stages: pre‑compute all four S‑box indices from l (which are available early), then perform the four S‑box loads (which are independent of each other and of the XOR), and finally combine them with p[i] and r. Spread the loads and arithmetic across multiple statements  |
+| 8 | 1.083x  [rewrite(utils/BF_encrypt): Add __attribute__((always_inline)) to the definition of BF_encrypt (which is already 'static inline') to guarantee full inlining at every call site, eliminating any remaining call overhead under inlining budget pressure and expanding the instruction scheduling window across the caller's loop.]content empty, falling back to reasoning_content on attempt 1 |
+| 9 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp5xm63czl/rw_utils_utils_shadow/polybench.c:652:2: error: expected identifier or '(' |
+
+</details>
+
+<details><summary><b>security_blowfish_encode</b> — 中位加速比 <b>1.0000x</b>（基线 1.19 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c1_cb020`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0963x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.096x  [rewrite(utils/BF_encrypt): 将 encrypt 和非 encrypt 两条路径各自提取为 static 内联函数，BF_encrypt 根据 encrypt 参数调用对应函数，以消除函数体内的 if-else 分支，允许编译器为每条路径独立生成更优的指令调度和寄存器分配。] |
+| 2 | 1.020x  [rewrite(utils/BF_encrypt): 为 BF_encrypt 的函数参数添加 restrict 和 const 限定（data 和 key 加上 restrict，key 加上 const），并将 BF_encrypt 声明为 __attribute__((always_inline, hot))，同时确保其调用的加解密函数也有 always_inline 和 hot 属性，以消除别名分析障碍、强制内联并优化指令缓存布局。] |
+| 3 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpvn2jgjeo/rw_utils_utils_shadow/polybench.c:720:1: error: expected identifier or '(' |
+| 4 | 1.096x  [rewrite(utils/BF_encrypt): 基于当前最优版本（已将 encrypt 与非 encrypt 路径分为 static inline 函数），为 BF_encrypt 的 data 参数添加 restrict 限定符、为 key 参数添加 const 限定符，但不添加 always_inline 属性（修复上次因语法错误导致编译失败的问题，确保限定符放置在参数列表的正确位置）。期望通过消除指针别名假设，允许编译器对 data 和 key 的访问进行更积极的指令重排和寄存器分配。] |
+| 5 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp3nfo82cv/rw_utils_utils_shadow/blowfish.h:89:26: note: previous declaration is here |
+| 6 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmps3rsclks/rw_utils_utils_shadow/blowfish.h:89:26: note: previous declaration is here |
+| 7 | 1.057x  [rewrite(utils/BF_encrypt): Make BF_encrypt_enc and BF_encrypt_dec const-correct: change their key parameter type from (BF_KEY*) to (const BF_KEY*), use const-qualified pointers when accessing key->P and key->S inside these functions, and remove the unnecessary (BF_KEY*) cast in BF_encrypt call. Expect improved alias analysis enabling more aggressive register allocation and load eliminatio |
+| 8 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpwz8nhso1/rw_utils_utils_shadow/blowfish.h:89:26: note: previous declaration is here |
+| 9 | 0.989x  [rewrite(utils/BF_encrypt): 在 BF_encrypt 的 key 参数上添加 restrict 限定符：将参数类型从 'const BF_KEY *key' 改为 'const BF_KEY *restrict key'，告知编译器 key 指针是唯一指向该 BF_KEY 的入口，消除 key->P 和 key->S 数组访问的别名顾虑，使编译器能更早地将这些指针提升到寄存器中，减少重复加载。不修改其他函数或局部变量，避免编译错误。] |
 
 </details>
 
@@ -777,6 +939,26 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 | 7 | 1.010x  [rewrite: 使用SSE2内建函数（_mm_loadu_si128加载16个字符，_mm_shuffle_epi8并行查表获得nibble，再通过移位和位运算组合成字节存储到key）对hex解析循环进行向量化改写，保留错误检测逻辑（若向量中发现无效字符则退回标量处理并报告错误），同时用restrict限定输入指针帮助编译器优化。] |
 | 8 | 0.678x  [rewrite: 在当前最优查表版本基础上，将输入指针 cp 声明为 const char *__restrict cp = argv[4];，输出字节存储改用局部指针 char *__restrict kp = key; 递增写入，消除 i/2-1 的除法索引，同时保留原有的查表分支消除和奇偶存储逻辑，以允许编译器更激进地向量化或指令调度。] |
 | 9 | 1.177x  [rewrite: 在当前最优查表版本基础上，仅将静态查找表的元素类型从 int 改为 int8_t（signed char），以减少单次查表的内存加载宽度，降低指令 cache 占用，同时保持所有功能语义和错误检测不变。不引入任何新的控制流、临时数组或指针限定词，最大限度保证不破坏现有优化。] |
+
+</details>
+
+<details><summary><b>security_sha</b> — 中位加速比 <b>1.0000x</b>（基线 1.89 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c1_cb016`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0206x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp8w4c6oph/rw_utils_utils_shadow/polybench.c:763:1: error: unknown type name 'We' |
+| 2 | 0.480x  [rewrite(utils/sha_stream): 从 polybench.c 中提取 sha_update 的完整实现，手动内联到 sha_stream 的 while 循环中，保留对 fread 返回长度不为 BLOCK_SIZE 的处理逻辑。内联后，对内部分块处理循环（通常为 for 循环，每次处理 64 字节）使用 #pragma clang loop unroll(4) 或 unroll(8)，并声明局部 register 变量暂存 sha_info 的状态数组，减少冗余访存。] |
+| 3 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpypat8i_a/rw_utils_utils_shadow/polybench.c:769:5: error: use of undeclared identifier 'uint32_t' |
+| 4 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpbt27ubch/rw_utils_utils_shadow/polybench.c:770:48: error: no member named 'count' in 'SHA_INFO' |
+| 5 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpt8tcbetu/rw_utils_utils_shadow/polybench.c:768:5: error: use of undeclared identifier 'uint32_t' |
+| 6 | 1.001x  [rewrite(utils/sha_stream): 将 sha_stream 中 fread 的读入块大小从 BLOCK_SIZE 改为一个更大的值（例如 4096 或 8192），同时在循环内新增一个内层 while 循环，将每次读入的数据按原 BLOCK_SIZE 分块逐一传递给 sha_update，直到耗尽本次读取的字节数。这保持了原始流式语义，但减少了 fread 调用的次数和主循环的迭代次数，有望降低调用开销和分支开销。] |
+| 7 | 0.996x  [rewrite(utils/sha_stream): 将 sha_update 函数的定义改为 static inline __attribute__((always_inline))，前置到 sha_stream 之前，并将输入参数 data 声明为 const BYTE *restrict；同时将 sha_init 和 sha_final 也用 same 属性内联，以消除调用开销。不对任何循环添加手工 pragma，保留编译器自动优化能力。] |
+| 8 | 1.021x  [rewrite(utils/sha_stream): 在 sha_stream 快速路径中，当整个文件被一次性读入到动态分配的缓冲区后，不再按 BLOCK_SIZE 分片循环调用 sha_update，而是直接将整个缓冲区指针和长度 n 作为一次 sha_update 的输入，消除最后的函数调用循环开销。] |
+| 9 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpoowv4w06/rw_utils_utils_shadow/polybench.c:778:17: error: use of undeclared identifier 'uint32_t' |
 
 </details>
 
@@ -864,6 +1046,46 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
+<details><summary><b>telecom_adpcm_c</b> — 中位加速比 <b>1.0000x</b>（基线 1.87 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c1_cb017`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0326x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 0.590x  [rewrite(utils/adpcm_coder): Convert conditional branches in adpcm_coder's main loop (absolute value, sign, and clamping) to branchless arithmetic using bitwise and shift operations, aiming to reduce branch mispredictions and enable better ILP/vectorization.] |
+| 2 | 0.996x  [rewrite(utils/adpcm_coder): 手动将 adpcm_coder 主循环展开 2 次：每次处理两个连续输入样本，交替进行 valpred 更新与 delta 计算，并在展开体内合并 bufferstep 状态切换（两次迭代恰好输出一个字节），消除循环内 bufferstep 条件分支并降低循环计数开销。] |
+| 3 | 0.876x  [rewrite(utils/adpcm_coder): 在 adpcm_coder 函数参数中将 short indata[] 改为 short * restrict indata，char outdata[] 改为 char * restrict outdata，消除指针别名歧义，使编译器能够更激进地调度加载和存储操作。] |
+| 4 | 0.998x  [rewrite(utils/adpcm_coder): 在 adpcm_coder 主循环（for ( ; len > 0 ; len-- )）之前插入 #pragma clang loop unroll(enable) unroll_count(4)，建议编译器以 4 为因子展开循环，不修改循环体内的任何原有代码，保持所有依赖关系，避免引入额外开销。] |
+| 5 | 失败 [rewrite_source] [SMALL_DATASET] output hash mismatch (ref=6227febad457, opt=6025e67c9bba) |
+| 6 | 1.003x  [rewrite(utils/adpcm_coder): 手动将 adpcm_coder 的主循环展开4次，重新排列指令顺序，将每次迭代的 valpred 更新和钳位与下一次迭代的 diff 计算交错调度，以提高指令级并行度；同时正确处理 bufferstep 切换，确保每两次迭代输出一个字节，维持原始输出顺序。] |
+| 7 | 0.913x  [rewrite(utils/adpcm_coder): 将主循环（含剩余样本处理部分）中 valpred 的饱和钳位分支（if (valpred > 32767) ... else if (valpred < -32768) ...）替换为嵌套条件表达式：valpred = (valpred > 32767) ? 32767 : (valpred < -32768) ? -32768 : valpred; 其他代码完全不变，确保程序语义等价且不影响输出正确性。] |
+| 8 | 1.019x  [rewrite(utils/adpcm_coder): 将 adpcm_coder 的主循环拆分为两个独立循环：第一个循环遍历所有样本，仅计算每个样本的 delta 值（包括 sign 合并）并保存到局部临时数组（例如 short delta_vals[len]），不执行任何输出操作；第二个循环依据 bufferstep 初始状态，顺序读取 delta_vals 数组并与 outputbuffer 组合写入 outdata，并正确处理最后半个字节的残留。此变换分离计算和输出，减少第一个循环内部的指针递增、条件判断和存储指令，有望提高计算部分的指令级并行度和缓存局部性。] |
+| 9 | 1.033x  [rewrite(utils/adpcm_coder): 在 adpcm_coder 函数的第一个循环（计算 delta 并存入 delta_vals）中，手动展开 2 次迭代：每次处理两个连续输入样本，交替进行 valpred 更新、diff 计算和 delta 计算，并正确维护 index/step 状态，保持与原始串行语义等价；第二个打包循环不变。] |
+
+</details>
+
+<details><summary><b>telecom_adpcm_d</b> — 中位加速比 <b>1.0000x</b>（基线 1.46 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c1_cb018`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.8368x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 0.703x  [rewrite(utils/adpcm_decoder): 将 for ( ; len > 0 ; len-- ) 循环手动展开为每次处理 2 个输出样本（即一个输入字节的两个 nibble），移除 bufferstep 变量及其 if-else 分支，直接顺序提取高半字节与低半字节分别解码，循环计数减半（len>0 改为 len>=2，再处理可能的奇数次剩余样本）。此举可在不改变串行依赖的前提下消除分支与 toggle，降低循环开销并提升指令级并行。] |
+| 2 | 0.792x  [rewrite(utils/adpcm_decoder): Revert adpcm_decoder to its original bufferstep-driven loop (undo previous unrolling). Then insert #pragma clang loop unroll(enable) directly before the for loop to allow the compiler to auto‑unroll and schedule the original branchy loop body, leveraging its backend knowledge of the hardware.] |
+| 3 | 失败 [rewrite_source] [SMALL_DATASET] output hash mismatch (ref=f14432f8dd7b, opt=f89573bb1b00) |
+| 4 | 0.799x  [rewrite(utils/adpcm_decoder): 将 adpcm_decoder 的 for 循环手动复制为每次迭代处理 4 个 nibble（即两个输入字节），保留 bufferstep 标志及其 if-else 控制流，不消除分支。在展开的 4 个解码步骤之间直接使用原始序列（读取字节、提取 nibble、更新状态），以减少循环计数与跳转次数，同时让编译器在展开体内有机会覆盖 bufferstep 的交替预测并改善指令调度。所有中间状态严格按原始顺序更新，不与原始语义冲突。]content empty, falling back to reasoning_content on attempt 1 |
+| 5 | 失败 [rewrite_source] [SMALL_DATASET] output hash mismatch (ref=f14432f8dd7b, opt=f89573bb1b00) |
+| 6 | 1.837x  [rewrite(utils/adpcm_decoder): 将 adpcm_decoder 函数参数声明为 restrict 指针（char * restrict indata, short * restrict outdata, struct adpcm_state * restrict state）。重构 vpdiff 计算为无分支形式：vpdiff = (step>>3) + ((delta>>2)&1)*step + ((delta>>1)&1)*(step>>1) + (delta&1)*(step>>2)。保持其他逻辑完全不变。] |
+| 7 | 0.977x  [rewrite(utils/adpcm_decoder): Inside adpcm_decoder, replace the global stepsizeTable and indexTable accesses with two static const local arrays whose contents are hard‑coded copies of the original tables (int stepsizeTable[89] = {…}; int indexTable[16] = {…};). Keep all other logic (restrict pointers, branchless vpdiff) unchanged.] |
+| 8 | 1.090x  [rewrite(utils/adpcm_decoder): Rewrite the index clamping to a single branchless expression: replace `if ( index < 0 ) index = 0; if ( index > 88 ) index = 88;` with `index = (index < 0) ? 0 : ((index > 88) ? 88 : index);`. Leave all other logic (restrict pointers, branchless vpdiff, bufferstep, etc.) unchanged.] |
+| 9 | 1.015x  [rewrite(utils/adpcm_decoder): Add __attribute__((always_inline)) before the definition of adpcm_decoder in utils/polybench.c, keeping all other logic (restrict, branchless vpdiff, bufferstep, clamping) unchanged. This forces the compiler to inline the function into kernel_telecom_adpcm_d's loop, eliminating call/return overhead and enabling better register allocation across the call bound |
+
+</details>
+
 <details><summary><b>telecom_crc32</b> — 中位加速比 <b>0.9971x</b>（基线 0.93 ms，hash 校验，23/51 次为正）</summary>
 
 - 任务 `c1_cb019`，节点 `dgx-spark-b-0`，数据源 `live`
@@ -927,7 +1149,7 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-### ② no-compiler-feedback（自由选动作，屏蔽编译器反馈）（49 个程序）
+### ② no-compiler-feedback（自由选动作，屏蔽编译器反馈）（51 个程序）
 
 <details><summary><b>2mm</b> — 中位加速比 <b>5.4382x</b>（基线 1072.18 ms，numeric 校验，3/3 次为正）</summary>
 
@@ -1182,24 +1404,23 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>consumer_tiff2bw</b> — 中位加速比 <b>0.9977x</b>（基线 2.68 ms，hash 校验，1/3 次为正）</summary>
+<details><summary><b>consumer_tiff2bw</b> — 中位加速比 <b>1.0000x</b>（基线 1.52 ms，hash 校验，0/0 次为正）</summary>
 
-- 任务 `c2_cb007`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.6964x　最终确认：**0.9977x**　IQR [0.9977, 1.0473]　base_cv=0.1% best_cv=2.7%
-- 最终采纳编译选项：`-mllvm -licm-max-num-uses-traversed=128 -mllvm -enable-load-pre=True`
+- 任务 `c2_cb007`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.1381x　最终确认：**1.0000x**
 - 实际获得的反馈通道：`none`
 
 | 步 | 该步实测 / 结果 |
 |---:|---|
-| 1 | 1.590x  [flags: -mllvm -licm-max-num-uses-traversed=128 -mllvm -enable-load-pre=True] |
-| 2 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpkmnzkl62/rw_utils_utils_shadow/polybench.c:1355:8: note: add parentheses after the '!' to evaluate the comparison first |
-| 3 | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
-| 4 | 1.562x  [flags: -mllvm -inline-threshold=1000] |
-| 5 | 1.696x  [rewrite(utils/TIFFWriteScanline): 标量提升（无循环）：将 tif->tif_row 提升为局部变量 row_local，初始值取自 tif->tif_row，后续所有对 tif->tif_row 的读/写均改用 row_local，在函数尾部将 row_local 写回 tif->tif_row；同时将 (*tif->tif_encoderow) 缓存为局部函数指针 enc_ptr，替换原有间接调用。不对其他成员做提升，严格保持原有表达式的括号和逻辑顺序，避免上次的运算符优先级错误。] |
-| 6 | 1.615x  [flags: -mllvm -slp-max-reg-size=512] |
-| 7 | 0.871x  [pragma: #pragma clang loop vectorize(enable)] |
-| 8 | 1.012x  [rewrite(utils/TIFFWriteScanline): 将只读成员 td->td_planarconfig 和 td->td_samplesperpixel 提升为局部变量：在函数入口处（声明 td 之后）读取 planarcfg = td->td_planarconfig, nsamples = td->td_samplesperpixel，并将所有后续使用 td->td_planarconfig 和 td->td_samplesperpixel 的位置替换为 planarcfg 和 nsamples，严格保持原有表达式结构不改变优先级。不提升任何可被修改的成员。] |
-| 9 | 1.022x  [flags: -mllvm -tail-dup-size=8 -mllvm -inline-threshold=2000] |
+| 1 | 1.000x  [无改善] |
+| 2 | 1.003x  [rewrite(utils/TIFFWriteScanline): 在 TIFFWriteScanline 开头将 td 指针的常用成员（td_rowsperstrip, td_stripsperimage, td_imagelength, td_planarconfig, td_samplesperpixel）加载到局部 const/register 变量，并替换函数内所有对 td->... 的访问为这些局部变量，以减少间接 load 开销。] |
+| 3 | 1.000x  [无改善] |
+| 4 | 0.957x  [pragma: #pragma clang loop vectorize(enable)] |
+| 5 | 1.002x  [rewrite(utils/TIFFWriteScanline): 在 TIFFWriteScanline 中将 tif 的常用成员（tif->tif_curstrip, tif->tif_row, tif->tif_flags）提升为局部变量，并在关键条件判断（如 strip != tif->tif_curstrip）上使用 __builtin_expect 指示常见路径，以减少重复解引用并改善分支预测。] |
+| 6 | 1.000x  [无改善] |
+| 7 | 1.138x  [rewrite(utils/TIFFWriteScanline): 在 TIFFWriteScanline 中，将 strip 与 tif->tif_curstrip 的比较前置，并将仅与条带切换相关的检查（如 strip >= nstrips 扩展条带、编解码器设置等）移入该分支内，使得同一 strip 连续写入的常见路径能快速跳过这些检查，直抵 encoderow 调用。] |
+| 8 | 0.996x  [pragma: #pragma clang loop vectorize(enable)] |
+| 9 | 0.998x  [rewrite(utils/TIFFWriteScanline): 在 TIFFWriteScanline 中，将 row 与 tif->tif_row 的比较前置于 strip 计算之前，假设 row==tif->tif_row 为常见路径（使用 __builtin_expect），仅当 row 不相等时再计算 strip 并执行条带切换与 seek，以减少连续写入快速路径的指令数。] |
 
 </details>
 
@@ -1225,17 +1446,23 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>consumer_tiff2median</b> — 中位加速比 <b>1.0279x</b>（基线 1.98 ms，hash 校验，3/3 次为正，⚠ 正确性门无效）</summary>
+<details><summary><b>consumer_tiff2median</b> — 中位加速比 <b>1.0000x</b>（基线 0.88 ms，hash 校验，0/0 次为正，⚠ 正确性门无效）</summary>
 
-- 任务 `c2_cb009`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：2.0215x　最终确认：**1.0279x**　IQR [1.0122, 1.0319]　base_cv=0.9% best_cv=0.3%
-- 最终采纳编译选项：`-mllvm -inline-threshold=225`
+- 任务 `c2_cb009`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0477x　最终确认：**1.0000x**
 - 实际获得的反馈通道：`none`
 
 | 步 | 该步实测 / 结果 |
 |---:|---|
-| 1 | 2.022x  [flags: -mllvm -inline-threshold=225] |
-| 2 | 失败 [rewrite_source] 实现 LLM 未返回 kernel_code |
+| 1 | 1.000x  [无改善] |
+| 2 | 1.048x  [rewrite(utils/TIFFReadDirectory): 将第一个目录遍历循环（for (dp = dir, n = dircount; n > 0; n--, dp++)）内部的 if (tif->tif_flags & TIFF_SWAB) 判断提升到循环外部，通过 if-else 产生两个版本的循环体，从而消除每次迭代的条件跳转。] |
+| 3 | 1.000x  [无改善] |
+| 4 | 0.872x  [rewrite(utils/TIFFReadDirectory): 在第二个 pass 循环前，将 tif->tif_dir 的 td_bitspersample、td_samplesperpixel、td_nstrips 读出到局部 const 变量，并在循环体内部用这些局部变量替换对应的 td-> 间接访问；同时为所有 goto bad 路径和 MissingRequired 调用添加 __builtin_expect(..., 0) 将冷分支告知编译器。] |
+| 5 | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
+| 6 | 0.888x  [rewrite(utils/TIFFReadDirectory): 在第二个循环（第一个真实 pass）前，将 tif->tif_fieldinfo 和 tif->tif_nfields 复制到局部 const 指针/整数，并在循环体内用局部变量替换所有 tif->tif_fieldinfo 和 tif->tif_nfields 的访问。第三个循环（第二个 pass）也同样提升，消除冗余的通过 tif 指针的间接内存读取。] |
+| 7 | 1.000x  [无改善] |
+| 8 | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
+| 9 | 0.912x  [rewrite(utils/TIFFReadDirectory): 在第二个循环（第一个真实 pass）前，提取 tif->tif_fieldinfo 中各项的 field_tag 到本地数组 field_tags，保持升序；循环内将原有的 while (fix < tif->tif_nfields && tif->tif_fieldinfo[fix]->field_tag < dp->tdir_tag) fix++ 替换为基于 field_tags 的二分查找定位 correct fieldinfo 索引，保留未找到时的忽略和错误提示逻辑，但避免线性扫描造成的 O(n²) 退化。] |
 
 </details>
 
@@ -1408,6 +1635,26 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 | 7 | 2.919x  [rewrite: 在每个k循环迭代开始时，创建一个大小为_N的一维局部数组row_k，将path[k][0.._N-1]复制进去。然后在ii/jj/i/j的循环体内，所有引用path[k][j]的地方替换为row_k[j]。这样将二维数组的重复访问转化为一维数组的直接访问，消除别名分析负担和数组索引计算，使内层循环的向量化更加高效。] |
 | 8 | 2.908x  [pragma: #pragma clang loop vectorize(enable) vectorize_width(8) interleave(enable) interleave_count(2)] |
 | 9 | 2.911x  [flags: -mllvm -unroll-threshold=3000] |
+
+</details>
+
+<details><summary><b>gemm</b> — 中位加速比 <b>1.0000x</b>（基线 279.95 ms，numeric 校验，0/0 次为正）</summary>
+
+- 任务 `c2_pb003`，节点 `dgx-spark-b-0`，数据源 `arch`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.000x  [无改善] |
+| 2 | 0.294x  [rewrite: 交换 j 和 k 循环：将 `for (k) for (j)` 改为 `for (j) for (k)`，并在每次 i 迭代内、j 循环之前用标量变量 `sum` 初始化 `C[i][j]*beta`，然后在最内层 k 循环中累加 `alpha * A[i][k] * B[k][j]`，最后写回 `C[i][j] = sum`。这样可以消除内层对 C 的重复写入。] |
+| 3 | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
+| 4 | 0.978x  [rewrite: 对 i 和 k 循环进行 cache blocking: 将 for(i) 循环用 BI 分块，将 for(k) 循环用 BK 分块，保持 j 循环最内层不变，以在 L1/L2 cache 中重用 A 的块和 B 的行段，同时保持 B 的连续访存模式。具体：外 ii 循环 (i 块)，内 i 循环缩放 C 行，再内 kk 循环 (k 块)，内 k 循环，最内 j 循环乘加。不交换 j 和 k。] |
+| 5 | 1.000x  [无改善] |
+| 6 | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
+| 7 | 0.855x  [rewrite: Introduce a temporary accumulator array for each i row to reduce writes to C: before the k loop, initialize a local array 'acc[NJ]' to zero. In the inner k loop, instead of updating C[i][j] directly, accumulate 'acc[j] += alpha * A[i][k] * B[k][j]' (still stride-1 on B). After the k loop completes, combine with beta in a single j-loop: 'C[i][j] = C[i][j] * beta + acc[j]'. The ori |
+| 8 | 1.000x  [无改善] |
+| 9 | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
 
 </details>
 
@@ -1768,6 +2015,26 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
+<details><summary><b>security_sha</b> — 中位加速比 <b>1.0000x</b>（基线 1.17 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c2_cb016`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`none`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.000x  [无改善] |
+| 2 | 0.732x  [rewrite(utils/sha_stream): 将 while 循环中的逐次 fread(data,1,BLOCK_SIZE,fin) 改为一次读取较大块（如 128 KB 的局部缓冲区 buf），然后内部循环以 BLOCK_SIZE 为步长传递 buf 片段给 sha_update，最后处理剩余不足 BLOCK_SIZE 的尾部。这样可以大幅减少 fread 调用次数，降低库调用开销，同时保持 sha_update 的调用序列与原始完全相同，确保数值一致。]content empty, falling back to reasoning_content on attempt 1 |
+| 3 | 失败 [try_pragma] pragma_hints 为空 |
+| 4 | 1.000x  [无改善] |
+| 5 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpq0rawizp/rw_utils_utils_shadow/polybench.c:767:5: error: use of undeclared identifier 'uint32_t' |
+| 6 | 失败 [try_pragma] pragma_hints 为空 |
+| 7 | 1.000x  [无改善] |
+| 8 | 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp7pnejbda/rw_utils_utils_shadow/polybench.c:771:37: error: too many arguments to function call, expected single argument 'sha_info', have 2 arguments |
+| 9 | 失败 [try_pragma] pragma_hints 为空 |
+
+</details>
+
 <details><summary><b>seidel-2d</b> — 中位加速比 <b>1.0167x</b>（基线 18858.79 ms，numeric 校验，3/3 次为正，⚠ 正确性门无效）</summary>
 
 - 任务 `c2_pb030`，节点 `dgx-spark-a-0`，数据源 `arch`
@@ -1960,7 +2227,7 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-### ③ full system（自由选动作 + 完整编译器反馈）（50 个程序）
+### ③ full system（自由选动作 + 完整编译器反馈）（51 个程序）
 
 <details><summary><b>2mm</b> — 中位加速比 <b>9.1823x</b>（基线 3758.70 ms，numeric 校验，3/3 次为正）</summary>
 
@@ -2946,6 +3213,26 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
+<details><summary><b>telecom_adpcm_c</b> — 中位加速比 <b>1.0000x</b>（基线 1.76 ms，hash 校验，0/0 次为正）</summary>
+
+- 任务 `c3_cb017`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0568x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`compiler+hardware`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.000x  [无改善] |
+| 2 | 1.057x  [rewrite(utils/adpcm_coder): Transform adpcm_coder to load state->valprev and state->index into local variables at function entry, use them throughout the loop, and store them back at the end, removing aliasing between loads and stores. Additionally, manually unroll the main for-loop by a factor of 2 (processing two samples per iteration) to reduce branch overhead and improve instruction s |
+| 3 | 1.000x  [无改善] |
+| 4 | 0.948x  [pragma: #pragma clang loop vectorize(enable)] |
+| 5 | 失败 [rewrite_source] [SMALL_DATASET] output hash mismatch (ref=6227febad457, opt=9295649d4621) |
+| 6 | 1.000x  [无改善] |
+| 7 | 1.035x  [pragma: #pragma clang loop vectorize(enable)] |
+| 8 | 1.021x  [rewrite(utils/adpcm_coder): 在 adpcm_coder 的 2x 展开主循环中，利用 bufferstep 每次迭代开始必定为 1 的特性，将前后两个样本的输出打包步骤硬编码：第一个样本直接计算 outputbuffer = (delta << 4) & 0xf0，第二个样本直接计算 *outp++ = (delta & 0x0f) / outputbuffer；移除 bufferstep 变量和 if 语句。尾部和剩余样本处理做相应调整但保持等价。] |
+| 9 | 1.000x  [无改善] |
+
+</details>
+
 <details><summary><b>telecom_adpcm_d</b> — 中位加速比 <b>1.0036x</b>（基线 1.14 ms，hash 校验，29/51 次为正）</summary>
 
 - 任务 `c3_cb018`，节点 `dgx-spark-a-0`，数据源 `live`
@@ -3031,7 +3318,7 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-### ④ params-only（每步强制 try_flags）（45 个程序）
+### ④ params-only（每步强制 try_flags）（51 个程序）
 
 <details><summary><b>2mm</b> — 中位加速比 <b>1.2375x</b>（基线 1192.42 ms，numeric 校验，3/3 次为正）</summary>
 
@@ -3054,6 +3341,26 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
+<details><summary><b>3mm</b> — 中位加速比 <b>1.0000x</b>（基线 3484.70 ms，numeric 校验，0/0 次为正）</summary>
+
+- 任务 `c4_pb011`，节点 `dgx-spark-a-0`，数据源 `arch`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`compiler+hardware`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.000x  [无改善] |
+| 2 | 1.000x  [无改善] |
+| 3 | 1.000x  [无改善] |
+| 4 | 1.000x  [无改善] |
+| 5 | 1.000x  [无改善] |
+| 6 | 1.000x  [无改善] |
+| 7 | 1.000x  [无改善] |
+| 8 | 1.000x  [无改善] |
+| 9 | 1.000x  [无改善] |
+
+</details>
+
 <details><summary><b>adi</b> — 中位加速比 <b>1.0714x</b>（基线 6587.48 ms，numeric 校验，3/3 次为正）</summary>
 
 - 任务 `c4_pb025`，节点 `dgx-spark-b-2`，数据源 `arch`
@@ -3072,6 +3379,26 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 | 7 | 1.000x  [flags: -mllvm -partial-unrolling-threshold=32 -mllvm -licm-max-num-int-reassociations=8] |
 | 8 | 1.086x  [flags: -mllvm --partial-unrolling-threshold=32 -mllvm --instcombine-guard-widening-window=64 -mllvm --unroll-max-iteration-count-to-analyze=64] |
 | 9 | 1.085x  [flags: -mllvm -partial-unrolling-threshold=32] |
+
+</details>
+
+<details><summary><b>atax</b> — 中位加速比 <b>1.0000x</b>（基线 15.42 ms，numeric 校验，0/0 次为正）</summary>
+
+- 任务 `c4_pb012`，节点 `dgx-spark-b-2`，数据源 `arch`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`compiler+hardware`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.000x  [无改善] |
+| 2 | 1.000x  [无改善] |
+| 3 | 1.000x  [无改善] |
+| 4 | 1.000x  [无改善] |
+| 5 | 1.000x  [无改善] |
+| 6 | 1.000x  [无改善] |
+| 7 | 1.000x  [无改善] |
+| 8 | 1.000x  [无改善] |
+| 9 | 1.000x  [无改善] |
 
 </details>
 
@@ -3156,6 +3483,26 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 | 7 | 1.000x  [flags: -mllvm -partial-unrolling-threshold=400] |
 | 8 | 1.010x  [flags: -mllvm -partial-unrolling-threshold=400] |
 | 9 | 1.000x  [flags: -mllvm -licm-max-num-uses-traversed=16] |
+
+</details>
+
+<details><summary><b>bicg</b> — 中位加速比 <b>1.0000x</b>（基线 23.89 ms，numeric 校验，0/0 次为正）</summary>
+
+- 任务 `c4_pb013`，节点 `dgx-spark-a-2`，数据源 `arch`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`compiler+hardware`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.000x  [无改善] |
+| 2 | 1.000x  [无改善] |
+| 3 | 1.000x  [无改善] |
+| 4 | 1.000x  [无改善] |
+| 5 | 1.000x  [无改善] |
+| 6 | 1.000x  [无改善] |
+| 7 | 1.000x  [无改善] |
+| 8 | 1.000x  [无改善] |
+| 9 | 1.000x  [无改善] |
 
 </details>
 
@@ -3306,11 +3653,30 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>correlation</b> — 中位加速比 <b>1.0177x</b>（基线 1479.63 ms，numeric 校验，3/3 次为正，⚠ 正确性档位过松）</summary>
+<details><summary><b>correlation</b> — 中位加速比 <b>1.0000x</b>（基线 4784.70 ms，hash 校验，0/0 次为正）</summary>
 
-- 任务 `c4_pb001`，节点 `dgx-spark-a-1`，数据源 `arch`
-- 探索期最好单次：1.0170x　最终确认：**1.0177x**　IQR [1.0173, 1.0180]　base_cv=0.1% best_cv=0.0%
-- 最终采纳编译选项：`-mllvm -partial-unrolling-threshold=2000 -mllvm -licm-max-num-uses-traversed=50`
+- 任务 `c4_pb001`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`compiler`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.000x  [无改善] |
+| 2 | 1.000x  [无改善] |
+| 3 | 1.000x  [无改善] |
+| 4 | 1.000x  [无改善] |
+| 5 | 1.000x  [无改善] |
+| 6 | 1.000x  [无改善]content empty, falling back to reasoning_content on attempt 1 |
+| 7 | 1.000x  [无改善] |
+| 8 | 1.000x  [无改善] |
+| 9 | 1.000x  [无改善] |
+
+</details>
+
+<details><summary><b>covariance</b> — 中位加速比 <b>1.0000x</b>（基线 4806.28 ms，numeric 校验，0/0 次为正）</summary>
+
+- 任务 `c4_pb002`，节点 `dgx-spark-a-0`，数据源 `arch`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
 - 实际获得的反馈通道：`compiler+hardware`
 
 | 步 | 该步实测 / 结果 |
@@ -3322,8 +3688,8 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 | 5 | 1.000x  [无改善] |
 | 6 | 1.000x  [无改善] |
 | 7 | 1.000x  [无改善] |
-| 8 | 1.012x  [flags: -mllvm -partial-unrolling-threshold=1000] |
-| 9 | 1.017x  [flags: -mllvm -partial-unrolling-threshold=2000 -mllvm -licm-max-num-uses-traversed=50] |
+| 8 | 1.000x  [无改善] |
+| 9 | 1.000x  [无改善] |
 
 </details>
 
@@ -3495,6 +3861,26 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
+<details><summary><b>gramschmidt</b> — 中位加速比 <b>1.0000x</b>（基线 7172.84 ms，numeric 校验，0/0 次为正）</summary>
+
+- 任务 `c4_pb018`，节点 `dgx-spark-b-0`，数据源 `arch`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`compiler+hardware`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.000x  [无改善] |
+| 2 | 1.000x  [无改善] |
+| 3 | 1.000x  [无改善] |
+| 4 | 1.000x  [无改善] |
+| 5 | 1.000x  [无改善] |
+| 6 | 1.000x  [无改善] |
+| 7 | 1.000x  [无改善] |
+| 8 | 1.000x  [无改善] |
+| 9 | 1.000x  [无改善] |
+
+</details>
+
 <details><summary><b>heat-3d</b> — 中位加速比 <b>1.0623x</b>（基线 1452.27 ms，numeric 校验，3/3 次为正，⚠ 正确性门无效）</summary>
 
 - 任务 `c4_pb027`，节点 `dgx-spark-a-1`，数据源 `arch`
@@ -3576,6 +3962,26 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 | 7 | 1.003x  [flags: -mllvm -licm-max-num-uses-traversed=32] |
 | 8 | 1.107x  [flags: -mllvm -partial-unrolling-threshold=8000] |
 | 9 | 1.108x  [flags: -mllvm -partial-unrolling-threshold=8000] |
+
+</details>
+
+<details><summary><b>ludcmp</b> — 中位加速比 <b>1.0000x</b>（基线 6877.13 ms，numeric 校验，0/0 次为正）</summary>
+
+- 任务 `c4_pb019`，节点 `dgx-spark-b-2`，数据源 `arch`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`compiler+hardware`
+
+| 步 | 该步实测 / 结果 |
+|---:|---|
+| 1 | 1.000x  [无改善] |
+| 2 | 1.000x  [无改善] |
+| 3 | 1.000x  [无改善] |
+| 4 | 1.000x  [无改善] |
+| 5 | 1.000x  [无改善] |
+| 6 | 1.000x  [无改善] |
+| 7 | 1.000x  [无改善] |
+| 8 | 1.000x  [无改善] |
+| 9 | 1.000x  [无改善] |
 
 </details>
 
@@ -3894,24 +4300,23 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>telecom_adpcm_d</b> — 中位加速比 <b>0.9888x</b>（基线 1.16 ms，hash 校验，1/3 次为正）</summary>
+<details><summary><b>telecom_adpcm_d</b> — 中位加速比 <b>1.0000x</b>（基线 1.15 ms，hash 校验，0/0 次为正）</summary>
 
-- 任务 `c4_cb018`，节点 `dgx-spark-a-1`，数据源 `arch`
-- 探索期最好单次：1.7122x　最终确认：**0.9888x**　IQR [0.2051, 1.0264]　base_cv=2.5% best_cv=96.9%
-- 最终采纳编译选项：`-mllvm -slp-max-vf=0 -mllvm -licm-max-num-uses-traversed=16`
-- 实际获得的反馈通道：`compiler+hardware`
+- 任务 `c4_cb018`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0000x**
+- 实际获得的反馈通道：`compiler`
 
 | 步 | 该步实测 / 结果 |
 |---:|---|
-| 1 | 1.712x  [flags: -mllvm -slp-max-vf=0 -mllvm -licm-max-num-uses-traversed=16] |
-| 2 | 1.090x  [flags: -mllvm -vectorize-memory-check-threshold=200] |
-| 3 | 1.142x  [flags: -mllvm -licm-max-num-uses-traversed=32] |
-| 4 | 1.310x  [flags: -mllvm --pragma-vectorize-scev-check-threshold=16] |
-| 5 | 1.547x  [flags: -mllvm -licm-mssa-optimization-cap=500] |
-| 6 | 1.000x  [flags: -mllvm -slp-max-vf=0 -mllvm -licm-max-num-uses-traversed=16] |
-| 7 | 1.007x  [flags: -mllvm -slp-threshold=5] |
-| 8 | 1.137x  [flags: -mllvm -vectorize-scev-check-threshold=32] |
-| 9 | 1.283x  [flags: -mllvm -vectorize-memory-check-threshold=200] |
+| 1 | 1.000x  [无改善] |
+| 2 | 1.000x  [无改善] |
+| 3 | 1.000x  [无改善] |
+| 4 | 1.000x  [无改善] |
+| 5 | 1.000x  [无改善] |
+| 6 | 1.000x  [无改善] |
+| 7 | 1.000x  [无改善] |
+| 8 | 1.000x  [无改善] |
+| 9 | 1.000x  [无改善] |
 
 </details>
 
@@ -4124,10 +4529,10 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>correlation</b> — 中位加速比 <b>1.0000x</b>（基线 1416.28 ms，? 校验，None/None 次为正，⚠ 正确性档位过松）</summary>
+<details><summary><b>correlation</b> — 中位加速比 <b>24.1682x</b>（基线 4890.59 ms，? 校验，3/3 次为正）</summary>
 
-- 任务 `oc_pb001`，节点 `dgx-spark-a-2`，数据源 `arch`
-- 探索期最好单次：0.0000x　最终确认：**1.0000x**
+- 任务 `oc_pb001`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：24.2990x　最终确认：**24.1682x**　IQR [23.7270, 24.2990]
 
 （该 harness 不产生逐步记录）
 
@@ -4178,10 +4583,10 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>floyd-warshall</b> — 中位加速比 <b>1.0000x</b>（基线 10439.90 ms，? 校验，None/None 次为正，⚠ 正确性档位过松）</summary>
+<details><summary><b>floyd-warshall</b> — 中位加速比 <b>5.5333x</b>（基线 15852.69 ms，? 校验，3/3 次为正）</summary>
 
-- 任务 `oc_pb023`，节点 `dgx-spark-b-1`，数据源 `arch`
-- 探索期最好单次：0.0000x　最终确认：**1.0000x**
+- 任务 `oc_pb023`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：5.5342x　最终确认：**5.5333x**　IQR [5.5323, 5.5342]
 
 （该 harness 不产生逐步记录）
 
@@ -4295,10 +4700,10 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>nussinov</b> — 中位加速比 <b>1.0000x</b>（基线 1598.64 ms，? 校验，None/None 次为正，⚠ 正确性档位过松）</summary>
+<details><summary><b>nussinov</b> — 中位加速比 <b>6.1667x</b>（基线 3694.77 ms，? 校验，3/3 次为正）</summary>
 
-- 任务 `oc_pb024`，节点 `dgx-spark-a-1`，数据源 `arch`
-- 探索期最好单次：0.0000x　最终确认：**1.0000x**
+- 任务 `oc_pb024`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：6.6020x　最终确认：**6.1667x**　IQR [1.8940, 6.6020]
 
 （该 harness 不产生逐步记录）
 
@@ -4441,42 +4846,41 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 ### PO — AutoPass (arXiv 2606.20373) 四-agent 复现 baseline（51 个程序）
 
-<details><summary><b>2mm</b> — 中位加速比 <b>0.9958x</b>（基线 14557.90 ms，? 校验，1/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>2mm</b> — 中位加速比 <b>1.0123x</b>（基线 3825.76 ms，? 校验，3/3 次为正）</summary>
 
-- 任务 `po_pb010`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.1584x　最终确认：**0.9958x**　IQR [0.9148, 1.0236]
-- 最终 pass 顺序（16 个）：`loop-rotate,loop-mssa(licm),loop-unroll,loop-vectorize,loop-unroll,instcombine,simplifycfg,sroa,early-cse,gvn,loop-mssa(licm),loop-vectorize,loop-unroll,instcombine,simplifycfg,dce`
-- 最终 pass 参数：`-unroll-threshold=300 -unroll-count=4 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=2 -slp-threshold=0`
-
-（该 harness 不产生逐步记录）
-
-</details>
-
-<details><summary><b>3mm</b> — 中位加速比 <b>1.0366x</b>（基线 7523.16 ms，? 校验，2/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
-
-- 任务 `po_pb011`，节点 `dgx-spark-a-0`，数据源 `arch`
-- 探索期最好单次：1.0391x　最终确认：**1.0366x**　IQR [0.9861, 1.1293]
-- 最终 pass 顺序（18 个）：`loop-rotate,loop-mssa(licm),loop-rotate,indvars,loop-unroll,loop-vectorize,loop-unroll,loop-unroll,loop-vectorize,loop-idiom,loop-mssa(licm),loop-unroll,loop-unroll,loop-vectorize,slp-vectorizer,loop-unroll,loop-unroll,loop-vectorize`
-- 最终 pass 参数：`-unroll-threshold=150 -unroll-count=2 -unroll-partial-threshold=150 -unroll-max-count=4 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=1 -slp-threshold=-5`
+- 任务 `po_pb010`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.1092x　最终确认：**1.0123x**　IQR [1.0033, 1.0597]
+- 最终 pass 顺序（17 个）：`loop-mssa(licm),loop-rotate,loop-distribute,loop-mssa(licm),loop-rotate,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-mssa(licm),loop-rotate,loop-unroll,loop-vectorize,slp-vectorizer,instcombine,simplifycfg,gvn`
+- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -unroll-partial-threshold=300 -unroll-max-count=8 -slp-threshold=0 -force-target-max-vector-interleave=4 -vectorizer-min-trip-count=4 -licm-max-num-uses-traversed=128 -jump-threading-threshold=6 -gvn-max-num-deps=100 -loop-distribute-scev-check-threshold=8`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>adi</b> — 中位加速比 <b>0.9997x</b>（基线 15658.84 ms，? 校验，1/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>3mm</b> — 中位加速比 <b>1.0048x</b>（基线 3346.78 ms，? 校验，2/3 次为正）</summary>
 
-- 任务 `po_pb025`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**0.9997x**　IQR [0.9997, 1.0000]
+- 任务 `po_pb011`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0048x**　IQR [0.9713, 1.0287]
 - 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>atax</b> — 中位加速比 <b>0.9854x</b>（基线 51.55 ms，? 校验，1/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>adi</b> — 中位加速比 <b>0.9512x</b>（基线 14775.73 ms，? 校验，1/3 次为正）</summary>
 
-- 任务 `po_pb012`，节点 `dgx-spark-a-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**0.9854x**　IQR [0.8830, 1.0054]
+- 任务 `po_pb025`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**0.9512x**　IQR [0.2128, 1.0707]
+- 最终 pass 顺序（1 个）：`default<O3>`
+
+（该 harness 不产生逐步记录）
+
+</details>
+
+<details><summary><b>atax</b> — 中位加速比 <b>1.0096x</b>（基线 21.76 ms，? 校验，14/23 次为正）</summary>
+
+- 任务 `po_pb012`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0096x**　IQR [0.9706, 1.0200]
 - 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
@@ -4526,12 +4930,11 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>bicg</b> — 中位加速比 <b>1.1853x</b>（基线 76.43 ms，? 校验，3/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>bicg</b> — 中位加速比 <b>0.9995x</b>（基线 33.18 ms，? 校验，7/15 次为正）</summary>
 
-- 任务 `po_pb013`，节点 `dgx-spark-a-0`，数据源 `arch`
-- 探索期最好单次：1.1515x　最终确认：**1.1853x**　IQR [1.1297, 1.2240]
-- 最终 pass 顺序（15 个）：`sroa,early-cse,infer-alignment,loop-rotate,loop-mssa(licm),loop-versioning-licm,loop-vectorize,loop-unroll,instcombine,gvn,slp-vectorizer,loop-mssa(licm),loop-unroll,instcombine,gvn`
-- 最终 pass 参数：`-unroll-threshold=1200 -unroll-count=8 -unroll-partial-threshold=600 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=4 -slp-threshold=-5`
+- 任务 `po_pb013`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**0.9995x**　IQR [0.9830, 1.0087]
+- 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
 
@@ -4558,12 +4961,12 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>cholesky</b> — 中位加速比 <b>1.0060x</b>（基线 108475.84 ms，? 校验，2/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>cholesky</b> — 中位加速比 <b>0.9959x</b>（基线 26731.70 ms，? 校验，1/3 次为正）</summary>
 
-- 任务 `po_pb016`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：2.2693x　最终确认：**1.0060x**　IQR [0.8021, 3.1080]
-- 最终 pass 顺序（17 个）：`loop-mssa(licm),loop-rotate,loop-unroll,sroa,instcombine,simplifycfg,gvn,loop-mssa(licm),loop-vectorize,loop-mssa(licm),loop-unroll,instcombine,simplifycfg,gvn,loop-vectorize,loop-mssa(licm),instcombine`
-- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=8 -unroll-partial-threshold=600 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=4 -slp-threshold=-5`
+- 任务 `po_pb016`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0283x　最终确认：**0.9959x**　IQR [0.9900, 1.0300]
+- 最终 pass 顺序（25 个）：`loop-rotate,loop-mssa(licm),indvars,loop-vectorize,loop-unroll,instcombine,simplifycfg,sroa,early-cse,gvn,loop-mssa(licm),loop-vectorize,loop-unroll,instcombine,jump-threading,simplifycfg,adce,loop-deletion,loop-unroll,instcombine,loop-rotate,loop-mssa(licm),loop-vectorize,loop-unroll,instcombine`
+- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -unroll-partial-threshold=300 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=4 -licm-max-num-uses-traversed=128 -jump-threading-threshold=24`
 
 （该 harness 不产生逐步记录）
 
@@ -4613,117 +5016,116 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>correlation</b> — 中位加速比 <b>1.0293x</b>（基线 9979.15 ms，? 校验，2/3 次为正，⚠ 正确性档位过松、孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>correlation</b> — 中位加速比 <b>1.0341x</b>（基线 4881.79 ms，? 校验，3/3 次为正）</summary>
 
-- 任务 `po_pb001`，节点 `dgx-spark-a-0`，数据源 `arch`
-- 探索期最好单次：1.0289x　最终确认：**1.0293x**　IQR [0.7992, 1.5146]
-- 最终 pass 顺序（24 个）：`loop-rotate,loop-vectorize,loop-unroll,slp-vectorizer,instcombine,simplifycfg,loop-rotate,loop-vectorize,slp-vectorizer,loop-unroll,instcombine,simplifycfg,loop-rotate,loop-vectorize,slp-vectorizer,loop-unroll,instcombine,simplifycfg,loop-rotate,loop-vectorize,slp-vectorizer,loop-unroll,instcombine,simplifycfg`
-- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=8 -unroll-partial-threshold=600 -slp-threshold=-10 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=8`
-
-（该 harness 不产生逐步记录）
-
-</details>
-
-<details><summary><b>covariance</b> — 中位加速比 <b>1.0075x</b>（基线 10061.32 ms，? 校验，3/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
-
-- 任务 `po_pb002`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.2940x　最终确认：**1.0075x**　IQR [1.0011, 1.0078]
-- 最终 pass 顺序（15 个）：`loop-rotate,loop-mssa(licm),loop-distribute,loop-vectorize,loop-unroll,slp-vectorizer,instcombine,simplifycfg,sroa,early-cse,gvn,loop-mssa(licm),loop-vectorize,loop-unroll,slp-vectorizer`
-- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -slp-threshold=-10 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=4`
+- 任务 `po_pb001`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0431x　最终确认：**1.0341x**　IQR [1.0324, 1.0482]
+- 最终 pass 顺序（15 个）：`loop-rotate,loop-versioning-licm,loop-vectorize,loop-unroll,slp-vectorizer,loop-rotate,loop-vectorize,slp-vectorizer,loop-unroll,loop-rotate,loop-vectorize,slp-vectorizer,loop-rotate,loop-vectorize,loop-unroll`
+- 最终 pass 参数：`-unroll-threshold=1200 -unroll-count=8 -unroll-partial-threshold=600 -unroll-max-count=16 -slp-threshold=-10 -force-target-max-vector-interleave=4 -vectorizer-min-trip-count=4 -licm-max-num-uses-traversed=128 -jump-threading-threshold=24 -gvn-max-num-deps=200 -loop-distribute-scev-check-threshold=32`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>deriche</b> — 中位加速比 <b>1.0245x</b>（基线 717.90 ms，? 校验，3/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>covariance</b> — 中位加速比 <b>1.0002x</b>（基线 4887.17 ms，? 校验，2/3 次为正）</summary>
 
-- 任务 `po_pb022`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0093x　最终确认：**1.0245x**　IQR [1.0084, 1.0251]
-- 最终 pass 顺序（20 个）：`sroa,early-cse,instcombine,simplifycfg,gvn,correlated-propagation,loop-rotate,loop-unroll,loop-vectorize,slp-vectorizer,instcombine,dce,adce,bdce,simplifycfg,gvn,loop-vectorize,slp-vectorizer,instcombine,dce`
-- 最终 pass 参数：`-unroll-threshold=150 -unroll-count=2 -unroll-partial-threshold=150 -unroll-max-count=4 -slp-threshold=0 -force-target-max-vector-interleave=2 -vectorizer-min-trip-count=8 -inline-threshold=225`
-
-（该 harness 不产生逐步记录）
-
-</details>
-
-<details><summary><b>doitgen</b> — 中位加速比 <b>1.0277x</b>（基线 1129.51 ms，? 校验，3/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
-
-- 任务 `po_pb014`，节点 `dgx-spark-a-0`，数据源 `arch`
-- 探索期最好单次：1.0320x　最终确认：**1.0277x**　IQR [1.0260, 1.0290]
-- 最终 pass 顺序（15 个）：`loop-rotate,loop-distribute,loop-versioning-licm,loop-unroll,loop-unroll,loop-unroll,loop-unroll,loop-vectorize,loop-vectorize,slp-vectorizer,slp-vectorizer,instcombine,simplifycfg,gvn,adce`
-- 最终 pass 参数：`-unroll-threshold=1200 -unroll-count=16 -unroll-partial-threshold=600 -slp-threshold=-10 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=4`
+- 任务 `po_pb002`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0095x　最终确认：**1.0002x**　IQR [0.9961, 1.0143]
+- 最终 pass 顺序（15 个）：`sroa,early-cse,simplifycfg,instcombine,loop-rotate,indvars,loop-mssa(licm),loop-versioning-licm,loop-idiom,loop-vectorize,loop-unroll,slp-vectorizer,instcombine,gvn,simplifycfg`
+- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -slp-threshold=-5 -force-target-max-vector-interleave=4 -vectorizer-min-trip-count=4`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>durbin</b> — 中位加速比 <b>0.9950x</b>（基线 4.19 ms，? 校验，0/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>deriche</b> — 中位加速比 <b>0.9738x</b>（基线 223.04 ms，? 校验，0/3 次为正）</summary>
 
-- 任务 `po_pb017`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**0.9950x**　IQR [0.9948, 0.9971]
+- 任务 `po_pb022`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0148x　最终确认：**0.9738x**　IQR [0.9701, 0.9835]
+- 最终 pass 顺序（19 个）：`gvn,instcombine,simplifycfg,sroa,early-cse,slp-vectorizer,loop-rotate,loop-vectorize,loop-unroll,instcombine,gvn,dse,mldst-motion,loop-fusion,loop-rotate,loop-vectorize,slp-vectorizer,instcombine,simplifycfg`
+- 最终 pass 参数：`-slp-threshold=-5 -unroll-threshold=300 -unroll-count=4 -vectorizer-min-trip-count=4 -loop-distribute-scev-check-threshold=8`
+
+（该 harness 不产生逐步记录）
+
+</details>
+
+<details><summary><b>doitgen</b> — 中位加速比 <b>1.0441x</b>（基线 556.63 ms，? 校验，3/3 次为正）</summary>
+
+- 任务 `po_pb014`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0531x　最终确认：**1.0441x**　IQR [1.0418, 1.0506]
+- 最终 pass 顺序（19 个）：`loop-rotate,loop-mssa(licm),loop-distribute,loop-vectorize,loop-unroll,loop-unroll,instcombine,simplifycfg,gvn,instcombine,slp-vectorizer,instcombine,simplifycfg,loop-rotate,loop-mssa(licm),loop-vectorize,loop-unroll,instcombine,simplifycfg`
+- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=8 -vectorizer-min-trip-count=4 -slp-threshold=-5`
+
+（该 harness 不产生逐步记录）
+
+</details>
+
+<details><summary><b>durbin</b> — 中位加速比 <b>1.0002x</b>（基线 3.16 ms，? 校验，27/51 次为正）</summary>
+
+- 任务 `po_pb017`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0002x**　IQR [0.9872, 1.0141]
 - 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>fdtd-2d</b> — 中位加速比 <b>1.0010x</b>（基线 1890.99 ms，? 校验，3/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>fdtd-2d</b> — 中位加速比 <b>1.0034x</b>（基线 923.33 ms，? 校验，2/3 次为正）</summary>
 
-- 任务 `po_pb026`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**1.0010x**　IQR [1.0007, 1.0038]
+- 任务 `po_pb026`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0034x**　IQR [0.9960, 1.0049]
 - 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>floyd-warshall</b> — 中位加速比 <b>1.1594x</b>（基线 47830.89 ms，? 校验，3/3 次为正，⚠ 正确性档位过松、孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>floyd-warshall</b> — 中位加速比 <b>0.9618x</b>（基线 31925.74 ms，? 校验，1/3 次为正）</summary>
 
-- 任务 `po_pb023`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.1594x　最终确认：**1.1594x**　IQR [1.1592, 1.1595]
-- 最终 pass 顺序（14 个）：`loop-rotate,loop-mssa(licm),indvars,loop-unroll,loop-unroll,loop-vectorize,instcombine,gvn,loop-mssa(licm),slp-vectorizer,instcombine,gvn,simplifycfg,dce`
-- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -vectorizer-min-trip-count=4 -slp-threshold=0 -licm-max-num-uses-traversed=128`
-
-（该 harness 不产生逐步记录）
-
-</details>
-
-<details><summary><b>gemm</b> — 中位加速比 <b>0.9940x</b>（基线 609.00 ms，? 校验，1/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
-
-- 任务 `po_pb003`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**0.9940x**　IQR [0.9937, 1.0046]
+- 任务 `po_pb023`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**0.9618x**　IQR [0.5905, 1.0186]
 - 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>gemver</b> — 中位加速比 <b>1.0114x</b>（基线 57.33 ms，? 校验，2/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>gemm</b> — 中位加速比 <b>1.0018x</b>（基线 293.36 ms，? 校验，2/3 次为正）</summary>
 
-- 任务 `po_pb004`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**1.0114x**　IQR [0.9683, 1.0148]
+- 任务 `po_pb003`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0018x**　IQR [0.9969, 1.0022]
 - 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>gesummv</b> — 中位加速比 <b>0.9960x</b>（基线 81.56 ms，? 校验，1/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>gemver</b> — 中位加速比 <b>0.9983x</b>（基线 36.66 ms，? 校验，7/15 次为正）</summary>
 
-- 任务 `po_pb005`，节点 `dgx-spark-a-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**0.9960x**　IQR [0.7953, 1.0590]
+- 任务 `po_pb004`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**0.9983x**　IQR [0.9846, 1.0065]
 - 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>gramschmidt</b> — 中位加速比 <b>1.0621x</b>（基线 7376.65 ms，? 校验，3/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>gesummv</b> — 中位加速比 <b>0.9994x</b>（基线 22.28 ms，? 校验，10/21 次为正）</summary>
 
-- 任务 `po_pb018`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0111x　最终确认：**1.0621x**　IQR [1.0465, 1.1627]
-- 最终 pass 顺序（14 个）：`loop-rotate,loop-mssa(licm),indvars,loop-unroll,loop-vectorize,instcombine,simplifycfg,loop-rotate,loop-mssa(licm),loop-unroll,slp-vectorizer,instcombine,simplifycfg,loop-unroll-full`
-- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=8 -slp-threshold=-10 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=4 -jump-threading-threshold=12`
+- 任务 `po_pb005`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**0.9994x**　IQR [0.9803, 1.0208]
+- 最终 pass 顺序（1 个）：`default<O3>`
+
+（该 harness 不产生逐步记录）
+
+</details>
+
+<details><summary><b>gramschmidt</b> — 中位加速比 <b>1.0157x</b>（基线 7116.33 ms，? 校验，2/3 次为正）</summary>
+
+- 任务 `po_pb018`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0625x　最终确认：**1.0157x**　IQR [0.9861, 1.0258]
+- 最终 pass 顺序（16 个）：`loop-rotate,loop-mssa(licm),loop-versioning-licm,loop-unroll,loop-vectorize,loop-unroll,loop-mssa(licm),loop-vectorize,slp-vectorizer,loop-unroll,loop-vectorize,vector-combine,instcombine,simplifycfg,gvn,mldst-motion`
+- 最终 pass 参数：`-unroll-threshold=300 -unroll-count=2 -unroll-partial-threshold=150 -slp-threshold=-10 -force-target-max-vector-interleave=2 -vectorizer-min-trip-count=8`
 
 （该 harness 不产生逐步记录）
 
@@ -4739,52 +5141,53 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>jacobi-1d</b> — 中位加速比 <b>0.6929x</b>（基线 5.68 ms，? 校验，1/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>jacobi-1d</b> — 中位加速比 <b>1.0201x</b>（基线 2.93 ms，? 校验，35/51 次为正）</summary>
 
-- 任务 `po_pb028`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**0.6929x**　IQR [0.5915, 1.3690]
+- 任务 `po_pb028`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0606x　最终确认：**1.0201x**　IQR [0.9659, 1.0779]
+- 最终 pass 顺序（13 个）：`loop-rotate,loop-mssa(licm),indvars,loop-vectorize,loop-unroll,slp-vectorizer,gvn,instcombine,simplifycfg,loop-unroll,slp-vectorizer,gvn,instcombine`
+- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -unroll-partial-threshold=600 -slp-threshold=-10 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=4`
+
+（该 harness 不产生逐步记录）
+
+</details>
+
+<details><summary><b>jacobi-2d</b> — 中位加速比 <b>1.0001x</b>（基线 1125.32 ms，? 校验，2/3 次为正）</summary>
+
+- 任务 `po_pb029`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0001x**　IQR [0.9981, 1.0006]
 - 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>jacobi-2d</b> — 中位加速比 <b>1.0002x</b>（基线 4618.36 ms，? 校验，2/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>lu</b> — 中位加速比 <b>1.0075x</b>（基线 32128.76 ms，? 校验，3/3 次为正）</summary>
 
-- 任务 `po_pb029`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**1.0002x**　IQR [0.9998, 1.0042]
-- 最终 pass 顺序（1 个）：`default<O3>`
-
-（该 harness 不产生逐步记录）
-
-</details>
-
-<details><summary><b>lu</b> — 中位加速比 <b>1.0403x</b>（基线 55013.56 ms，? 校验，3/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
-
-- 任务 `po_pb020`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0444x　最终确认：**1.0403x**　IQR [1.0196, 1.0498]
-- 最终 pass 顺序（17 个）：`sroa,early-cse,simplifycfg,instcombine,gvn,loop-rotate,indvars,loop-mssa(licm),loop-unroll,loop-unroll,loop-vectorize,loop-unroll,loop-mssa(licm),loop-vectorize,loop-unroll,loop-vectorize,loop-unroll`
-- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -vectorizer-min-trip-count=4 -slp-threshold=-5`
+- 任务 `po_pb020`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0261x　最终确认：**1.0075x**　IQR [1.0001, 1.0364]
+- 最终 pass 顺序（17 个）：`loop-rotate,loop-mssa(licm),loop-versioning-licm,loop-unroll,loop-vectorize,loop-mssa(licm),loop-unroll,loop-vectorize,loop-mssa(licm),loop-unroll,loop-vectorize,loop-mssa(licm),gvn,instcombine,simplifycfg,dse,loop-mssa(licm)`
+- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=4 -licm-max-num-uses-traversed=128`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>ludcmp</b> — 中位加速比 <b>1.0009x</b>（基线 42183.19 ms，? 校验，2/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>ludcmp</b> — 中位加速比 <b>0.9791x</b>（基线 53816.64 ms，? 校验，0/3 次为正）</summary>
 
-- 任务 `po_pb019`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0182x　最终确认：**1.0009x**　IQR [0.7607, 1.0108]
-- 最终 pass 顺序（34 个）：`loop-rotate,indvars,loop-unroll,instcombine,simplifycfg,loop-rotate,indvars,loop-unroll,instcombine,simplifycfg,gvn,dse,loop-mssa(licm),loop-rotate,indvars,loop-unroll,instcombine,simplifycfg,gvn,dse,loop-rotate,indvars,loop-unroll,instcombine,simplifycfg,gvn,dse,loop-rotate,indvars,loop-unroll,instcombine,simplifycfg,gvn,dse`
-- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -unroll-partial-threshold=300 -unroll-max-count=8 -vectorizer-min-trip-count=8 -force-target-max-vector-interleave=4`
+- 任务 `po_pb019`，节点 `dgx-spark-a-0`，数据源 `live`
+- 探索期最好单次：1.0209x　最终确认：**0.9791x**　IQR [0.9442, 0.9860]
+- 最终 pass 顺序（22 个）：`loop-rotate,loop-mssa(licm),loop-unroll,loop-unroll,loop-versioning-licm,loop-distribute,loop-rotate,loop-vectorize,loop-unroll,loop-unroll,instcombine,gvn,dse,simplifycfg,loop-rotate,loop-mssa(licm),loop-unroll,loop-unroll,loop-vectorize,instcombine,gvn,dse`
+- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -unroll-partial-threshold=300 -unroll-max-count=8 -vectorizer-min-trip-count=4 -licm-max-num-uses-traversed=128 -slp-threshold=0 -jump-threading-threshold=12`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>mvt</b> — 中位加速比 <b>1.0434x</b>（基线 81.50 ms，? 校验，2/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>mvt</b> — 中位加速比 <b>0.9993x</b>（基线 36.68 ms，? 校验，7/15 次为正）</summary>
 
-- 任务 `po_pb015`，节点 `dgx-spark-a-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**1.0434x**　IQR [0.9743, 1.0445]
+- 任务 `po_pb015`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**0.9993x**　IQR [0.9789, 1.0185]
 - 最终 pass 顺序（1 个）：`default<O3>`
 
 （该 harness 不产生逐步记录）
@@ -4813,11 +5216,12 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>nussinov</b> — 中位加速比 <b>0.9993x</b>（基线 8274.22 ms，? 校验，0/3 次为正，⚠ 正确性档位过松、孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>nussinov</b> — 中位加速比 <b>0.9555x</b>（基线 3722.25 ms，? 校验，0/3 次为正）</summary>
 
-- 任务 `po_pb024`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0000x　最终确认：**0.9993x**　IQR [0.9984, 1.0000]
-- 最终 pass 顺序（1 个）：`default<O3>`
+- 任务 `po_pb024`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.1395x　最终确认：**0.9555x**　IQR [0.9509, 0.9556]
+- 最终 pass 顺序（10 个）：`loop-rotate,loop-mssa(licm),instcombine,simplifycfg,loop-unroll,loop-vectorize,slp-vectorizer,loop-unroll,instcombine,simplifycfg`
+- 最终 pass 参数：`-unroll-threshold=300 -unroll-count=4 -slp-threshold=-5 -vectorizer-min-trip-count=4 -licm-max-num-uses-traversed=32`
 
 （该 harness 不产生逐步记录）
 
@@ -4898,34 +5302,33 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>symm</b> — 中位加速比 <b>0.9357x</b>（基线 5938.35 ms，? 校验，1/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>symm</b> — 中位加速比 <b>1.0280x</b>（基线 4117.28 ms，? 校验，3/3 次为正）</summary>
 
-- 任务 `po_pb006`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.1822x　最终确认：**0.9357x**　IQR [0.9195, 1.0558]
-- 最终 pass 顺序（18 个）：`loop-rotate,loop-unroll,loop-unroll,instcombine,simplifycfg,gvn,gvn-hoist,loop-mssa(licm),indvars,loop-unroll,instcombine,simplifycfg,loop-vectorize,instcombine,slp-vectorizer,instcombine,gvn,adce`
-- 最终 pass 参数：`-unroll-threshold=300 -unroll-count=2 -unroll-partial-threshold=150 -slp-threshold=0 -vectorizer-min-trip-count=8 -force-target-max-vector-interleave=2`
-
-（该 harness 不产生逐步记录）
-
-</details>
-
-<details><summary><b>syr2k</b> — 中位加速比 <b>0.9890x</b>（基线 12296.21 ms，? 校验，0/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
-
-- 任务 `po_pb007`，节点 `dgx-spark-a-0`，数据源 `arch`
-- 探索期最好单次：1.2015x　最终确认：**0.9890x**　IQR [0.9785, 0.9895]
-- 最终 pass 顺序（17 个）：`loop-rotate,loop-unroll,loop-mssa(licm),loop-mssa(licm),loop-versioning-licm,loop-versioning-licm,loop-rotate,loop-unroll,loop-vectorize,loop-vectorize,loop-unroll,loop-unroll,slp-vectorizer,instcombine,loop-mssa(licm),loop-unroll,loop-vectorize`
-- 最终 pass 参数：`-unroll-threshold=150 -unroll-count=2 -unroll-partial-threshold=150 -vectorizer-min-trip-count=8 -slp-threshold=-10 -licm-max-num-uses-traversed=32`
+- 任务 `po_pb006`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.1768x　最终确认：**1.0280x**　IQR [1.0208, 1.0333]
+- 最终 pass 顺序（19 个）：`sroa,early-cse,simplifycfg,instcombine,gvn,correlated-propagation,jump-threading,adce,loop-rotate,loop-mssa(licm),indvars,loop-unroll,instcombine,loop-distribute,loop-vectorize,loop-unroll,slp-vectorizer,instcombine,simplifycfg`
+- 最终 pass 参数：`-unroll-threshold=300 -unroll-count=4 -vectorizer-min-trip-count=4 -slp-threshold=-5 -licm-max-num-uses-traversed=128`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>syrk</b> — 中位加速比 <b>0.9822x</b>（基线 3164.56 ms，? 校验，1/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>syr2k</b> — 中位加速比 <b>1.0039x</b>（基线 2912.60 ms，? 校验，2/3 次为正）</summary>
 
-- 任务 `po_pb008`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0548x　最终确认：**0.9822x**　IQR [0.8158, 1.1969]
-- 最终 pass 顺序（20 个）：`loop-rotate,loop-mssa(licm),loop-unroll,loop-unroll,loop-vectorize,loop-vectorize,loop-unroll,loop-vectorize,slp-vectorizer,slp-vectorizer,instcombine,simplifycfg,loop-rotate,loop-mssa(licm),gvn,instcombine,simplifycfg,loop-unroll,loop-vectorize,instcombine`
-- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -unroll-partial-threshold=300 -unroll-max-count=8 -slp-threshold=-5 -force-target-max-vector-interleave=8 -vectorizer-min-trip-count=4 -licm-max-num-uses-traversed=128 -jump-threading-threshold=6 -gvn-max-num-deps=200`
+- 任务 `po_pb007`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0000x　最终确认：**1.0039x**　IQR [0.9923, 1.0137]
+- 最终 pass 顺序（1 个）：`default<O3>`
+
+（该 harness 不产生逐步记录）
+
+</details>
+
+<details><summary><b>syrk</b> — 中位加速比 <b>1.0399x</b>（基线 1151.80 ms，? 校验，2/3 次为正）</summary>
+
+- 任务 `po_pb008`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.1324x　最终确认：**1.0399x**　IQR [0.9843, 1.0523]
+- 最终 pass 顺序（40 个）：`loop-rotate,loop-mssa(licm),loop-unroll,loop-unroll,loop-unroll,loop-vectorize,loop-vectorize,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize,loop-unroll,loop-vectorize`
+- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -unroll-partial-threshold=600 -unroll-max-count=8 -slp-threshold=-5 -force-target-max-vector-interleave=4 -vectorizer-min-trip-count=4 -licm-max-num-uses-traversed=128 -jump-threading-threshold=3 -gvn-max-num-deps=200 -loop-distribute-scev-check-threshold=4`
 
 （该 harness 不产生逐步记录）
 
@@ -4964,23 +5367,23 @@ _生成时间：2026-08-07 06:55 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-<details><summary><b>trisolv</b> — 中位加速比 <b>0.9559x</b>（基线 26.58 ms，? 校验，1/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>trisolv</b> — 中位加速比 <b>1.0144x</b>（基线 11.26 ms，? 校验，26/41 次为正）</summary>
 
-- 任务 `po_pb021`，节点 `dgx-spark-b-0`，数据源 `arch`
-- 探索期最好单次：1.0538x　最终确认：**0.9559x**　IQR [0.6786, 1.0402]
-- 最终 pass 顺序（19 个）：`sroa,early-cse,instcombine,simplifycfg,loop-rotate,loop-mssa(licm),loop-mssa(licm),gvn,indvars,loop-unroll,loop-unroll,loop-vectorize,instcombine,simplifycfg,loop-rotate,loop-mssa(licm),gvn,adce,dse`
-- 最终 pass 参数：`-unroll-threshold=300 -unroll-count=4 -vectorizer-min-trip-count=8 -slp-threshold=-5`
+- 任务 `po_pb021`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0537x　最终确认：**1.0144x**　IQR [0.9793, 1.0666]
+- 最终 pass 顺序（15 个）：`sroa,early-cse,instcombine,simplifycfg,jump-threading,correlated-propagation,gvn,loop-mssa(licm),loop-rotate,loop-unroll,loop-vectorize,loop-unroll,loop-mssa(licm),gvn,instcombine`
+- 最终 pass 参数：`-unroll-threshold=300 -unroll-count=4 -vectorizer-min-trip-count=4 -force-target-max-vector-interleave=2`
 
 （该 harness 不产生逐步记录）
 
 </details>
 
-<details><summary><b>trmm</b> — 中位加速比 <b>1.0100x</b>（基线 4504.35 ms，? 校验，3/3 次为正，⚠ 孤儿抢核、PO 预算被 InstCombine 吞）</summary>
+<details><summary><b>trmm</b> — 中位加速比 <b>0.9990x</b>（基线 2201.44 ms，? 校验，1/3 次为正）</summary>
 
-- 任务 `po_pb009`，节点 `dgx-spark-a-0`，数据源 `arch`
-- 探索期最好单次：1.0076x　最终确认：**1.0100x**　IQR [1.0036, 1.0114]
-- 最终 pass 顺序（13 个）：`loop-rotate,loop-distribute,loop-unroll,loop-vectorize,loop-mssa(licm),loop-unroll,loop-vectorize,loop-mssa(licm),instcombine,simplifycfg,loop-vectorize,loop-mssa(licm),instcombine`
-- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -vectorizer-min-trip-count=8 -force-target-max-vector-interleave=4`
+- 任务 `po_pb009`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：1.0110x　最终确认：**0.9990x**　IQR [0.9976, 1.0002]
+- 最终 pass 顺序（24 个）：`loop-rotate,loop-mssa(licm),loop-unroll,loop-vectorize,loop-unroll,loop-unroll-full,loop-mssa(licm),loop-unroll,loop-unroll-full,loop-mssa(licm),loop-unroll,loop-unroll-full,loop-vectorize,loop-unroll,loop-unroll-full,loop-mssa(licm),loop-rotate,loop-vectorize,loop-unroll,loop-unroll-full,loop-mssa(licm),loop-vectorize,loop-unroll,loop-unroll-full`
+- 最终 pass 参数：`-unroll-threshold=600 -unroll-count=4 -unroll-partial-threshold=300 -unroll-max-count=8 -vectorizer-min-trip-count=8 -force-target-max-vector-interleave=4 -slp-threshold=-5`
 
 （该 harness 不产生逐步记录）
 
@@ -4992,32 +5395,32 @@ agent 提出但未被采纳的候选，按拒绝原因归类。这些不是 bug�
 
 | 拒绝原因 | 次数 |
 |---|---:|
-| pragma 未匹配到循环 | 93 |
-| 编译失败 | 42 |
-| 其它 | 36 |
+| pragma 未匹配到循环 | 97 |
+| 编译失败 | 70 |
+| 其它 | 41 |
 | 数值不符（多为浮点重结合） | 15 |
-| 哈希不符 | 8 |
+| 哈希不符 | 12 |
+
+**其它** 样例：
+
+- `c1` automotive_qsort1: 步骤3: 失败 [rewrite_source] [SMALL_DATASET] optimized run timed out
+- `c1` automotive_susan_smoothing: 步骤2: 失败 [rewrite_source] optimized version returned non-zero exit code -11
+- `c1` consumer_tiff2rgba: 步骤2: 失败 [rewrite_source] [SMALL_DATASET] optimized version returned non-zero exit code -6
+- `c1` consumer_tiff2rgba: 步骤9: 失败 [rewrite_source] [SMALL_DATASET] optimized version returned non-zero exit code -11
+
+**编译失败** 样例：
+
+- `c1` automotive_qsort1: 步骤6: 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp60fxk02p/rw_utils_utils_shadow/polybench.c:665:25: error: use of undeclare
+- `c1` automotive_qsort1: 步骤7: 失败 [rewrite_source] 候选编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmppo4qzxld/rw_utils_utils_shadow/polybench.c:661:25: error: use of undeclare
+- `c1` automotive_susan_corners: 步骤1: 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpzj0m3ovt/automotive_susan_corners_rewrit
+- `c1` automotive_susan_corners: 步骤2: 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmp1q3j3orz/automotive_susan_corners_rewrit
 
 **哈希不符** 样例：
 
 - `c1` automotive_susan_smoothing: 步骤1: 失败 [rewrite_source] precision error (fix also failed): output hash mismatch (ref=0e44d5392b3e, opt=400ab85810c4)
-- `c1` telecom_crc32: 步骤9: 失败 [rewrite_source] precision error (fix also failed): output hash mismatch (ref=7e61aed697f6, opt=da96890fba5d)
-- `c2` security_rijndael_decode: 步骤8: 失败 [rewrite_source] output hash mismatch (ref=2a9d644f22dd, opt=86d5d9352c6d)
-- `c2` security_blowfish_encode: 步骤8: 失败 [rewrite_source] [SMALL_DATASET] output hash mismatch (ref=002de6ea4c73, opt=f61642852771)
-
-**其它** 样例：
-
-- `c1` automotive_susan_smoothing: 步骤2: 失败 [rewrite_source] optimized version returned non-zero exit code -11
-- `c1` network_patricia: 步骤8: 失败 [rewrite_source] optimized run timed out
-- `c1` telecom_crc32: 步骤1: 失败 [rewrite_source] optimized version returned non-zero exit code -11
-- `c2` network_patricia: 步骤4: 失败 [try_pragma] pragma_hints 为空
-
-**编译失败** 样例：
-
-- `c1` network_patricia: 步骤1: 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpg4ld5nlw/network_patricia_rewrite.c:146:
-- `c1` network_patricia: 步骤7: 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpygd885qd/network_patricia_rewrite.c:142:
-- `c1` network_patricia: 步骤9: 失败 [rewrite_source] compile error (fix also failed): 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpvki932ku/network_patricia_rewrite.c:135:
-- `c1` security_rijndael_decode: 步骤3: 失败 [rewrite_source] 优化版编译失败 (SMALL_DATASET): /home/hanning/comet/tmp/tmpm3wkk_t0/security_rijndael_decode_rewrite.c:214:11: error: use of undecla
+- `c1` telecom_adpcm_c: 步骤5: 失败 [rewrite_source] [SMALL_DATASET] output hash mismatch (ref=6227febad457, opt=6025e67c9bba)
+- `c1` telecom_adpcm_d: 步骤3: 失败 [rewrite_source] [SMALL_DATASET] output hash mismatch (ref=f14432f8dd7b, opt=f89573bb1b00)
+- `c1` telecom_adpcm_d: 步骤5: 失败 [rewrite_source] [SMALL_DATASET] output hash mismatch (ref=f14432f8dd7b, opt=f89573bb1b00)
 
 **pragma 未匹配到循环** 样例：
 

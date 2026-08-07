@@ -49,9 +49,16 @@ def compile_for_correctness(kernel_c: str, utils: str, source_dir: str, out_bin:
     never modified at all.
     """
     polybench_c = Path(utils) / "polybench.c"
+    # Same 12-decimal dump the main harness uses. At PolyBench's stock
+    # "%0.2lf" the finest expressible difference is 0.01, which is coarser
+    # than the 1e-4 relative tolerance, so the check degenerates into "did the
+    # last printed digit change" and rejects vectorisation reassociation --
+    # biasing this baseline DOWNWARD, i.e. flattering the system it is meant
+    # to be compared against.
     ok, err = compile_binary(CLANG, kernel_c, polybench_c, Path(utils), Path(source_dir),
                               Path(out_bin), dataset="LARGE_DATASET",
-                              output_macro="POLYBENCH_DUMP_ARRAYS")
+                              output_macro="POLYBENCH_DUMP_ARRAYS",
+                              extra_flags=['-DDATA_PRINTF_MODIFIER="%0.12lf "'])
     return ok, err
 
 

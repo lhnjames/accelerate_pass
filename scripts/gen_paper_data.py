@@ -169,6 +169,22 @@ def main():
             why.append("PO 预算被 InstCombine 吞")
         return why
 
+    def usable_speedup(r):
+        """本次任务的加速比，取不到则 None。
+
+        `baseline_only`（预算跑完但没有任何改动通过确认）和 `incorrect`
+        （产物未通过正确性比对）都没有 confirmed_median，但它们是**真实的数据
+        点**，含义是"这个方法在这个程序上没拿到收益"，按定义 1.0。早先版本只
+        认 confirmed_median，于是把这些任务整个丢掉——等于只统计成功案例，
+        系统性抬高每个条件的 geomean。条件 ① 在 cBench 上 19 个程序只剩 10 个
+        进入统计，丢掉的 9 个全是 baseline_only。
+        """
+        if r.get("median") is not None:
+            return r["median"]
+        if r.get("status") in ("baseline_only", "incorrect"):
+            return 1.0
+        return None
+
     # 汇总：每 (条件, 程序) 取最近一次完成，live 优先，archive 补空
     cells = {}
     for tag, tasks in (("live", live), ("arch", arch)):
@@ -176,8 +192,12 @@ def main():
             if t["status"] != "done":
                 continue
             r = rec(tag, t)
-            if not r or r.get("median") is None:
+            if not r:
                 continue
+            sp = usable_speedup(r)
+            if sp is None:
+                continue
+            r = dict(r, median=sp)
             prog = r.get("prog") or t["program"].split("/")[-1].removesuffix(".c")
             key = (t["id"].split("_")[0], prog)
             fin = t.get("finished") or r.get("mtime") or 0
