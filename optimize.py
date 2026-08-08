@@ -3108,6 +3108,23 @@ def _detect_polybench_mode(clang: str, src_path: str, utils: Path,
     # Refuse to build a task on a reference that is not actually running. See
     # reference_health(): a benchmark that cannot open its input file exits 0
     # with empty output, so every later check passes vacuously.
+    # 确认高精度 dump 真的生效了。
+    #
+    # DUMP_PRECISION_FLAG 只有在 PolyBench 头文件带 #ifndef 保护时才起作用，
+    # 而那个保护位于一个 submodule 里。submodule 一旦被重置或换成上游版本，
+    # -D 就会被头文件里的无条件 #define 覆盖，量化步长悄悄退回 0.01，正确性
+    # 检查重新退化成"最后一位打印数字是否变了"——没有任何报错。这是本项目反复
+    # 出现的那类静默降级，所以在这里显式验一次。
+    from src.correctness import output_quantum as _oq, _run_capture as _rc,         _decode_text_output as _dt
+    _cap = _rc(str(test_bin), timeout=60)
+    if _cap:
+        _q = _oq(_dt(_cap[1] + (_cap[2] or b"")) or "")
+        if _q and _q > 1e-6:
+            print(f"  [ERROR] dump 量化步长为 {_q:.0e}，高精度校验未生效——"
+                  f"PolyBench 头文件缺少 #ifndef DATA_PRINTF_MODIFIER 保护。")
+            print(f"  [ERROR] 此时正确性检查只能分辨 {_q:.0e} 的差异，会把向量化"
+                  f"重结合误判为错误，测出的加速比是低估的。")
+
     health = reference_health(str(test_bin), timeout=60)
     if not health["ok"]:
         print(f"  [ERROR] 参考程序不健康：{health['reason']}"
