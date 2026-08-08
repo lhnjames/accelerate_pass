@@ -1,6 +1,6 @@
 # COMET 论文数据全集 — 每任务 / 每步骤 / 每效果
 
-_生成时间：2026-08-08 05:53 UTC，由 `scripts/gen_paper_data.py` 自动生成_
+_生成时间：2026-08-08 16:37 UTC，由 `scripts/gen_paper_data.py` 自动生成_
 
 本文件是完整实验记录：每个任务的基线、自动判定的正确性档位、agent 每一步做了什么、该步实测多少、被拒候选及原因、以及最终配对确认。论文里任何一个数字都可以在这里回溯到产生它的那一步。
 
@@ -97,7 +97,7 @@ _生成时间：2026-08-08 05:53 UTC，由 `scripts/gen_paper_data.py` 自动生
 | telecom_crc32 | `-licm-max-num-uses-traversed=16` | 4.229 | **0.9628** | 1/11 |
 | office_stringsearch2 | `--unroll-max-upperbound=64` | 2.094 | **0.9988** | 5/11 |
 | network_patricia | `--licm-max-num-int-reassociations=32` | 1.988 | **1.0224** | 9/11 |
-| floyd-warshall | `-unroll-threshold=1500 -vectorizer-min-trip-count=1` | 2.640 | **0.9997** | 3/11 |
+| floyd-warshall | `-unroll-threshold=1500 -vectorizer-min-trip-count=1 -inline-threshold=225` | 2.640 | **0.9885** | 3/9 |
 | jacobi-1d | `-unroll-threshold=1000` | 1.594 | **0.9942** | 5/11 |
 
 六个全部塌回 1.0 附近，输出逐字节一致——**塌掉的是加速比，不是正确性**。这些读数产生于探索期的单次测量，没有经过配对确认门。

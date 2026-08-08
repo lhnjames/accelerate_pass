@@ -69,12 +69,16 @@ VACUOUS_GATE = {
 # 注意日志里的 `步骤N: X.XXXx` 是当时的**累计最优**而非该步增量。correlation 的
 # `步骤2: 11.316x [rewrite]` 之后 `步骤3: 11.231x [flags]`，flags 那步其实是
 # -0.085。按步直接归因会把源码重写的功劳算到参数头上。
+# 选项字符串一律用正则从日志的 `步骤N: X.XXXx [flags: ...]` 整行提取，不从打印
+# 输出转抄——floyd-warshall 就是这么错过一次：显示被截断到 88 字符，漏掉了
+# `-mllvm -inline-threshold=225`，用不完整的选项复测出 0.9997，补齐后是 0.9885
+# （结论未变，但数值曾是错的）。
 FLAG_EXPLORE_CLAIMS = [   # 探索期读数（每步累计 - 此前最优 = 该步增量）
     ("consumer_tiff2rgba", "-vectorize-memory-check-threshold=256 -slp-max-vf=8", 6.542, 1.0112, "6/11"),
     ("telecom_crc32",      "-licm-max-num-uses-traversed=16",                     4.229, 0.9628, "1/11"),
     ("office_stringsearch2", "--unroll-max-upperbound=64",                        2.094, 0.9988, "5/11"),
     ("network_patricia",   "--licm-max-num-int-reassociations=32",                1.988, 1.0224, "9/11"),
-    ("floyd-warshall",     "-unroll-threshold=1500 -vectorizer-min-trip-count=1", 2.640, 0.9997, "3/11"),
+    ("floyd-warshall",     "-unroll-threshold=1500 -vectorizer-min-trip-count=1 -inline-threshold=225", 2.640, 0.9885, "3/9"),
     ("jacobi-1d",          "-unroll-threshold=1000",                              1.594, 0.9942, "5/11"),
 ]
 FLAG_CONFIRMED = [        # 条件 ④ 通过确认门的结果

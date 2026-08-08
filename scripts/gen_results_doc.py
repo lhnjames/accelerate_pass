@@ -83,6 +83,13 @@ PO_FIX_TS = calendar.timegm((2026, 8, 2, 17, 30, 0, 0, 0, 0))
 
 # Independently re-measured on an idle core, 15 alternating pairs (9 for
 # susan_smoothing), byte-exact output verified in every case.
+#
+# The "reported" column is the PRE-2026-08-02 published value, i.e. the max of
+# n confirmation runs. Those numbers no longer appear anywhere current -- the
+# same cells now read 1.0157 / 1.0046 / 1.0343 / 1.1674 under median reporting
+# plus the re-runs. The table is kept as the historical evidence that motivated
+# the change, not as a claim about present data; do not compare its left column
+# against today's tables.
 VERIFIED = [
     ("telecom_crc32", "c4", 1.6346, 1.0161, "[0.979, 1.051]", "8/15", "0.39 ms"),
     ("security_rijndael_decode", "c4", 1.4484, 1.0080, "[0.991, 1.031]", "9/15", "0.43 ms"),
@@ -318,8 +325,10 @@ def main():
 
     # ── 4 独立复测
     W("## 4. 独立复测（空闲核，交替配对，输出逐字节比对）\n")
-    W("对报告值最高的几个结果做的第三方验证。**正确性全部通过**——塌掉的是加速比，不是正确性。\n")
-    W("| 程序 | 条件 | 报告值 | **独立复测** | 逐对 IQR | 正向 | 单次耗时 |")
+    W("对**旧口径**下报告值最高的几个结果做的第三方验证，是促成改用中位数的直接证据。"
+      "**正确性全部通过**——塌掉的是加速比，不是正确性。左列是已废止的 max-of-n 值，"
+      "不要与当前表格对比。\n")
+    W("| 程序 | 条件 | 旧口径报告值<br>(max-of-n，已废止) | **独立复测** | 逐对 IQR | 正向 | 单次耗时 |")
     W("|---|---|---:|---:|---|---:|---:|")
     for p, c, rep, ver, iqr, pos, ms in VERIFIED:
         W(f"| {p} | {SHORT[c]} | {rep:.4f} | **{ver:.4f}** | {iqr} | {pos} | {ms} |")
