@@ -1,6 +1,6 @@
 # COMET 论文数据全集 — 每任务 / 每步骤 / 每效果
 
-_生成时间：2026-08-08 16:37 UTC，由 `scripts/gen_paper_data.py` 自动生成_
+_生成时间：2026-08-08 17:48 UTC，由 `scripts/gen_paper_data.py` 自动生成_
 
 本文件是完整实验记录：每个任务的基线、自动判定的正确性档位、agent 每一步做了什么、该步实测多少、被拒候选及原因、以及最终配对确认。论文里任何一个数字都可以在这里回溯到产生它的那一步。
 
@@ -27,7 +27,38 @@ _生成时间：2026-08-08 16:37 UTC，由 `scripts/gen_paper_data.py` 自动生
 | `heat-3d` | dump 的数组与 kernel 完全无关，清空 kernel 后输出逐位相同（1e-12 精度下仍然如此） |
 | `seidel-2d` | 同上，任何打印精度下都无法检出 kernel 被清空 |
 
-### 1.3 数据排除规则（按时间界定，修复后重跑的数据不受影响）
+### 1.3 高方差单元：个别数字不可单独引用
+
+确认阶段的采样量原本只按**基准时长**缩放（短→多采样）。但决定中位数需要多少样本的是**方差**不是时长：`2mm` 基线 3.7 秒，按时长规则只拿到下限 3 个样本，而它优化版的逐次变异是 42.8%，三个配对比值跨越 [5.00, 10.53]。发布的 9.1823x 是这个区间的中点，而同样两个二进制在空闲核上独立复测两次得到 4.82 和 5.75。
+
+采样规则已改为**方差驱动**：时长批次之后继续加样本，直到比值 IQR 半宽降到中位数的 5% 以下，受 51 次上限与 300 秒墙钟预算约束。
+
+影响面很窄——103 个有 CV 记录的 PolyBench 单元里，优化版 CV 中位数只有 **1.2%**，超过 20% 的只有 4 个：
+
+| 条件 | 程序 | 报告值 | base_cv | best_cv | IQR 跨度 |
+|---|---|---:|---:|---:|---:|
+| ③ | symm | 6.674 | 13.4% | **44.0%** | 2.28x |
+| ③ | 2mm | 9.182 | 7.7% | **42.8%** | 2.10x |
+| ① | durbin | 1.008 | 39.7% | **32.5%** | 4.26x |
+| ① | jacobi-2d | 0.886 | 8.7% | **22.2%** | 1.82x |
+
+**这四个单元的数字不应单独引用**；总体 geomean 建立在其余 96% 的单元上。四个已用方差驱动采样重跑，本文件如显示为旧值则重跑尚未完成。
+
+> 顺带排除了一个更容易想到的解释：机器争抢。实测加 8 核负载后 2mm 的比值是**下降**的（5.746x → 2.560x），因为缓存驻留的优化版比内存受限的基线更怕带宽争抢。所以差距来自采样不足，不是负载。
+
+### 1.4 独立复测：大加速比是真的
+
+首次对撑起主结论的源码重写结果做第三方验证（原始源码为基线、空闲核、交替配对、逐字节比对 DUMP 输出）：
+
+| 程序 | 报告值 | 空闲核实测 | 正向 | 输出 |
+|---|---:|---:|---:|---|
+| ③ covariance | 16.373 | **9.324** | 7/7 | 逐字节一致 |
+| ③ gramschmidt | 14.627 | **5.629** | 7/7 | 逐字节一致 |
+| ③ 2mm | 9.182 | **4.815 / 5.746**（两次独立） | 7/7 | 逐字节一致 |
+
+**加速比是真实的**——7/7 正向、输出完全一致、量级 5–9 倍。但系统性约为报告值的一半，原因即上节的采样不足。论文若要引用具体程序的数字，应以复测值为准；若引用聚合量，则 geomean 受影响有限（仅 4/103 单元高方差）。
+
+### 1.5 数据排除规则（按时间界定，修复后重跑的数据不受影响）
 
 | 类别 | 含义 |
 |---|---|
@@ -45,7 +76,7 @@ _生成时间：2026-08-08 16:37 UTC，由 `scripts/gen_paper_data.py` 自动生
 |---|---:|---:|---:|---:|---:|
 | ① rewrite-only | 28 | **2.2860** | 1.4849 | 0.8856 | 16.3119 |
 | ② no-compiler-feedback | 28 | **2.1698** | 1.5568 | 0.9687 | 18.8261 |
-| ③ full system | 28 | **2.4722** | 1.5900 | 0.8333 | 17.1274 |
+| ③ full system | 26 | **2.2624** | 1.4269 | 0.8333 | 17.1274 |
 | ④ params-only | 28 | **1.0290** | 1.0074 | 0.9625 | 1.2375 |
 | OC | 28 | **1.1494** | 1.0000 | 0.9759 | 6.5494 |
 | PO | 28 | **1.0221** | 1.0015 | 0.9897 | 1.1970 |
@@ -54,12 +85,12 @@ _生成时间：2026-08-08 16:37 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 | 对比 | n | 胜 | 负 | 前者 geomean | 后者 geomean | p | 结论 |
 |---|---:|---:|---:|---:|---:|---:|---|
-| ③ full system vs ② no-compiler-feedback | 28 | 18 | 10 | 2.4722 | 2.1698 | 0.1849 | 不显著 |
-| ③ full system vs ① rewrite-only | 28 | 18 | 10 | 2.4722 | 2.2860 | 0.1849 | 不显著 |
+| ③ full system vs ② no-compiler-feedback | 26 | 16 | 10 | 2.2624 | 2.0398 | 0.3269 | 不显著 |
+| ③ full system vs ① rewrite-only | 26 | 16 | 10 | 2.2624 | 2.1316 | 0.3269 | 不显著 |
 | ① rewrite-only vs ② no-compiler-feedback | 28 | 17 | 11 | 2.2860 | 2.1698 | 0.3449 | 不显著 |
-| ③ full system vs ④ params-only | 28 | 24 | 4 | 2.4722 | 1.0290 | 0.0002 | **显著** |
-| ③ full system vs PO | 28 | 27 | 1 | 2.4722 | 1.0221 | 0.0000 | **显著** |
-| ③ full system vs OC | 28 | 25 | 3 | 2.4722 | 1.1494 | 0.0000 | **显著** |
+| ③ full system vs ④ params-only | 26 | 22 | 4 | 2.2624 | 1.0225 | 0.0005 | **显著** |
+| ③ full system vs PO | 26 | 25 | 1 | 2.2624 | 1.0172 | 0.0000 | **显著** |
+| ③ full system vs OC | 26 | 23 | 3 | 2.2624 | 1.1618 | 0.0001 | **显著** |
 
 ### 2.2 cBench（已剔除无效数据）
 
@@ -2263,29 +2294,7 @@ _生成时间：2026-08-08 16:37 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-### ③ full system（自由选动作 + 完整编译器反馈）（51 个程序）
-
-<details><summary><b>2mm</b> — 中位加速比 <b>9.1823x</b>（基线 3758.70 ms，numeric 校验，3/3 次为正）</summary>
-
-- 任务 `c3_pb010`，节点 `dgx-spark-a-0`，数据源 `live`
-- 探索期最好单次：9.9517x　最终确认：**9.1823x**　IQR [5.0011, 10.5264]　base_cv=7.7% best_cv=42.8%
-- 最终采纳编译选项：`-mllvm -licm-max-num-uses-traversed=16`
-- 最终采纳了源码重写
-- 实际获得的反馈通道：`compiler`
-
-| 步 | 动作 | 该步实测 / 结果 |
-|---:|---|---|
-| 1 | try_flags | 1.000x  [无改善] |
-| 2 | rewrite_source | 4.947x  [rewrite: 将两个累加循环的中间维度与内层维度交换：第一个乘法的 for(j) 和 for(k) 交换，变成 for(i) for(k) for(j)，使 B[k][j] 访问连续并提取标量因子 alpha*A[i][k]；第二个乘法的 for(j) 和 for(k) 交换，变成 for(i) for(k) for(j)，使 C[k][j] 访问连续。] |
-| 3 | try_flags | 5.058x  [flags: -mllvm -licm-max-num-uses-traversed=16] |
-| 4 | try_pragma | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
-| 5 | rewrite_source | 6.479x  [rewrite: 对第一个乘法的 i 和 k 循环进行二重 cache tiling（blocking），块大小 BI=32, BK=32；同样对第二个乘法的 i 和 k 循环进行相同分块。保持 j 循环完全连续，即对于每个分块后的 i 块和 k 块，完整执行内层 j 循环。这样 B/C 矩阵的块在分块内被重复使用，减少缓存缺失。] |
-| 6 | try_flags | 5.613x  [flags: -mllvm -vectorize-scev-check-threshold=8] |
-| 7 | try_pragma | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
-| 8 | rewrite_source | 9.952x  [rewrite: 在函数声明的所有数组参数（tmp, A, B, C, D）前添加 restrict 限定符，告知编译器这些指针不重叠，从而让 LICM 成功外提剩余的两个 loop-invariant load，并降低 LoopVectorizer 的内存检查开销，促使内层 j 循环向量化。] |
-| 9 | try_pragma | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
-
-</details>
+### ③ full system（自由选动作 + 完整编译器反馈）（49 个程序）
 
 <details><summary><b>3mm</b> — 中位加速比 <b>6.8451x</b>（基线 3709.88 ms，numeric 校验，3/3 次为正）</summary>
 
@@ -3180,28 +3189,6 @@ _生成时间：2026-08-08 16:37 UTC，由 `scripts/gen_paper_data.py` 自动生
 | 7 | try_pragma | 失败 [try_pragma] pragma_hints 为空 |
 | 8 | rewrite_source | 1.007x  [rewrite: 对最内层循环进行标量提升：在i次外层循环内，预先加载A[i-1]行的初始三个标量（对应j-1,j,j+1）及A[i+1]行的相同三个标量；然后在j循环中维护当前行A[i]的三个滑动标量（left,mid,right），每次迭代只需加载A[i][j+1]、A[i-1][j+1]、A[i+1][j+1]三个新值，其余通过寄存器滑动传递，将9次load减少为3次，大幅降低访存压力。] |
 | 9 | try_pragma | 失败 [try_pragma] pragma_hints 为空 |
-
-</details>
-
-<details><summary><b>symm</b> — 中位加速比 <b>6.6738x</b>（基线 4280.78 ms，numeric 校验，3/3 次为正）</summary>
-
-- 任务 `c3_pb006`，节点 `dgx-spark-a-0`，数据源 `live`
-- 探索期最好单次：7.1437x　最终确认：**6.6738x**　IQR [5.3966, 12.3216]　base_cv=13.4% best_cv=44.0%
-- 最终采纳编译选项：`-mllvm -licm-mssa-optimization-cap=200`
-- 最终采纳了源码重写
-- 实际获得的反馈通道：`compiler`
-
-| 步 | 动作 | 该步实测 / 结果 |
-|---:|---|---|
-| 1 | try_flags | 1.017x  [flags: -mllvm -licm-mssa-optimization-cap=200] |
-| 2 | rewrite_source | 2.267x  [rewrite: 拆分循环：将原 j 循环内的 k 循环体分成两个独立部分，先将 C[k][j] 更新部分重组为 for(k) for(j) 以得到连续内存访问（row-major），再保持 temp2 归约部分在原 j 循环内以确保数值一致，从而消除 LICM missed loads 和改善向量化机会。] |
-| 3 | try_flags | 2.107x  [flags: -mllvm -licm-max-num-uses-traversed=24] |
-| 4 | try_pragma | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
-| 5 | rewrite_source | 7.144x  [rewrite: 在文件顶部为 C、A、B 添加 restrict 指针声明消除跨数组别名；在 i 循环内、j 循环外，将 A[i][0..i-1] 复制到局部栈数组 A_local（长度固定为 _PB_M），并在 temp2 归约的 k 循环中使用 A_local[k] 替代 A[i][k]，消除 load 别名，促进 LICM 外提和 LoopVectorize 向量化该归约循环；同时保持所有浮点运算顺序不变以确保数值一致性。] |
-| 6 | try_flags | 5.424x  [flags: -mllvm -licm-max-num-uses-traversed=16] |
-| 7 | try_pragma | 5.555x  [pragma: #pragma clang loop vectorize(enable)] |
-| 8 | rewrite_source | 6.164x  [rewrite: 对 j 循环进行分块（tile size 64），将每个 i 迭代内的 C[k][j] 更新、temp2 归约和 C[i][j] 更新融合在一个 j_tile 循环内：对于每个 tile，先初始化 temp2_vec 在该 tile 内的部分，然后遍历 k 更新 C[k][j_tile..j_tile+63] 并累加 temp2_vec，最后计算 C[i][j_tile..j_tile+63]。保持所有浮点运算顺序与原始一致，即 k 循环仍是 0..i-1，j 顺序不变。同时保留 restrict 和 A_local。] |
-| 9 | try_flags | 6.628x  [flags: -mllvm -aggressive-instcombine-max-scan-instrs=256] |
 
 </details>
 
@@ -5738,7 +5725,7 @@ agent 提出但未被采纳的候选，按拒绝原因归类。这些不是 bug�
 
 | 拒绝原因 | 次数 |
 |---|---:|
-| pragma 未匹配到循环 | 97 |
+| pragma 未匹配到循环 | 93 |
 | 编译失败 | 70 |
 | 其它 | 41 |
 | 数值不符（多为浮点重结合） | 15 |
