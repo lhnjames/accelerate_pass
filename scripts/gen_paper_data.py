@@ -61,6 +61,31 @@ VACUOUS_GATE = {
     "consumer_tiff2median": "程序报 'Not a b&w image.' 直接退出，46 字节，从未执行计算",
 }
 
+# ── 编译器信息驱动的参数调整：独立复测 ────────────────────────────────────────
+# 方法：把日志里 try_flags 步骤最终采纳的 -mllvm 选项原样取出，对原始源码单独
+# 编译一次，在空闲核上与 -O3 基线做交替配对测量（9~11 组），并逐字节比对
+# DUMP_ARRAYS 输出。这样测的是"仅靠编译器参数"的净效果，不含任何源码改写。
+#
+# 注意日志里的 `步骤N: X.XXXx` 是当时的**累计最优**而非该步增量。correlation 的
+# `步骤2: 11.316x [rewrite]` 之后 `步骤3: 11.231x [flags]`，flags 那步其实是
+# -0.085。按步直接归因会把源码重写的功劳算到参数头上。
+FLAG_EXPLORE_CLAIMS = [   # 探索期读数（每步累计 - 此前最优 = 该步增量）
+    ("consumer_tiff2rgba", "-vectorize-memory-check-threshold=256 -slp-max-vf=8", 6.542, 1.0112, "6/11"),
+    ("telecom_crc32",      "-licm-max-num-uses-traversed=16",                     4.229, 0.9628, "1/11"),
+    ("office_stringsearch2", "--unroll-max-upperbound=64",                        2.094, 0.9988, "5/11"),
+    ("network_patricia",   "--licm-max-num-int-reassociations=32",                1.988, 1.0224, "9/11"),
+    ("floyd-warshall",     "-unroll-threshold=1500 -vectorizer-min-trip-count=1", 2.640, 0.9997, "3/11"),
+    ("jacobi-1d",          "-unroll-threshold=1000",                              1.594, 0.9942, "5/11"),
+]
+FLAG_CONFIRMED = [        # 条件 ④ 通过确认门的结果
+    ("2mm",       "-partial-unrolling-threshold=30",                              1.2375, 1.1139, "8/9",  "[1.1106, 1.1239]"),
+    ("jacobi-2d", "--partial-unrolling-threshold=256",                            1.1735, 1.0989, "9/9",  "[1.0982, 1.1005]"),
+    ("adi",       "--partial-unrolling-threshold=32 --instcombine-guard-widening-window=64 --unroll-max-iteration-count-to-analyze=64", 1.0714, 1.0787, "8/9", "[1.0268, 1.1100]"),
+    ("lu",        "-partial-unrolling-threshold=8000",                            1.1028, 1.0135, "8/9",  "[1.0065, 1.0163]"),
+    ("durbin",    "-vectorize-memory-check-threshold=32",                         1.0537, 0.9925, "2/9",  "[0.9875, 0.9999]"),
+    ("heat-3d",   "-partial-unrolling-threshold=4000 -slp-max-vf=4",              1.0623, 0.8708, "0/9",  "[0.8555, 0.8719]"),
+]
+
 COLLECTOR = r'''
 import json, glob, os, re
 LOGDIRS = {"live": %r, "arch": %r}
@@ -293,6 +318,38 @@ def main():
               f"{gm([byc[x][p] for p in common]):.4f} | {gm([byc[y][p] for p in common]):.4f} | "
               f"{pv:.4f} | {'**显著**' if pv < 0.05 else '不显著'} |")
         W("")
+
+    # ── 编译器信息的实际作用
+    W("## 2.3 编译器信息驱动的参数调整，实际带来多少\n")
+    W("这一节单独回答\"编译器反馈起了什么作用\"。做法是把 `try_flags` 步骤最终采纳的 "
+      "`-mllvm` 选项原样取出，**只对原始源码**单独编译，在空闲核上与 -O3 基线交替配对"
+      "测量，并逐字节比对 DUMP_ARRAYS 输出。测的是纯参数的净效果，不含任何源码改写。\n")
+    W("> **一个必须避开的陷阱**：日志里的 `步骤N: X.XXXx` 是**当时的累计最优**，"
+      "不是该步增量。correlation 的 `步骤2: 11.316x [rewrite]` 之后 "
+      "`步骤3: 11.231x [flags]`——flags 那步实际是 **−0.085**。按步直接归因会把源码"
+      "重写的功劳算到参数头上。下表的\"增量\"一律用 `该步累计 − 此前最优` 计算。\n")
+    W("### 探索期看起来 >1.5x 的参数，全部不成立\n")
+    W("| 程序 | 采纳的 -mllvm 选项 | 探索期读数 | **独立复测** | 正向 |")
+    W("|---|---|---:|---:|---:|")
+    for p, fl, claim, real, pos in FLAG_EXPLORE_CLAIMS:
+        W(f"| {p} | `{fl}` | {claim:.3f} | **{real:.4f}** | {pos} |")
+    W("")
+    W("六个全部塌回 1.0 附近，输出逐字节一致——**塌掉的是加速比，不是正确性**。"
+      "这些读数产生于探索期的单次测量，没有经过配对确认门。\n")
+    W("### 通过确认门的参数结果：真实但幅度有限\n")
+    W("| 程序 | 采纳的 -mllvm 选项 | 报告确认值 | **独立复测** | 正向 | 复测 IQR |")
+    W("|---|---|---:|---:|---:|---|")
+    for p, fl, claim, real, pos, iqr in FLAG_CONFIRMED:
+        W(f"| {p} | `{fl}` | {claim:.4f} | **{real:.4f}** | {pos} | {iqr} |")
+    W("")
+    W("**结论：编译器参数调整确实有真实收益，但天花板很低。**"
+      "经独立复测站得住的最大值是 2mm 的 **1.1139x**（`-mllvm -partial-unrolling-threshold=30`，"
+      "8/9 正向，IQR 宽度仅 1.2%），其次 jacobi-2d 1.0989x（9/9，IQR ±0.1%）与 adi 1.0787x。"
+      "**整个语料里没有任何一个经验证的 >1.5x 纯参数案例。**\n")
+    W("两个不成立的：`durbin` 基线只有 2.2 ms，落在测不出来的区间；"
+      "`heat-3d` 复测为 0.8708（0/9 正向），而它本来就因正确性门无效被排除。\n")
+    W("与条件 ④ 的整体结果一致：PolyBench 上 ④ 的 geomean 是 1.029，"
+      "确认值上限 1.2375。参数通道的贡献是**个位数百分比**，而源码重写通道是 2.2–2.5 倍。\n")
 
     # ── 逐任务逐步
     W("## 3. 逐任务逐步明细\n")
