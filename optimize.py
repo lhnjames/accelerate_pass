@@ -139,6 +139,10 @@ def _single_shot_ms_external(bin_path: str, pin_cpu: "int | None" = None) -> flo
 
 _CONFIRM_TARGET_MS = 500.0   # aim to spend at least this long per side
 _CONFIRM_MAX_RUNS = 51
+# 采样在中位数附近的相对半宽降到这个值以下时停止；给一个墙钟上限，避免
+# cholesky 那种 27 秒的 kernel 无限采下去。
+_CONFIRM_TARGET_REL_SPREAD = 0.05
+_CONFIRM_VARIANCE_BUDGET_S = 300.0
 
 
 def _adaptive_confirm_runs(requested: int, per_run_ms: float) -> int:
@@ -233,16 +237,51 @@ def confirm_result_external(base_bin: str, best_bin: str, runs: int,
     see its docstring for why this matters. Same return shape."""
     warm_b = _single_shot_ms_external(base_bin, pin_cpu)
     warm_o = _single_shot_ms_external(best_bin, pin_cpu)
+    per_pair_ms = max(warm_b, warm_o) * 2
     runs = _adaptive_confirm_runs(runs, max(warm_b, warm_o))
 
+    # Keep sampling while the median is still moving.
+    #
+    # _adaptive_confirm_runs scales the sample count by DURATION, which is the
+    # wrong variable on its own: what determines how many samples a median
+    # needs is VARIANCE. 2mm has a 3.7 s baseline, so the duration rule gave it
+    # the floor of 3 samples -- but its optimised binary varied 42.8% run to
+    # run, and the three ratios spanned [5.00, 10.53]. The published 9.18x was
+    # the middle of that, while an idle-core re-measurement puts it near 5.
+    #
+    # So after the duration-based batch, keep adding pairs until the spread of
+    # the ratios around their median is small, bounded by a wall-clock budget
+    # so a 27-second kernel cannot run away. Most cells are unaffected: the
+    # median optimised-side CV across this study is 1.2%, and only 4 of 103
+    # PolyBench cells exceed 20%.
     ratios, base_ms, best_ms = [], [], []
-    for _ in range(max(1, runs)):
+
+    def _rel_spread():
+        if len(ratios) < 3:
+            return 1.0
+        s = sorted(ratios)
+        med = statistics.median(s)
+        half = (s[(3 * len(s)) // 4] - s[len(s) // 4]) / 2.0
+        return half / med if med > 0 else 1.0
+
+    deadline = time.time() + _CONFIRM_VARIANCE_BUDGET_S
+    n_target = max(1, runs)
+    while True:
         b = _single_shot_ms_external(base_bin, pin_cpu)
         o = _single_shot_ms_external(best_bin, pin_cpu)
         if b > 0 and o > 0:
             base_ms.append(b)
             best_ms.append(o)
             ratios.append(b / o)
+        n = len(ratios)
+        if n >= n_target and (_rel_spread() <= _CONFIRM_TARGET_REL_SPREAD
+                              or n >= _CONFIRM_MAX_RUNS):
+            break
+        if n >= n_target and (time.time() >= deadline
+                              or time.time() + per_pair_ms / 1000.0 > deadline):
+            break
+        if n > 4 * _CONFIRM_MAX_RUNS:      # 全部测量失败时的兜底
+            break
 
     if not ratios:
         return {"ok": False}

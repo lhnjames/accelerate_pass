@@ -207,5 +207,42 @@ class TestFatalLLMErrors(unittest.TestCase):
         c = self._client(self._openai_error(500))
         self.assertIsNone(c.call([{"role": "user", "content": "hi"}]))
 
+
+class TestVarianceDrivenSampling(unittest.TestCase):
+    """Sampling must be driven by variance, not only by duration.
+
+    _adaptive_confirm_runs scales by DURATION, which alone is the wrong
+    variable: 2mm has a 3.7 s baseline so the duration rule gave it the floor
+    of 3 samples, but its optimised binary varied 42.8% run to run and the
+    three ratios spanned [5.00, 10.53]. The published 9.18x was the middle of
+    that; an idle-core re-measurement puts it near 5.
+    """
+    def _run(self, base_seq, best_seq):
+        from unittest.mock import patch
+        import optimize
+        calls = {"i": 0}
+        def shot(binary, pin):
+            i = calls["i"]; calls["i"] += 1
+            seq = base_seq if binary == "b" else best_seq
+            return seq[(i // 2) % len(seq)]
+        with patch.object(optimize, "_single_shot_ms_external", shot):
+            return optimize.confirm_result_external("b", "o", 3, None)
+
+    def test_stable_pair_stops_early(self):
+        # 1% spread: the duration-based count is already enough.
+        r = self._run([100.0, 100.5, 99.5], [50.0, 50.2, 49.8])
+        self.assertTrue(r["ok"])
+        self.assertLessEqual(r["n"], 9, "should not oversample a stable pair")
+
+    def test_noisy_pair_keeps_sampling(self):
+        # The 2mm shape: the optimised side swings by a factor of two.
+        r = self._run([100.0] * 6, [10.0, 20.0, 12.0, 18.0, 11.0, 19.0])
+        self.assertTrue(r["ok"])
+        self.assertGreater(r["n"], 9, "a 2x-swinging pair needs more samples")
+
+    def test_sampling_is_bounded(self):
+        r = self._run([100.0, 300.0], [10.0, 90.0])
+        self.assertLessEqual(r["n"], 51, "must respect the hard cap")
+
 if __name__ == "__main__":
     unittest.main()
