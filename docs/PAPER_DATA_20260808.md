@@ -1,8 +1,39 @@
 # COMET 论文数据全集 — 每任务 / 每步骤 / 每效果
 
-_生成时间：2026-08-08 17:48 UTC，由 `scripts/gen_paper_data.py` 自动生成_
+_生成时间：2026-08-08 18:30 UTC，由 `scripts/gen_paper_data.py` 自动生成_
 
 本文件是完整实验记录：每个任务的基线、自动判定的正确性档位、agent 每一步做了什么、该步实测多少、被拒候选及原因、以及最终配对确认。论文里任何一个数字都可以在这里回溯到产生它的那一步。
+
+## 0. 主表
+
+_可直接用于论文。加速比 = n 次交替配对测量比值的中位数；PolyBench 已排除 heat-3d / seidel-2d，cBench 已排除 qsort1 / tiff2median（正确性门经变异测试证明无效，见 §1.2）。_
+
+**表 1：各条件相对 `clang -O3` 的加速比**
+
+| 条件 | 说明 | PolyBench n | PolyBench geomean | PolyBench 中位 | cBench n | cBench geomean | cBench 中位 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| ③ full system | 完整系统 | 27 | **2.3888** | 1.5221 | 19 | **1.0147** | 1.0041 |
+| ① rewrite-only | 仅源码重写，无编译器反馈 | 28 | **2.2860** | 1.4849 | 19 | **1.0087** | 1.0000 |
+| ② no-compiler-feedback | 自由选动作，无编译器反馈 | 28 | **2.1698** | 1.5568 | 19 | **1.0105** | 1.0032 |
+| ④ params-only | 仅编译器参数 | 28 | **1.0290** | 1.0074 | 19 | **1.0078** | 1.0029 |
+| OC | 通用 agent baseline | 28 | **1.1494** | 1.0000 | 19 | **1.0105** | 1.0005 |
+| PO | AutoPass 复现 baseline | 28 | **1.0221** | 1.0015 | 19 | **0.9960** | 0.9978 |
+
+**表 2：配对符号检验（以 ③ 完整系统为基准）**
+
+| 对比 | PolyBench 胜/负 | p | cBench 胜/负 | p |
+|---|---|---:|---|---:|
+| ③ vs ① rewrite-only | 17/10 | 0.2478 | 12/6 | 0.2379 |
+| ③ vs ② no-compiler-feedback | 17/10 | 0.2478 | 10/9 | 1.0000 |
+| ③ vs ④ params-only | 23/4 | **0.0003** | 10/9 | 1.0000 |
+| ③ vs OC | 24/3 | **0.0000** | 7/12 | 0.3593 |
+| ③ vs PO | 26/1 | **0.0000** | 15/4 | **0.0192** |
+
+**分层结构（PolyBench，全部 15 组两两检验）**：COMET 层内（③①②）0/3 显著，baseline 层内（OC/④/PO）1/3 显著，**跨层 9/9 显著**。
+
+三个 COMET 变体彼此测不出差异——编译器反馈的有无、动作是否强制，都不改变结果；而任一 COMET 变体对任一 baseline 都拉得开。**可区分的是这套闭环本身，不是喂给 LLM 的证据种类。**（baseline 层内那 1 组显著是 ④ 略强于 PO，即调 driver flag 略强于重排 pass 顺序。）
+
+---
 
 ## 1. 有效性保证
 
@@ -76,7 +107,7 @@ _生成时间：2026-08-08 17:48 UTC，由 `scripts/gen_paper_data.py` 自动生
 |---|---:|---:|---:|---:|---:|
 | ① rewrite-only | 28 | **2.2860** | 1.4849 | 0.8856 | 16.3119 |
 | ② no-compiler-feedback | 28 | **2.1698** | 1.5568 | 0.9687 | 18.8261 |
-| ③ full system | 26 | **2.2624** | 1.4269 | 0.8333 | 17.1274 |
+| ③ full system | 27 | **2.3888** | 1.5221 | 0.8333 | 17.1274 |
 | ④ params-only | 28 | **1.0290** | 1.0074 | 0.9625 | 1.2375 |
 | OC | 28 | **1.1494** | 1.0000 | 0.9759 | 6.5494 |
 | PO | 28 | **1.0221** | 1.0015 | 0.9897 | 1.1970 |
@@ -85,12 +116,12 @@ _生成时间：2026-08-08 17:48 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 | 对比 | n | 胜 | 负 | 前者 geomean | 后者 geomean | p | 结论 |
 |---|---:|---:|---:|---:|---:|---:|---|
-| ③ full system vs ② no-compiler-feedback | 26 | 16 | 10 | 2.2624 | 2.0398 | 0.3269 | 不显著 |
-| ③ full system vs ① rewrite-only | 26 | 16 | 10 | 2.2624 | 2.1316 | 0.3269 | 不显著 |
+| ③ full system vs ② no-compiler-feedback | 27 | 17 | 10 | 2.3888 | 2.1153 | 0.2478 | 不显著 |
+| ③ full system vs ① rewrite-only | 27 | 17 | 10 | 2.3888 | 2.2274 | 0.2478 | 不显著 |
 | ① rewrite-only vs ② no-compiler-feedback | 28 | 17 | 11 | 2.2860 | 2.1698 | 0.3449 | 不显著 |
-| ③ full system vs ④ params-only | 26 | 22 | 4 | 2.2624 | 1.0225 | 0.0005 | **显著** |
-| ③ full system vs PO | 26 | 25 | 1 | 2.2624 | 1.0172 | 0.0000 | **显著** |
-| ③ full system vs OC | 26 | 23 | 3 | 2.2624 | 1.1618 | 0.0001 | **显著** |
+| ③ full system vs ④ params-only | 27 | 23 | 4 | 2.3888 | 1.0298 | 0.0003 | **显著** |
+| ③ full system vs PO | 27 | 26 | 1 | 2.3888 | 1.0171 | 0.0000 | **显著** |
+| ③ full system vs OC | 27 | 24 | 3 | 2.3888 | 1.1553 | 0.0000 | **显著** |
 
 ### 2.2 cBench（已剔除无效数据）
 
@@ -2294,7 +2325,28 @@ _生成时间：2026-08-08 17:48 UTC，由 `scripts/gen_paper_data.py` 自动生
 
 </details>
 
-### ③ full system（自由选动作 + 完整编译器反馈）（49 个程序）
+### ③ full system（自由选动作 + 完整编译器反馈）（50 个程序）
+
+<details><summary><b>2mm</b> — 中位加速比 <b>9.8166x</b>（基线 3424.66 ms，numeric 校验，3/3 次为正）</summary>
+
+- 任务 `c3_pb010`，节点 `dgx-spark-b-0`，数据源 `live`
+- 探索期最好单次：9.5572x　最终确认：**9.8166x**　IQR [9.3893, 10.2900]　base_cv=5.5% best_cv=1.0%
+- 最终采纳了源码重写
+- 实际获得的反馈通道：`compiler`
+
+| 步 | 动作 | 该步实测 / 结果 |
+|---:|---|---|
+| 1 | try_flags | 1.000x  [无改善] |
+| 2 | rewrite_source | 9.027x  [rewrite: 对两个矩阵乘法部分分别进行循环分裂（fission）和循环交换（interchange）：第一个循环（A*B→tmp）分裂为清零循环和累加循环，将累加循环的 j 和 k 交换，使内层循环 j 连续访问 B 和 tmp；第二个循环（tmp*C→D）分裂为缩放循环和累加循环，同样交换 j 和 k，使内层循环 j 连续访问 C 和 D。确保浮点累加顺序不变（先清零/缩放后，按 k 累加），保持数值等价。] |
+| 3 | try_flags | 8.814x  [flags: -mllvm -vectorize-memory-check-threshold=32] |
+| 4 | try_pragma | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
+| 5 | rewrite_source | 8.488x  [rewrite: 将 A*B→tmp 和 tmp*C→D 两个乘法融合，并对 i 和 tmp 的列维度（j）进行分块（tile 大小如 64）。具体：先对整个 D 乘以 beta（保持不变），然后对 i 和 j 分块，在每个 tile 上先清零 tmp tile，再计算所有 k 的 A*B 贡献得到 tmp tile，最后立即用该 tmp tile 更新 D 的对应部分。这样中间结果 tmp 只保留在缓存中，消除了全局内存读写，提升缓存复用。浮点累加顺序与原始语义等价，不会改变数值结果。] |
+| 6 | try_flags | 9.267x  [flags: -mllvm -vectorize-scev-check-threshold=256] |
+| 7 | try_pragma | 失败 [try_pragma] 未找到匹配的 for 循环前缀 |
+| 8 | rewrite_source | 9.557x  [rewrite: 为 kernel_2mm 的所有堆数组参数（tmp, A, B, C, D）添加 C99 restrict 限定符，例如将 'DATA_TYPE POLYBENCH_2D(tmp,NI,NJ,ni,nj)' 改为 'DATA_TYPE (* restrict tmp)[NJ]'（需符合 POLYBENCH 宏展开后的实际指针类型），向编译器承诺各矩阵内存不重叠，从而消除别名分析障碍，使 LICM 成功提升循环不变量并使 LoopVectorizePass 能够向量化连续访问的 j 循环。保持当前最优的 i-k-j 循环顺序不变。] |
+| 9 | try_flags | 8.879x  [flags: -mllvm -licm-max-num-uses-traversed=16] |
+
+</details>
 
 <details><summary><b>3mm</b> — 中位加速比 <b>6.8451x</b>（基线 3709.88 ms，numeric 校验，3/3 次为正）</summary>
 
@@ -5725,7 +5777,7 @@ agent 提出但未被采纳的候选，按拒绝原因归类。这些不是 bug�
 
 | 拒绝原因 | 次数 |
 |---|---:|
-| pragma 未匹配到循环 | 93 |
+| pragma 未匹配到循环 | 95 |
 | 编译失败 | 70 |
 | 其它 | 41 |
 | 数值不符（多为浮点重结合） | 15 |

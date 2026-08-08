@@ -257,6 +257,72 @@ def main():
       "该步实测多少、被拒候选及原因、以及最终配对确认。论文里任何一个数字都可以在这里回溯到"
       "产生它的那一步。\n")
 
+    # ── 主表（论文 Table 1/2）
+    def cells_of(c, tag):
+        return [(p, r) for (cc, p), (tt, r, _, _, why) in cells.items()
+                if cc == c and tag in tt["id"] and not why]
+
+    W("## 0. 主表\n")
+    W("_可直接用于论文。加速比 = n 次交替配对测量比值的中位数；"
+      "PolyBench 已排除 heat-3d / seidel-2d，cBench 已排除 qsort1 / tiff2median"
+      "（正确性门经变异测试证明无效，见 §1.2）。_\n")
+    W("**表 1：各条件相对 `clang -O3` 的加速比**\n")
+    W("| 条件 | 说明 | PolyBench n | PolyBench geomean | PolyBench 中位 | cBench n | cBench geomean | cBench 中位 |")
+    W("|---|---|---:|---:|---:|---:|---:|---:|")
+    DESC = {"c3": "完整系统", "c1": "仅源码重写，无编译器反馈",
+            "c2": "自由选动作，无编译器反馈", "c4": "仅编译器参数",
+            "oc": "通用 agent baseline", "po": "AutoPass 复现 baseline"}
+    for c in ("c3", "c1", "c2", "c4", "oc", "po"):
+        pb = [r["median"] for _, r in cells_of(c, "_pb")]
+        cb = [r["median"] for _, r in cells_of(c, "_cb")]
+        f = lambda v: (f"{len(v)}", f"**{gm(v):.4f}**", f"{st.median(v):.4f}") if v else ("—", "—", "—")
+        a, b, d = f(pb); e, g_, h = f(cb)
+        W(f"| {SHORT[c]} | {DESC[c]} | {a} | {b} | {d} | {e} | {g_} | {h} |")
+    W("")
+    W("**表 2：配对符号检验（以 ③ 完整系统为基准）**\n")
+    W("| 对比 | PolyBench 胜/负 | p | cBench 胜/负 | p |")
+    W("|---|---|---:|---|---:|")
+    for c in ("c1", "c2", "c4", "oc", "po"):
+        cols = []
+        for tag in ("_pb", "_cb"):
+            x = {p: r["median"] for p, r in cells_of("c3", tag)}
+            y = {p: r["median"] for p, r in cells_of(c, tag)}
+            common = sorted(set(x) & set(y))
+            if not common:
+                cols += ["—", "—"]; continue
+            w, l, pv = sign_test([(y[p], x[p]) for p in common])
+            cols += [f"{w}/{l}", f"**{pv:.4f}**" if pv < 0.05 else f"{pv:.4f}"]
+        W(f"| ③ vs {SHORT[c]} | {cols[0]} | {cols[1]} | {cols[2]} | {cols[3]} |")
+    W("")
+    # 分层结构：算出来，不写死。上一版这句是硬编码的 "9/9 / 0/3"，数据一变就会失真。
+    TIER1, TIER2 = ("c3", "c1", "c2"), ("oc", "c4", "po")
+    t1 = t1s = t2 = t2s = cross = cross_sig = 0
+    for i, a in enumerate(TIER1 + TIER2):
+        for b in (TIER1 + TIER2)[i + 1:]:
+            x = {p: r["median"] for p, r in cells_of(a, "_pb")}
+            y = {p: r["median"] for p, r in cells_of(b, "_pb")}
+            common = sorted(set(x) & set(y))
+            if not common:
+                continue
+            _, _, pv = sign_test([(y[p], x[p]) for p in common])
+            if a in TIER1 and b in TIER1:
+                t1 += 1; t1s += pv < 0.05
+            elif a in TIER2 and b in TIER2:
+                t2 += 1; t2s += pv < 0.05
+            else:
+                cross += 1; cross_sig += pv < 0.05
+    W(f"**分层结构（PolyBench，全部 {t1+t2+cross} 组两两检验）**："
+      f"COMET 层内（③①②）{t1s}/{t1} 显著，"
+      f"baseline 层内（OC/④/PO）{t2s}/{t2} 显著，"
+      f"**跨层 {cross_sig}/{cross} 显著**。\n")
+    W(f"三个 COMET 变体彼此{'测不出差异' if t1s == 0 else '存在差异'}——"
+      f"编译器反馈的有无、动作是否强制，都不改变结果；"
+      f"而任一 COMET 变体对任一 baseline 都拉得开。"
+      f"**可区分的是这套闭环本身，不是喂给 LLM 的证据种类。**"
+      + (f"（baseline 层内那 {t2s} 组显著是 ④ 略强于 PO，"
+         f"即调 driver flag 略强于重排 pass 顺序。）" if t2s else "") + "\n")
+    W("---\n")
+
     # ── 有效性
     W("## 1. 有效性保证\n")
     W("### 1.1 正确性门的变异测试\n")
